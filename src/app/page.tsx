@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
+import { SessionErrorBanner } from "@/components/SessionErrorBanner";
 
 function Shell({ children }: { children?: ReactNode }) {
   return (
@@ -18,12 +19,15 @@ function Shell({ children }: { children?: ReactNode }) {
 }
 
 function AuthenticatedContent() {
-  const isLoading = useStoreUserEffect();
+  const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
 
   if (isLoading) return null;
 
   return (
     <>
+      {sessionError && (
+        <SessionErrorBanner sessionError={sessionError} clearSessionError={clearSessionError} />
+      )}
       <div className="mt-6 flex justify-center">
         <UserButton />
       </div>
