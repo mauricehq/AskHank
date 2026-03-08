@@ -26,15 +26,15 @@
 
 ---
 
-## Phase 0: Project Setup
+## Phase 0: Project Setup ✅
 
 **Goal:** Empty project that builds and deploys.
 
-- [ ] Init Next.js project in D:\code\AskHank
-- [ ] Init Convex, connect to project
+- [x] Init Next.js project in D:\code\AskHank
+- [x] Init Convex, connect to project
 - [ ] Deploy to Vercel (empty shell, confirms pipeline works)
-- [ ] Set up environment variables (Convex URL, LLM API key)
-- [ ] Basic layout component (app shell, nothing else)
+- [x] Set up environment variables (Convex URL, LLM API key)
+- [x] Basic layout component (app shell, nothing else)
 
 **Time:** A few hours. No product code. Just plumbing.
 
