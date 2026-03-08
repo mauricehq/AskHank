@@ -40,15 +40,21 @@
 
 ---
 
-## Phase 1: Auth
+## Phase 1: Auth ✅
 
 **Goal:** User can sign in with Google and has an identity in Convex.
 
-- [ ] Set up Convex Auth with Google OAuth + Email/Password
-- [ ] Sign-in screen (minimal — logo, "Sign in with Google" button, email/password form, one-liner about Hank)
-- [ ] Auth guard — nothing loads without signing in
-- [ ] User record in Convex (ID, email, created date)
-- [ ] Long-running tab support — session must survive background tabs, sleep, hours of inactivity. Silent token refresh, no surprise sign-outs, no lost conversation state. User comes back to exactly where they left off.
+- [x] Set up Clerk auth with Google OAuth + Email/Password
+- [x] Sign-in/sign-up modals (on-brand — burnt orange accent, DM Sans, AskHank tokens via Clerk appearance prop)
+- [x] Auth guard — proxy.ts protects all routes except `/`, page uses `<Show>` components
+- [x] User record in Convex (tokenIdentifier, email, displayName, updatedAt)
+- [x] Long-running tab support — Clerk handles session persistence natively (short-lived JWTs auto-refresh, 7-day session cookie, ConvexProviderWithClerk passes fresh tokens automatically)
+
+**Decisions made:**
+- Clerk (not Convex Auth beta) for production stability. Keyless mode for fast dev start.
+- `displayName` asked in-app (Phase 2 onboarding), not from Clerk's sign-up form — preserves user's preferred casing.
+- "Store user on first auth" pattern via `useStoreUserEffect` hook — simpler than webhooks.
+- `_creationTime` (Convex built-in) used instead of custom `createdAt`.
 
 **Why first:** Everything depends on identity. Credits, history, memory, saved total — all tied to a user. Can't build anything without this.
 
@@ -59,6 +65,41 @@
 ## Phase 2: Hank's Voice (The Core)
 
 **Goal:** A working conversation with Hank. This is the make-or-break phase. If the voice doesn't land, nothing else matters.
+
+**Execution order: UI first (2c → 2a → 2b → 2d).** Build the chat UI against mock data so when LLM integration starts, voice tuning happens in the real UI — testing both simultaneously. No wasted iterations.
+
+### 2c: Conversation UI (FIRST)
+
+Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
+
+#### 2c-1: App Shell & Sidebar ✅
+- [x] Flex layout: sidebar (280px) + chat area (remaining, centered 720px max)
+- [x] Sidebar: history list, "New conversation" button, collapse toggle, user area at bottom
+- [x] Collapsible sidebar on desktop (280px ↔ 0px, toggle button)
+- [x] Mobile: top bar (hamburger + logo + credits badge), sidebar as overlay drawer (280px)
+- [x] Responsive breakpoint at 768px (md)
+
+#### 2c-2: Chat Messages & Input (after 2c-1)
+- [ ] Message bubbles: Hank (left-aligned, bg-card) and user (right-aligned, bg-accent)
+- [ ] Auto-resize textarea input bar (min 44px, max 200px desktop / 30vh mobile)
+- [ ] Send button, camera button placeholder
+- [ ] Scroll-to-bottom behavior
+- [ ] Mock data: hardcoded Hank replies to test layout, scrolling, bubble sizing
+
+#### 2c-3: Onboarding (after 2c-1, parallel with 2c-2)
+- [ ] "What should Hank call you?" prompt for new users (no displayName set)
+- [ ] Sets displayName via existing mutation, shown once
+
+#### 2c-4: Empty State, Typing Indicator, Verdict (after 2c-2)
+- [ ] Empty state when no active conversation (centered prompt to start)
+- [ ] Typing indicator (three animated dots) while Hank is "thinking"
+- [ ] Verdict card at conversation end (denied/approved)
+
+#### 2c-5: Animations (after 2c-4)
+- [ ] Framer Motion: message appear (slide/fade), sidebar toggle, drawer slide
+- [ ] Verdict reveal animation
+- [ ] Typing indicator pulse
+- [ ] Button press feedback
 
 ### 2a: LLM Integration
 - [ ] Convex action that calls Claude Haiku (or GPT-4o-mini)
@@ -71,14 +112,6 @@
 - [ ] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
 - [ ] Stance fed back into next LLM call as context: "Your current stance is: FIRM. Do not concede."
 - [ ] Disengagement detection: two consecutive non-answers → case closure (denied)
-
-### 2c: Conversation UI
-- [ ] Chat screen — message list + text input
-- [ ] User messages and Hank's responses rendered as chat bubbles
-- [ ] Scrolls to latest message
-- [ ] Loading/typing indicator while Hank is "thinking"
-- [ ] Verdict display at conversation end (denied/approved)
-- [ ] New conversation button
 
 ### 2d: Voice Tuning
 - [ ] Test 20-30 real conversations with different purchase scenarios
@@ -238,7 +271,7 @@ Only if web proves traction. Not before.
 | Phase | Time | What |
 |-------|------|------|
 | 0: Setup | Hours | Project scaffolding |
-| 1: Auth | 1 day | Google OAuth + Email/Password |
+| 1: Auth ✅ | 1 day | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | 3-5 days | LLM, scoring engine, chat UI, prompt tuning |
 | 3: Persistence | 2-3 days | History, saved counter, memory (summaries) |
 | 4: Credits + Stripe | 2-3 days | Credit system, payments |
@@ -342,7 +375,7 @@ Tyler's prompt structure in `lib/advisor/prompts.ts` maps directly to Hank:
 
 ### Don't Reuse
 
-- Supabase auth code (Convex Auth is different)
+- Supabase auth code (using Clerk + Convex instead)
 - Database types/schema (Supabase-specific)
 - Beer-specific business logic
 - Tailwind colors (Hank has his own palette)

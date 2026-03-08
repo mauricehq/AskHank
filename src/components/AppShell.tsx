@@ -1,0 +1,60 @@
+"use client";
+
+import { useState } from "react";
+import { Menu } from "lucide-react";
+import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { SessionErrorBanner } from "./SessionErrorBanner";
+import { Sidebar } from "./Sidebar";
+import { MobileTopBar } from "./MobileTopBar";
+import { EmptyState } from "./EmptyState";
+
+export function AppShell() {
+  const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  if (isLoading) return null;
+
+  const sidebarIsOpen = isDesktop ? sidebarOpen : mobileSidebarOpen;
+
+  return (
+    <div className="flex h-dvh flex-col bg-bg md:flex-row">
+      {/* Mobile top bar */}
+      <MobileTopBar onMenuClick={() => setMobileSidebarOpen(true)} />
+
+      {/* Single Sidebar instance — renders desktop panel or mobile overlay based on isDesktop */}
+      <Sidebar
+        isOpen={sidebarIsOpen}
+        isDesktop={isDesktop}
+        onClose={() => isDesktop ? setSidebarOpen(false) : setMobileSidebarOpen(false)}
+        onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
+      />
+
+      {/* Main content */}
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Session error banner */}
+        {sessionError && (
+          <div className="shrink-0 px-4 pt-2">
+            <SessionErrorBanner sessionError={sessionError} clearSessionError={clearSessionError} />
+          </div>
+        )}
+
+        {/* Desktop expand button (visible when sidebar collapsed) */}
+        {isDesktop && !sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-[10px] text-text hover:bg-bg-surface"
+            aria-label="Open sidebar"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        <EmptyState />
+      </main>
+    </div>
+  );
+}
