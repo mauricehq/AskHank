@@ -16,9 +16,8 @@ export const store = mutation({
 
     if (user !== null) {
       // Update existing user if profile changed
-      if (user.name !== identity.name || user.email !== identity.email) {
+      if (user.email !== identity.email) {
         await ctx.db.patch(user._id, {
-          name: identity.name,
           email: identity.email!,
           updatedAt: Date.now(),
         });
@@ -30,8 +29,6 @@ export const store = mutation({
     return await ctx.db.insert("users", {
       tokenIdentifier,
       email: identity.email!,
-      name: identity.name,
-      createdAt: Date.now(),
       updatedAt: Date.now(),
     });
   },
