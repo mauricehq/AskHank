@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 export const store = mutation({
@@ -29,6 +30,32 @@ export const store = mutation({
     return await ctx.db.insert("users", {
       tokenIdentifier,
       email: identity.email!,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const setDisplayName = mutation({
+  args: { displayName: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Called setDisplayName without authentication");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      displayName: args.displayName,
       updatedAt: Date.now(),
     });
   },
