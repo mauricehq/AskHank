@@ -5,7 +5,7 @@ import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 export function useStoreUserEffect() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const storeUser = useMutation(api.users.store);
   const [isStoring, setIsStoring] = useState(false);
 
@@ -31,5 +31,6 @@ export function useStoreUserEffect() {
     };
   }, [isAuthenticated, storeUser]);
 
-  return isStoring;
+  // Loading until: Convex receives JWT, user is authenticated, and user record is stored
+  return isLoading || !isAuthenticated || isStoring;
 }
