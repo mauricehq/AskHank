@@ -30,7 +30,7 @@
 
 **Goal:** Empty project that builds and deploys.
 
-- [ ] Init Next.js project in D:\code\Hank
+- [ ] Init Next.js project in D:\code\AskHank
 - [ ] Init Convex, connect to project
 - [ ] Deploy to Vercel (empty shell, confirms pipeline works)
 - [ ] Set up environment variables (Convex URL, LLM API key)

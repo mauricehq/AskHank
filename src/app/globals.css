@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* ── AskHank Design Tokens ── */
+
+:root {
+  --bg: #F4EFEA;
+  --bg-surface: #EDE7E0;
+  --bg-card: #FFFFFF;
+  --text: #1F1F1F;
+  --text-secondary: #7A7A7A;
+  --accent: #C65A2E;
+  --accent-hover: #B04E26;
+  --accent-soft: rgba(198, 90, 46, 0.1);
+  --border: #D9D3CC;
+  --user-bubble: #C65A2E;
+  --user-text: #F4EFEA;
+  --hank-bubble: #FFFFFF;
+  --hank-text: #1F1F1F;
+  --denied: #C65A2E;
+  --approved: #5A8A5E;
+  --input-bg: #FFFFFF;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg: #1A1714;
+  --bg-surface: #2A2520;
+  --bg-card: #332E28;
+  --text: #F4EFEA;
+  --text-secondary: #9A9A9A;
+  --accent: #C65A2E;
+  --accent-hover: #D4673A;
+  --accent-soft: rgba(198, 90, 46, 0.15);
+  --border: #3D3732;
+  --user-bubble: #C65A2E;
+  --user-text: #F4EFEA;
+  --hank-bubble: #2A2520;
+  --hank-text: #F4EFEA;
+  --denied: #D4673A;
+  --approved: #6B9E6F;
+  --input-bg: #2A2520;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Tailwind v4 theme bridge ── */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-border: var(--border);
+  --color-user-bubble: var(--user-bubble);
+  --color-user-text: var(--user-text);
+  --color-hank-bubble: var(--hank-bubble);
+  --color-hank-text: var(--hank-text);
+  --color-denied: var(--denied);
+  --color-approved: var(--approved);
+  --color-input-bg: var(--input-bg);
+
+  --shadow: var(--shadow);
+  --shadow-lg: var(--shadow-lg);
+
+  --font-sans: var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-dm-mono), "DM Mono", "Courier New", monospace;
+}
+
+/* ── Base ── */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
