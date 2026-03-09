@@ -62,6 +62,29 @@ export const setDisplayName = mutation({
   },
 });
 
+export const deleteAccount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Called deleteAccount without authentication");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.delete(user._id);
+  },
+});
+
 export const currentUser = query({
   args: {},
   handler: async (ctx) => {

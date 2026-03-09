@@ -22,9 +22,10 @@ interface SidebarProps {
   onToggle: () => void;
   onNewConversation?: () => void;
   onOpenAdmin?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onOpenAdmin }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onOpenAdmin, onOpenSettings }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
@@ -92,6 +93,10 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
           )}
           <ThemeToggle size="sm" />
           <button
+            onClick={() => {
+              if (!isDesktop) onClose();
+              onOpenSettings?.();
+            }}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"
           >

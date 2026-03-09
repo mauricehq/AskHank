@@ -14,6 +14,7 @@ import { EmptyState } from "./EmptyState";
 import { ChatScreen } from "./ChatScreen";
 import { OnboardingPrompt } from "./OnboardingPrompt";
 import { AdminPanel } from "./admin/AdminPanel";
+import { SettingsPanel } from "./SettingsPanel";
 import { useUserAccess } from "@/hooks/useUserAccess";
 
 export function AppShell() {
@@ -23,7 +24,7 @@ export function AppShell() {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin">("empty");
+  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings">("empty");
 
   if (isLoading || user === undefined) return null;
 
@@ -44,6 +45,7 @@ export function AppShell() {
         onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
         onNewConversation={() => setCurrentView("empty")}
         onOpenAdmin={() => setCurrentView("admin")}
+        onOpenSettings={() => setCurrentView("settings")}
       />
 
       {/* Main content */}
@@ -68,6 +70,8 @@ export function AppShell() {
 
         {needsOnboarding ? (
           <OnboardingPrompt />
+        ) : currentView === "settings" ? (
+          <SettingsPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "admin" && canAccessAdminPanel ? (
           <AdminPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "chat" ? (
