@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface MobileTopBarProps {
   onMenuClick: () => void;
@@ -25,8 +26,10 @@ export function MobileTopBar({ onMenuClick }: MobileTopBarProps) {
         </span>
       </div>
 
-      {/* Right spacer (credits placeholder for Phase 4) */}
-      <div className="ml-auto w-10" />
+      {/* Theme toggle */}
+      <div className="ml-auto">
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

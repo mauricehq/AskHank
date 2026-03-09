@@ -3,6 +3,7 @@ import { DM_Sans, DM_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { ConvexClientProvider } from "./providers";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -23,16 +24,16 @@ const clerkAppearance = {
   },
   elements: {
     card: {
-      backgroundColor: "#FFFFFF",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-      border: "1px solid #D9D3CC",
+      backgroundColor: "var(--bg-card)",
+      boxShadow: "var(--shadow-lg)",
+      border: "1px solid var(--border)",
     },
     headerTitle: {
-      color: "#1F1F1F",
+      color: "var(--text)",
       fontWeight: "700",
     },
     headerSubtitle: {
-      color: "#7A7A7A",
+      color: "var(--text-secondary)",
     },
     formButtonPrimary: {
       backgroundColor: "#C65A2E",
@@ -41,23 +42,51 @@ const clerkAppearance = {
       },
     },
     formFieldInput: {
-      borderColor: "#D9D3CC",
-      backgroundColor: "#FFFFFF",
+      borderColor: "var(--border)",
+      backgroundColor: "var(--input-bg)",
+      color: "var(--text)",
       "&:focus": {
         borderColor: "#C65A2E",
       },
     },
+    formFieldLabel: {
+      color: "var(--text)",
+    },
     dividerLine: {
-      backgroundColor: "#D9D3CC",
+      backgroundColor: "var(--border)",
     },
     dividerText: {
-      color: "#7A7A7A",
+      color: "var(--text-secondary)",
     },
     footerActionLink: {
       color: "#C65A2E",
       "&:hover": {
         color: "#B04E26",
       },
+    },
+    socialButtonsBlockButton: {
+      backgroundColor: "var(--bg-surface)",
+      borderColor: "var(--border)",
+      color: "var(--text)",
+      "&:hover": {
+        backgroundColor: "var(--bg)",
+      },
+    },
+    userButtonPopoverCard: {
+      backgroundColor: "var(--bg-card)",
+      border: "1px solid var(--border)",
+    },
+    userButtonPopoverActionButton: {
+      color: "var(--text)",
+      "&:hover": {
+        backgroundColor: "var(--bg-surface)",
+      },
+    },
+    userButtonPopoverActionButtonText: {
+      color: "var(--text)",
+    },
+    userButtonPopoverFooter: {
+      borderColor: "var(--border)",
     },
   },
 };
@@ -73,13 +102,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${dmSans.variable} ${dmMono.variable} font-sans antialiased`}
       >
-        <ClerkProvider appearance={clerkAppearance}>
-          <ConvexClientProvider>{children}</ConvexClientProvider>
-        </ClerkProvider>
+        <ThemeProvider>
+          <ClerkProvider appearance={clerkAppearance}>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
+          </ClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

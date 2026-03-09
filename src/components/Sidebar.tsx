@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, Plus, Settings, Shield, X } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -89,6 +90,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
               <Shield size={16} />
             </button>
           )}
+          <ThemeToggle size="sm" />
           <button
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"
