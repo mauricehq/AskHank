@@ -13,14 +13,17 @@ import { MobileTopBar } from "./MobileTopBar";
 import { EmptyState } from "./EmptyState";
 import { ChatScreen } from "./ChatScreen";
 import { OnboardingPrompt } from "./OnboardingPrompt";
+import { AdminPanel } from "./admin/AdminPanel";
+import { useUserAccess } from "@/hooks/useUserAccess";
 
 export function AppShell() {
   const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
   const user = useQuery(api.users.currentUser);
+  const { canAccessAdminPanel } = useUserAccess();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin">("empty");
 
   if (isLoading || user === undefined) return null;
 
@@ -39,7 +42,8 @@ export function AppShell() {
         isDesktop={isDesktop}
         onClose={() => isDesktop ? setSidebarOpen(false) : setMobileSidebarOpen(false)}
         onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
-        onNewConversation={() => setShowChat(false)}
+        onNewConversation={() => setCurrentView("empty")}
+        onOpenAdmin={() => setCurrentView("admin")}
       />
 
       {/* Main content */}
@@ -64,10 +68,12 @@ export function AppShell() {
 
         {needsOnboarding ? (
           <OnboardingPrompt />
-        ) : showChat ? (
-          <ChatScreen onNewConversation={() => setShowChat(false)} />
+        ) : currentView === "admin" && canAccessAdminPanel ? (
+          <AdminPanel onBack={() => setCurrentView("empty")} />
+        ) : currentView === "chat" ? (
+          <ChatScreen onNewConversation={() => setCurrentView("empty")} />
         ) : (
-          <EmptyState onStartChat={() => setShowChat(true)} />
+          <EmptyState onStartChat={() => setCurrentView("chat")} />
         )}
       </main>
     </div>

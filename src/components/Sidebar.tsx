@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronLeft, Plus, Settings, X } from "lucide-react";
+import { ChevronLeft, Plus, Settings, Shield, X } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useUserAccess } from "@/hooks/useUserAccess";
 import { HistoryItem } from "./HistoryItem";
 
 const MOCK_HISTORY = [
@@ -19,10 +20,12 @@ interface SidebarProps {
   onClose: () => void;
   onToggle: () => void;
   onNewConversation?: () => void;
+  onOpenAdmin?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onOpenAdmin }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
+  const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
   const sidebarContent = (
@@ -74,6 +77,18 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-text">{displayName}</div>
           </div>
+          {canAccessAdminPanel && (
+            <button
+              onClick={() => {
+                if (!isDesktop) onClose();
+                onOpenAdmin?.();
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+              aria-label="Admin"
+            >
+              <Shield size={16} />
+            </button>
+          )}
           <button
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"

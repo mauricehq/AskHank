@@ -30,6 +30,7 @@ export const store = mutation({
     return await ctx.db.insert("users", {
       tokenIdentifier,
       email: identity.email!,
+      role: "normal",
       updatedAt: Date.now(),
     });
   },
