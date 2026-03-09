@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
 import type { Message, Verdict } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
@@ -102,9 +101,7 @@ export function ChatScreen({ onNewConversation }: ChatScreenProps) {
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            <AnimatePresence>
-              {isTyping && <TypingIndicator key="typing" />}
-            </AnimatePresence>
+            {isTyping && <TypingIndicator />}
             {verdict && (
               <VerdictCard verdict={verdict} onNewConversation={onNewConversation} />
             )}
