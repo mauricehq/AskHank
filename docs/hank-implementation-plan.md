@@ -62,7 +62,7 @@
 
 ---
 
-## Phase 2: Hank's Voice (The Core)
+## Phase 2: Hank's Voice (The Core) — 2a/2b/2c ✅, 2d remaining
 
 **Goal:** A working conversation with Hank. This is the make-or-break phase. If the voice doesn't land, nothing else matters.
 
@@ -105,17 +105,20 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] Typing indicator pulse
 - [x] Button press feedback
 
-### 2a: LLM Integration
-- [ ] Convex action that calls Claude Haiku (or GPT-4o-mini)
-- [ ] System prompt v1 — Hank's personality, voice rules, all 7 non-negotiable rules from the spec
-- [ ] Basic request/response: send user message → get Hank's response
-- [ ] Structured output: Hank's text response + JSON scores per factor (functional gap, current state, alternatives, frequency, urgency, pattern history, emotional reasoning, specificity, consistency)
+### 2a: LLM Integration ✅
+- [x] Convex action that calls Claude Haiku (or GPT-4o-mini) — `convex/llm/generate.ts` via OpenRouter
+- [x] System prompt v1 — Hank's personality, voice rules, all 7 non-negotiable rules from the spec (`convex/llm/prompt.ts`)
+- [x] Basic request/response: send user message → get Hank's response
+- [x] Structured output: Hank's text response + JSON scores per factor (functional gap, current state, alternatives, frequency, urgency, pattern history, emotional reasoning, specificity, consistency)
+- [x] Out-of-scope deflection for non-purchase topics
 
-### 2b: Scoring Engine
-- [ ] Convex function: takes structured scores, computes weighted total, returns stance
-- [ ] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
-- [ ] Stance fed back into next LLM call as context: "Your current stance is: FIRM. Do not concede."
-- [ ] Disengagement detection: two consecutive non-answers → case closure (denied)
+### 2b: Scoring Engine ✅
+- [x] Convex function: takes structured scores, computes weighted total, returns stance (`convex/llm/scoring.ts`)
+- [x] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
+- [x] Stance fed back into next LLM call as context: "Your current stance is: FIRM. Do not concede."
+- [x] Disengagement detection: two consecutive non-answers → case closure (denied)
+- [x] Price bracket modifiers ($15/$50/$200/$500 thresholds)
+- [x] Category modifiers (cars, electronics, fashion, furniture, essentials, safety/health)
 
 ### 2d: Voice Tuning
 - [ ] Test 20-30 real conversations with different purchase scenarios
@@ -124,6 +127,8 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [ ] Test disengagement flow (one-word answers, "I want it" on repeat)
 - [ ] Test concession flow (genuinely justified purchases)
 - [ ] Adjust weights if concession rate is outside 10-15% target
+
+**Note:** Infrastructure is complete (prompt, scoring, stance injection, admin model switcher). What remains is the actual tuning work — running conversations and adjusting weights/prompt.
 
 **This phase is where you spend the most time.** Not on code — on the prompt. The system prompt IS the product. Iterate until Hank sounds right.
 
@@ -135,16 +140,21 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 
 **Goal:** Conversations are saved. Hank remembers. The "saved $X" counter works.
 
-### 3a: Conversation Storage
-- [ ] Convex schema: conversations table (userId, item, category, messages[], scores[], verdict, amount, createdAt, summary)
-- [ ] Each conversation stored as it happens (messages added in real-time)
-- [ ] Verdict saved when conversation closes (denied/approved/abandoned)
+### 3a: Conversation Storage ✅
+- [x] Convex schema: conversations table (userId, status, stance, score, category, estimatedPrice, disengagementCount, verdict, createdAt) + messages table (conversationId, role, content, createdAt)
+- [x] Each conversation stored as it happens (messages added in real-time via `send` mutation)
+- [x] Verdict saved when conversation closes (denied/approved) via `saveResponseWithVerdict`
+- [x] Scores and stance updated after each Hank response via `saveResponseWithScoring`
 - [ ] On close: generate one-line summary (pre-computed, not on-the-fly) — item, price, verdict, strongest claim, key quote
 
-### 3b: Conversation History
-- [ ] History screen — chronological list of past conversations
-- [ ] Each entry: item name, date, verdict (denied/approved), amount saved
-- [ ] Tap to revisit full conversation (read-only)
+### 3b: Conversation History ✅
+- [x] Sidebar shows chronological list of past conversations (reverse chrono, `listForUser` query)
+- [x] Each entry: item name (first user message, truncated), relative time, verdict badge (denied/approved/pending)
+- [x] Click to load full conversation with all messages
+- [x] Closed conversations show verdict card and hide input
+- [x] Active conversation highlighted in sidebar
+- [x] New conversation ID syncs back to parent for sidebar highlighting
+- [x] Skeleton loading state while history loads, empty state when no conversations
 
 ### 3c: "Saved $X" Counter
 - [ ] Running total stored per user in Convex
@@ -274,16 +284,21 @@ Only if web proves traction. Not before.
 
 | Phase | Time | What |
 |-------|------|------|
-| 0: Setup | Hours | Project scaffolding |
+| 0: Setup ✅ | Hours | Project scaffolding |
 | 1: Auth ✅ | 1 day | Clerk auth (Google + Email/Password) |
-| 2: Hank's Voice | 3-5 days | LLM, scoring engine, chat UI, prompt tuning |
-| 3: Persistence | 2-3 days | History, saved counter, memory (summaries) |
+| 2: Hank's Voice ✅ (2d remaining) | 3-5 days | LLM, scoring engine, chat UI, prompt tuning |
+| 3: Persistence ✅ (3c/3d remaining) | 2-3 days | History, saved counter, memory (summaries) |
 | 4: Credits + Stripe | 2-3 days | Credit system, payments |
 | 5: Polish + Share | 2-3 days | Animations, share cards, landing content |
 | 6: Launch Prep | 1-2 days | Legal, domain, content prep |
 | **Total** | **~2-3 weeks** | **Web app live, TikTok engine running** |
 | 7: User Dossier | 2-3 days | v1.5 — post-launch, needs user data first |
 | 8: iOS | 1-2 weeks | Only if web proves traction |
+
+### Completed outside original plan
+- **Admin panel** — Model selection (primary + fallback), killswitch with reason, user management (`src/components/admin/`)
+- **Settings panel** — Display name editor, theme toggle, sign out, delete account with 2-step confirmation (`src/components/SettingsPanel.tsx`)
+- **Onboarding** — "What should Hank call you?" prompt for new users
 
 Phase 2 is where you should spend the most time. The voice is the product. Everything else is a container.
 

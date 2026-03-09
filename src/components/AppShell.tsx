@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -25,6 +26,7 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings">("empty");
+  const [activeConversationId, setActiveConversationId] = useState<Id<"conversations"> | null>(null);
 
   if (isLoading || user === undefined) return null;
 
@@ -43,7 +45,9 @@ export function AppShell() {
         isDesktop={isDesktop}
         onClose={() => isDesktop ? setSidebarOpen(false) : setMobileSidebarOpen(false)}
         onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
-        onNewConversation={() => setCurrentView("empty")}
+        onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }}
+        onSelectConversation={(id) => { setActiveConversationId(id); setCurrentView("chat"); }}
+        activeConversationId={activeConversationId}
         onOpenAdmin={() => setCurrentView("admin")}
         onOpenSettings={() => setCurrentView("settings")}
       />
@@ -75,7 +79,7 @@ export function AppShell() {
         ) : currentView === "admin" && canAccessAdminPanel ? (
           <AdminPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "chat" ? (
-          <ChatScreen onNewConversation={() => setCurrentView("empty")} />
+          <ChatScreen conversationId={activeConversationId} onConversationCreated={setActiveConversationId} onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }} />
         ) : (
           <EmptyState onStartChat={() => setCurrentView("chat")} />
         )}

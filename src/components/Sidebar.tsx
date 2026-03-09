@@ -7,13 +7,23 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { HistoryItem } from "./HistoryItem";
+import type { Id } from "../../convex/_generated/dataModel";
 
-const MOCK_HISTORY = [
-  { id: "1", name: "AirPods Max", verdict: "denied" as const, timeAgo: "3 days ago" },
-  { id: "2", name: "Nike Dunk Low Retro", verdict: "denied" as const, timeAgo: "5 days ago" },
-  { id: "3", name: "Winter Coat", verdict: "approved" as const, timeAgo: "1 week ago" },
-  { id: "4", name: "Espresso Machine", verdict: "denied" as const, timeAgo: "2 weeks ago" },
-];
+function formatRelativeTime(timestamp: number): string {
+  const diff = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  const weeks = Math.floor(diff / 604800000);
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (weeks === 1) return "1 week ago";
+  return `${weeks} weeks ago`;
+}
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,12 +31,15 @@ interface SidebarProps {
   onClose: () => void;
   onToggle: () => void;
   onNewConversation?: () => void;
+  onSelectConversation?: (id: Id<"conversations">) => void;
+  activeConversationId?: Id<"conversations"> | null;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onOpenAdmin, onOpenSettings }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
+  const history = useQuery(api.conversations.listForUser);
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -62,14 +75,37 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
 
       {/* History list */}
       <div className="flex-1 overflow-y-auto px-2">
-        {MOCK_HISTORY.map((item) => (
-          <HistoryItem
-            key={item.id}
-            name={item.name}
-            verdict={item.verdict}
-            timeAgo={item.timeAgo}
-          />
-        ))}
+        {history === undefined ? (
+          <div className="space-y-2 px-3 py-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 rounded-[10px] px-3 py-2.5">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-bg-surface" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-bg-surface" />
+                  <div className="h-2.5 w-1/3 animate-pulse rounded bg-bg-surface" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : history.length === 0 ? (
+          <div className="px-4 py-8 text-center text-xs text-text-secondary">
+            No conversations yet
+          </div>
+        ) : (
+          history.map((item) => (
+            <HistoryItem
+              key={item._id}
+              name={item.title}
+              verdict={item.verdict}
+              timeAgo={formatRelativeTime(item.createdAt)}
+              isActive={activeConversationId === item._id}
+              onClick={() => {
+                if (!isDesktop) onClose();
+                onSelectConversation?.(item._id);
+              }}
+            />
+          ))
+        )}
       </div>
 
       {/* Footer */}

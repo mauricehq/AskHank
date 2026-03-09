@@ -62,5 +62,9 @@ export function useConversation() {
     setConversationId(null);
   }, []);
 
-  return { messages, isThinking, isError, send, reset, verdict };
+  const loadConversation = useCallback((id: Id<"conversations">) => {
+    setConversationId(id);
+  }, []);
+
+  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation };
 }
