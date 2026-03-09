@@ -105,3 +105,17 @@ body {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ── Settings panel section entrance ── */
+
+@keyframes settings-section-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes settings-section-in {
+    from { opacity: 1; transform: none; }
+    to { opacity: 1; transform: none; }
+  }
+}
