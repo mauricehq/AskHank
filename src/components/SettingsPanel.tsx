@@ -48,7 +48,7 @@ function SettingSection({
           {title}
         </span>
       </div>
-      <div className="divide-y divide-border px-5">{children}</div>
+      <div className="divide-y divide-border px-5 py-2">{children}</div>
     </section>
   );
 }
@@ -65,10 +65,10 @@ function SettingRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
+    <div className="flex items-center justify-between gap-4 py-6 first:pt-4 last:pb-4">
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="p-2.5 rounded-xl bg-bg-surface text-text-secondary border border-border hidden sm:flex items-center justify-center shrink-0">
-          <Icon size={16} />
+        <div className="p-3 rounded-xl bg-bg-surface text-text-secondary border border-border hidden sm:flex items-center justify-center shrink-0">
+          <Icon size={18} />
         </div>
         <div className="min-w-0">
           <div className="font-semibold text-text text-sm sm:text-base tracking-tight">
@@ -188,7 +188,7 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[720px] px-4 py-4 md:px-6 md:py-6 space-y-5">
+        <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-8 space-y-6">
           {/* ── Profile ── */}
           <SettingSection icon={User} title="Profile" delay={0}>
             <SettingRow
