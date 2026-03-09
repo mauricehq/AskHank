@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Menu } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -10,15 +12,19 @@ import { Sidebar } from "./Sidebar";
 import { MobileTopBar } from "./MobileTopBar";
 import { EmptyState } from "./EmptyState";
 import { ChatScreen } from "./ChatScreen";
+import { OnboardingPrompt } from "./OnboardingPrompt";
 
 export function AppShell() {
   const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
+  const user = useQuery(api.users.currentUser);
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
-  if (isLoading) return null;
+  if (isLoading || user === undefined) return null;
+
+  const needsOnboarding = user !== null && user.displayName == null;
 
   const sidebarIsOpen = isDesktop ? sidebarOpen : mobileSidebarOpen;
 
@@ -56,7 +62,9 @@ export function AppShell() {
           </button>
         )}
 
-        {showChat ? (
+        {needsOnboarding ? (
+          <OnboardingPrompt />
+        ) : showChat ? (
           <ChatScreen />
         ) : (
           <EmptyState onStartChat={() => setShowChat(true)} />

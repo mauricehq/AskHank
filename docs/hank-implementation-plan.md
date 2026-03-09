@@ -88,9 +88,9 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] EmptyState → ChatScreen toggle via "Talk to Hank" button
 - [x] "New conversation" in sidebar resets to EmptyState
 
-#### 2c-3: Onboarding (after 2c-1, parallel with 2c-2)
-- [ ] "What should Hank call you?" prompt for new users (no displayName set)
-- [ ] Sets displayName via existing mutation, shown once
+#### 2c-3: Onboarding ✅
+- [x] "What should Hank call you?" prompt for new users (no displayName set)
+- [x] Sets displayName via existing mutation, shown once
 
 #### 2c-4: Empty State, Typing Indicator, Verdict (after 2c-2)
 - [ ] Empty state when no active conversation (centered prompt to start)
