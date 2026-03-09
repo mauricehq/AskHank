@@ -9,12 +9,14 @@ import { SessionErrorBanner } from "./SessionErrorBanner";
 import { Sidebar } from "./Sidebar";
 import { MobileTopBar } from "./MobileTopBar";
 import { EmptyState } from "./EmptyState";
+import { ChatScreen } from "./ChatScreen";
 
 export function AppShell() {
   const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   if (isLoading) return null;
 
@@ -31,6 +33,7 @@ export function AppShell() {
         isDesktop={isDesktop}
         onClose={() => isDesktop ? setSidebarOpen(false) : setMobileSidebarOpen(false)}
         onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
+        onNewConversation={() => setShowChat(false)}
       />
 
       {/* Main content */}
@@ -53,7 +56,11 @@ export function AppShell() {
           </button>
         )}
 
-        <EmptyState />
+        {showChat ? (
+          <ChatScreen />
+        ) : (
+          <EmptyState onStartChat={() => setShowChat(true)} />
+        )}
       </main>
     </div>
   );

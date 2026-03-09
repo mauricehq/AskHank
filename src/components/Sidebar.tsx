@@ -18,9 +18,10 @@ interface SidebarProps {
   isDesktop: boolean;
   onClose: () => void;
   onToggle: () => void;
+  onNewConversation?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -42,7 +43,13 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
 
       {/* New conversation button */}
       <div className="px-3 pb-3">
-        <button className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]">
+        <button
+          onClick={() => {
+            if (!isDesktop) onClose();
+            onNewConversation?.();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
+        >
           <Plus size={16} />
           New conversation
         </button>

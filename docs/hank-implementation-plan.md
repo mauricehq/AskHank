@@ -79,12 +79,14 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] Mobile: top bar (hamburger + logo + credits badge), sidebar as overlay drawer (280px)
 - [x] Responsive breakpoint at 768px (md)
 
-#### 2c-2: Chat Messages & Input (after 2c-1)
-- [ ] Message bubbles: Hank (left-aligned, bg-card) and user (right-aligned, bg-accent)
-- [ ] Auto-resize textarea input bar (min 44px, max 200px desktop / 30vh mobile)
-- [ ] Send button, camera button placeholder
-- [ ] Scroll-to-bottom behavior
-- [ ] Mock data: hardcoded Hank replies to test layout, scrolling, bubble sizing
+#### 2c-2: Chat Messages & Input ✅
+- [x] Message bubbles: Hank (left-aligned, white, border+shadow, "HANK" label) and user (right-aligned, orange)
+- [x] Auto-resize textarea input bar (min 40/44px, max 200px desktop / 30vh mobile)
+- [x] Send button (Enter on desktop, button on mobile), camera button placeholder (disabled)
+- [x] Scroll-to-bottom behavior (sentinel div + smooth scroll on message change)
+- [x] Mock data: 5-message espresso machine conversation for visual testing
+- [x] EmptyState → ChatScreen toggle via "Talk to Hank" button
+- [x] "New conversation" in sidebar resets to EmptyState
 
 #### 2c-3: Onboarding (after 2c-1, parallel with 2c-2)
 - [ ] "What should Hank call you?" prompt for new users (no displayName set)
