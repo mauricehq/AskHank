@@ -46,6 +46,15 @@ An AI that talks you out of buying things. User describes a purchase, Hank (the 
 - Skip this for simple, obvious fixes - don't over-engineer
 - Challenge your own work before presenting it
 
+## Convex Security
+
+Convex has no RLS — security is enforced in function handlers. Clients can only call exported `query`/`mutation`/`action` functions; they never access the database directly.
+
+- **Every public function must have auth checks.** Use `requireUser(ctx)` or `requireAdmin(ctx)` from `convex/lib/roles.ts` at the top of every handler. No check = open to anyone.
+- **Use `internalQuery`/`internalMutation`/`internalAction`** for server-only logic that should never be callable by clients (equivalent to Supabase `service_role`).
+- **Never trust client input.** Validate args with Convex validators (`v.string()`, `v.literal()`, etc.) and add business logic validation in handlers.
+- **Guard against edge cases.** Prevent self-demotion, last-admin removal, etc. in mutations.
+
 ## Conventions
 - **Components**: PascalCase (`ChatScreen.tsx`, `HistoryList.tsx`)
 - **Convex functions**: camelCase files, named exports (`conversations.ts` → `export const send = mutation(...)`)
