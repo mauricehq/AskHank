@@ -92,10 +92,12 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] "What should Hank call you?" prompt for new users (no displayName set)
 - [x] Sets displayName via existing mutation, shown once
 
-#### 2c-4: Empty State, Typing Indicator, Verdict (after 2c-2)
-- [ ] Empty state when no active conversation (centered prompt to start)
-- [ ] Typing indicator (three animated dots) while Hank is "thinking"
-- [ ] Verdict card at conversation end (denied/approved)
+#### 2c-4: Empty State, Typing Indicator, Verdict ✅
+- [x] Empty state copy refined (dry tone, no question marks)
+- [x] Typing indicator (three CSS-animated dots in Hank-bubble styling)
+- [x] Verdict card at conversation end (denied/approved, Share disabled, New conversation button)
+- [x] Mock typing flow: user sends → 1.5s delay → Hank responds, verdict after 3rd message
+- [x] Input bar disabled during typing, hidden post-verdict
 
 #### 2c-5: Animations (after 2c-4)
 - [ ] Framer Motion: message appear (slide/fade), sidebar toggle, drawer slide

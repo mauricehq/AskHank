@@ -1,33 +1,78 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "@/types/chat";
+import type { Message, Verdict } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
+import { TypingIndicator } from "./TypingIndicator";
+import { VerdictCard } from "./VerdictCard";
 
-const MOCK_MESSAGES: Message[] = [
-  { id: "1", role: "hank", content: "What are you looking at." },
-  { id: "2", role: "user", content: "A Breville espresso machine. The Barista Express. $699." },
-  { id: "3", role: "hank", content: "You have a coffee maker at home. You just want the aesthetic." },
-  { id: "4", role: "user", content: "My old coffee maker broke last week." },
-  { id: "5", role: "hank", content: "A broken coffee maker is a $30 problem. A $699 espresso machine is a $699 want. Get a new drip maker." },
+const MOCK_HANK_RESPONSES = [
+  "That sounds like a want, not a need. What's wrong with what you have now.",
+  "How many times have you used the last thing you bought like this.",
+  "You're describing a problem that costs $30 to fix. Not $500.",
 ];
 
-export function ChatScreen() {
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+const MOCK_VERDICT: Verdict = {
+  type: "denied",
+  quote: "You came to me with \"I want it\" and you're leaving with \"I want it.\" Nothing changed. $549 saved.",
+};
+
+interface ChatScreenProps {
+  onNewConversation: () => void;
+}
+
+export function ChatScreen({ onNewConversation }: ChatScreenProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [userMessageCount, setUserMessageCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping, verdict]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSend = (text: string) => {
+    if (isTyping) return;
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: text,
     };
+    const newCount = userMessageCount + 1;
     setMessages((prev) => [...prev, newMessage]);
+    setUserMessageCount(newCount);
+    setIsTyping(true);
+
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+
+      if (newCount >= 3) {
+        setVerdict(MOCK_VERDICT);
+      } else {
+        const hankResponse: Message = {
+          id: `msg-${Date.now()}-hank`,
+          role: "hank",
+          content: MOCK_HANK_RESPONSES[(newCount - 1) % MOCK_HANK_RESPONSES.length],
+        };
+        setMessages((prev) => [...prev, hankResponse]);
+      }
+    }, 1500);
   };
 
   return (
@@ -37,10 +82,20 @@ export function ChatScreen() {
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
+          {isTyping && <TypingIndicator />}
+          {verdict && (
+            <VerdictCard verdict={verdict} onNewConversation={onNewConversation} />
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
-      <ChatInput onSend={handleSend} hasMessages={messages.length > 0} />
+      {!verdict && (
+        <ChatInput
+          onSend={handleSend}
+          hasMessages={messages.length > 0}
+          disabled={isTyping}
+        />
+      )}
     </div>
   );
 }

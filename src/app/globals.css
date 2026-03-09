@@ -79,3 +79,14 @@ body {
   font-family: var(--font-sans);
   line-height: 1.5;
 }
+
+/* ── Typing indicator animation ── */
+
+@keyframes typing {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+.typing-dot {
+  animation: typing 1.4s ease-in-out infinite;
+}

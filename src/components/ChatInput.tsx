@@ -7,15 +7,16 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 interface ChatInputProps {
   onSend: (text: string) => void;
   hasMessages: boolean;
+  disabled?: boolean;
 }
 
-export function ChatInput({ onSend, hasMessages }: ChatInputProps) {
+export function ChatInput({ onSend, hasMessages, disabled }: ChatInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0;
+  const canSend = trimmed.length > 0 && !disabled;
 
   const adjustHeight = () => {
     const el = textareaRef.current;
@@ -64,9 +65,10 @@ export function ChatInput({ onSend, hasMessages }: ChatInputProps) {
             adjustHeight();
           }}
           onKeyDown={handleKeyDown}
+          disabled={disabled}
           placeholder={hasMessages ? "Make your case." : "What do you want to buy?"}
           rows={1}
-          className="min-h-[40px] max-h-[30vh] flex-1 resize-none overflow-auto rounded-xl border-[1.5px] border-border bg-input-bg px-3 py-2 text-base text-text outline-none placeholder:text-text-secondary focus:border-accent md:min-h-[44px] md:max-h-[200px] md:text-[0.9rem]"
+          className={`min-h-[40px] max-h-[30vh] flex-1 resize-none overflow-auto rounded-xl border-[1.5px] border-border bg-input-bg px-3 py-2 text-base text-text outline-none placeholder:text-text-secondary focus:border-accent md:min-h-[44px] md:max-h-[200px] md:text-[0.9rem] ${disabled ? "opacity-50" : ""}`}
         />
 
         {/* Send button */}

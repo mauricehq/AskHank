@@ -65,7 +65,7 @@ export function AppShell() {
         {needsOnboarding ? (
           <OnboardingPrompt />
         ) : showChat ? (
-          <ChatScreen />
+          <ChatScreen onNewConversation={() => setShowChat(false)} />
         ) : (
           <EmptyState onStartChat={() => setShowChat(true)} />
         )}
