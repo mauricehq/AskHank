@@ -31,7 +31,8 @@ yarn-error.log*
 next-env.d.ts
 
 # convex
-convex/_generated/
+# convex/_generated/ is checked in per Convex best practices:
+# https://docs.convex.dev/understanding/best-practices/other-recommendations#check-generated-code-into-version-control
 
 # clerk configuration (can include secrets)
 /.clerk/
