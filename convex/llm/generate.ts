@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { chatCompletion } from "./openrouter";
 import { buildSystemPrompt, buildMessages } from "./prompt";
 import { computeScore, type ExtractedScores, type Stance } from "./scoring";
@@ -109,12 +110,48 @@ function validateParsed(parsed: Record<string, unknown>): StructuredResponse {
   };
 }
 
+type TraceData = Partial<{
+  conversationId: Id<"conversations">;
+  messageId: Id<"messages">;
+  systemPrompt: string;
+  messagesArray: string;
+  modelId: string;
+  temperature: number;
+  maxTokens: number;
+  rawResponse: string;
+  parsedResponse: string;
+  rawScores: string;
+  sanitizedScores: string;
+  scoringResult: string;
+  previousStance: string;
+  newStance: string;
+  decisionType: string;
+  category: string;
+  estimatedPrice: number;
+  disengagementCount: number;
+  tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  durationMs: number;
+  error: string;
+}>;
+
 export const respond = internalAction({
   args: {
     conversationId: v.id("conversations"),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const traceData: TraceData = {
+      conversationId: args.conversationId,
+    };
+
+    async function saveTraceQuietly() {
+      try {
+        await ctx.runMutation(internal.llmTraces.saveTrace, traceData as any);
+      } catch (traceError) {
+        console.error("Failed to save trace (non-fatal):", traceError);
+      }
+    }
+
     try {
       // 1. Fetch messages
       const messages = await ctx.runQuery(
@@ -155,22 +192,59 @@ export const respond = internalAction({
         messages.map((m) => ({ role: m.role, content: m.content }))
       );
 
+      // Capture input context for trace
+      Object.assign(traceData, {
+        previousStance: currentStance,
+        systemPrompt,
+        messagesArray: JSON.stringify(llmMessages),
+        modelId,
+        temperature: 0.8,
+        maxTokens: 512,
+        disengagementCount,
+      });
+
       // 5. Call LLM with JSON mode
+      const llmStart = Date.now();
       const result = await chatCompletion({
         messages: llmMessages,
         modelId,
         responseFormat: { type: "json_object" },
       });
+      const durationMs = Date.now() - llmStart;
+      Object.assign(traceData, {
+        durationMs,
+        rawResponse: result.content,
+        tokenUsage: result.usage,
+      });
+
+      // Capture raw scores before sanitization
+      try {
+        const rawParsed = JSON.parse(result.content);
+        traceData.rawScores = JSON.stringify(rawParsed.scores ?? {});
+      } catch {
+        traceData.rawScores = "{}";
+      }
 
       // 6. Parse JSON response
       const parsed = parseStructuredResponse(result.content);
+      traceData.parsedResponse = JSON.stringify(parsed);
+      traceData.sanitizedScores = JSON.stringify(parsed.scores);
 
       // 7. Out of scope — save response, skip scoring
       if (parsed.is_out_of_scope) {
-        await ctx.runMutation(internal.conversations.saveResponse, {
+        const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
           conversationId: args.conversationId,
           content: parsed.response,
         });
+        Object.assign(traceData, {
+          messageId,
+          decisionType: "out-of-scope",
+          newStance: currentStance,
+          scoringResult: "{}",
+          category: parsed.category,
+          estimatedPrice: parsed.estimated_price > 0 ? parsed.estimated_price : undefined,
+        });
+        await saveTraceQuietly();
         return;
       }
 
@@ -179,7 +253,7 @@ export const respond = internalAction({
         const price = coalescePrice(parsed.estimated_price, conversation.estimatedPrice);
         const cat = coalesceCategory(parsed.category, conversation.category);
         const scoring = computeScore(parsed.scores, price, cat);
-        await ctx.runMutation(internal.conversations.saveResponseWithVerdict, {
+        const messageId = await ctx.runMutation(internal.conversations.saveResponseWithVerdict, {
           conversationId: args.conversationId,
           content: parsed.response,
           verdict: "approved",
@@ -188,6 +262,15 @@ export const respond = internalAction({
           category: cat,
           estimatedPrice: price,
         });
+        Object.assign(traceData, {
+          messageId,
+          decisionType: "concede",
+          newStance: "CONCEDE",
+          scoringResult: JSON.stringify(scoring),
+          category: cat,
+          estimatedPrice: price,
+        });
+        await saveTraceQuietly();
         return;
       }
 
@@ -200,7 +283,7 @@ export const respond = internalAction({
       if (parsed.is_non_answer) {
         if (disengagementCount >= 1) {
           // Second consecutive non-answer → denied verdict
-          await ctx.runMutation(
+          const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithVerdict,
             {
               conversationId: args.conversationId,
@@ -212,10 +295,19 @@ export const respond = internalAction({
               estimatedPrice,
             }
           );
+          Object.assign(traceData, {
+            messageId,
+            decisionType: "disengagement-denied",
+            newStance: scoring.stance,
+            scoringResult: JSON.stringify(scoring),
+            category,
+            estimatedPrice,
+          });
+          await saveTraceQuietly();
           return;
         }
         // First non-answer → increment count
-        await ctx.runMutation(
+        const messageId = await ctx.runMutation(
           internal.conversations.saveResponseWithScoring,
           {
             conversationId: args.conversationId,
@@ -227,11 +319,21 @@ export const respond = internalAction({
             disengagementCount: 1,
           }
         );
+        Object.assign(traceData, {
+          messageId,
+          decisionType: "disengagement-increment",
+          newStance: scoring.stance,
+          scoringResult: JSON.stringify(scoring),
+          category,
+          estimatedPrice,
+          disengagementCount: 1,
+        });
+        await saveTraceQuietly();
         return;
       }
 
       // 11. Normal turn — save with scoring, reset disengagement
-      await ctx.runMutation(internal.conversations.saveResponseWithScoring, {
+      const messageId = await ctx.runMutation(internal.conversations.saveResponseWithScoring, {
         conversationId: args.conversationId,
         content: parsed.response,
         score: scoring.score,
@@ -240,8 +342,31 @@ export const respond = internalAction({
         estimatedPrice,
         disengagementCount: 0,
       });
+      Object.assign(traceData, {
+        messageId,
+        decisionType: "normal",
+        newStance: scoring.stance,
+        scoringResult: JSON.stringify(scoring),
+        category,
+        estimatedPrice,
+        disengagementCount: 0,
+      });
+      await saveTraceQuietly();
     } catch (error) {
       console.error("LLM generation failed:", error);
+      // Save error trace if we got past the LLM call
+      if (traceData.rawResponse) {
+        Object.assign(traceData, {
+          decisionType: "error",
+          error: String(error),
+          newStance: traceData.previousStance ?? "FIRM",
+          parsedResponse: traceData.parsedResponse ?? "{}",
+          sanitizedScores: traceData.sanitizedScores ?? "{}",
+          rawScores: traceData.rawScores ?? "{}",
+          scoringResult: traceData.scoringResult ?? "{}",
+        });
+        await saveTraceQuietly();
+      }
       await ctx.runMutation(internal.conversations.setError, {
         conversationId: args.conversationId,
       });
