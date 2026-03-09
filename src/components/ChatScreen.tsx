@@ -1,37 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message, Verdict } from "@/types/chat";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
 import { VerdictCard } from "./VerdictCard";
 import { ScrollToBottom } from "./ScrollToBottom";
-
-const MOCK_HANK_RESPONSES = [
-  "That sounds like a want, not a need. What's wrong with what you have now.",
-  "How many times have you used the last thing you bought like this.",
-  "You're describing a problem that costs $30 to fix. Not $500.",
-];
-
-const MOCK_VERDICT: Verdict = {
-  type: "denied",
-  quote: "You came to me with \"I want it\" and you're leaving with \"I want it.\" Nothing changed. $549 saved.",
-};
+import { useConversation } from "@/hooks/useConversation";
 
 interface ChatScreenProps {
   onNewConversation: () => void;
 }
 
 export function ChatScreen({ onNewConversation }: ChatScreenProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [userMessageCount, setUserMessageCount] = useState(0);
+  const { messages, isThinking, isError, send, reset } = useConversation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScroll = () => {
     const el = scrollContainerRef.current;
@@ -46,48 +31,23 @@ export function ChatScreen({ onNewConversation }: ChatScreenProps) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping, verdict]);
+  }, [messages, isThinking, isError]);
 
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleSend = (text: string) => {
-    if (isTyping) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+  const handleSend = async (text: string) => {
+    try {
+      await send(text);
+    } catch (error) {
+      console.error("Failed to send message:", error);
     }
-
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      role: "user",
-      content: text,
-    };
-    const newCount = userMessageCount + 1;
-    setMessages((prev) => [...prev, newMessage]);
-    setUserMessageCount(newCount);
-    setIsTyping(true);
-
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-
-      if (newCount >= 3) {
-        setVerdict(MOCK_VERDICT);
-      } else {
-        const hankResponse: Message = {
-          id: `msg-${Date.now()}-hank`,
-          role: "hank",
-          content: MOCK_HANK_RESPONSES[(newCount - 1) % MOCK_HANK_RESPONSES.length],
-        };
-        setMessages((prev) => [...prev, hankResponse]);
-      }
-    }, 1500);
   };
+
+  const handleNewConversation = () => {
+    reset();
+    onNewConversation();
+  };
+
+  // No verdict in Phase 2a
+  const verdict = null;
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -101,9 +61,14 @@ export function ChatScreen({ onNewConversation }: ChatScreenProps) {
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            {isTyping && <TypingIndicator />}
+            {isThinking && <TypingIndicator />}
+            {isError && (
+              <div className="my-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
+                Something went wrong. Send another message to retry.
+              </div>
+            )}
             {verdict && (
-              <VerdictCard verdict={verdict} onNewConversation={onNewConversation} />
+              <VerdictCard verdict={verdict} onNewConversation={handleNewConversation} />
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -114,7 +79,7 @@ export function ChatScreen({ onNewConversation }: ChatScreenProps) {
         <ChatInput
           onSend={handleSend}
           hasMessages={messages.length > 0}
-          disabled={isTyping}
+          disabled={isThinking}
         />
       )}
     </div>

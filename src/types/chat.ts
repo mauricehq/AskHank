@@ -12,3 +12,5 @@ export interface Verdict {
   type: VerdictType;
   quote: string;
 }
+
+export type ConversationStatus = "active" | "thinking" | "error";

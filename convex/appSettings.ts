@@ -16,8 +16,8 @@ const settingKey = v.union(
   v.literal("hank_killswitch")
 );
 
-const DEFAULTS: Record<string, unknown> = {
-  hank_model: "openai/gpt-4o-mini",
+export const DEFAULTS: Record<string, unknown> = {
+  hank_model: "anthropic/claude-haiku-4-5",
   hank_fallback_model: "meta-llama/llama-3.3-70b-instruct:free",
   hank_killswitch: { enabled: false, reason: null },
 };

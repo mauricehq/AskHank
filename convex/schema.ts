@@ -22,4 +22,21 @@ export default defineSchema({
     updatedAt: v.number(),
     updatedBy: v.optional(v.id("users")),
   }).index("by_key", ["key"]),
+
+  conversations: defineTable({
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("thinking"),
+      v.literal("error")
+    ),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  messages: defineTable({
+    conversationId: v.id("conversations"),
+    role: v.union(v.literal("user"), v.literal("hank")),
+    content: v.string(),
+    createdAt: v.number(),
+  }).index("by_conversation", ["conversationId", "createdAt"]),
 });
