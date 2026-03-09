@@ -61,6 +61,43 @@ export const send = mutation({
   },
 });
 
+export const listForUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const results = await Promise.all(
+      conversations.map(async (conv) => {
+        const firstMessage = await ctx.db
+          .query("messages")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+          .first();
+
+        const title = firstMessage?.content
+          ? firstMessage.content.length > 40
+            ? firstMessage.content.slice(0, 40) + "…"
+            : firstMessage.content
+          : "New conversation";
+
+        return {
+          _id: conv._id,
+          title,
+          verdict: conv.verdict,
+          status: conv.status,
+          createdAt: conv.createdAt,
+        };
+      })
+    );
+
+    results.sort((a, b) => b.createdAt - a.createdAt);
+    return results;
+  },
+});
+
 export const getConversation = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {

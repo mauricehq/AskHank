@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, MessageCircle, X } from "lucide-react";
 
 interface HistoryItemProps {
   name: string;
-  verdict: "denied" | "approved";
+  verdict?: "denied" | "approved";
   timeAgo: string;
   isActive?: boolean;
   onClick?: () => void;
@@ -12,6 +12,8 @@ interface HistoryItemProps {
 
 export function HistoryItem({ name, verdict, timeAgo, isActive, onClick }: HistoryItemProps) {
   const isDenied = verdict === "denied";
+  const isApproved = verdict === "approved";
+  const isPending = !verdict;
 
   return (
     <button
@@ -23,10 +25,10 @@ export function HistoryItem({ name, verdict, timeAgo, isActive, onClick }: Histo
       {/* Verdict icon */}
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
+          isDenied ? "bg-denied/10 text-denied" : isApproved ? "bg-approved/10 text-approved" : "bg-text-secondary/10 text-text-secondary"
         }`}
       >
-        {isDenied ? <X size={14} strokeWidth={2.5} /> : <Check size={14} strokeWidth={2.5} />}
+        {isDenied ? <X size={14} strokeWidth={2.5} /> : isApproved ? <Check size={14} strokeWidth={2.5} /> : <MessageCircle size={14} strokeWidth={2.5} />}
       </div>
 
       {/* Name + time */}
@@ -36,13 +38,15 @@ export function HistoryItem({ name, verdict, timeAgo, isActive, onClick }: Histo
       </div>
 
       {/* Verdict badge */}
-      <span
-        className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
-          isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
-        }`}
-      >
-        {verdict}
-      </span>
+      {verdict && (
+        <span
+          className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
+            isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
+          }`}
+        >
+          {verdict}
+        </span>
+      )}
     </button>
   );
 }

@@ -7,13 +7,32 @@ import { TypingIndicator } from "./TypingIndicator";
 import { VerdictCard } from "./VerdictCard";
 import { ScrollToBottom } from "./ScrollToBottom";
 import { useConversation } from "@/hooks/useConversation";
+import type { Id } from "../../convex/_generated/dataModel";
 
 interface ChatScreenProps {
+  conversationId?: Id<"conversations"> | null;
+  onConversationCreated?: (id: Id<"conversations">) => void;
   onNewConversation: () => void;
 }
 
-export function ChatScreen({ onNewConversation }: ChatScreenProps) {
-  const { messages, isThinking, isError, send, reset, verdict } = useConversation();
+export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
+  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation } = useConversation();
+
+  // Sync external ID into the hook
+  useEffect(() => {
+    if (externalId) {
+      loadConversation(externalId);
+    } else {
+      reset();
+    }
+  }, [externalId, loadConversation, reset]);
+
+  // Sync newly-created conversation ID back to parent
+  useEffect(() => {
+    if (hookConversationId && hookConversationId !== externalId) {
+      onConversationCreated?.(hookConversationId);
+    }
+  }, [hookConversationId, externalId, onConversationCreated]);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
