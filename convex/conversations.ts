@@ -125,13 +125,14 @@ export const saveResponse = internalMutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       role: "hank",
       content: args.content,
       createdAt: Date.now(),
     });
     await ctx.db.patch(args.conversationId, { status: "active" });
+    return messageId;
   },
 });
 
@@ -160,7 +161,7 @@ export const saveResponseWithScoring = internalMutation({
     disengagementCount: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       role: "hank",
       content: args.content,
@@ -174,6 +175,7 @@ export const saveResponseWithScoring = internalMutation({
       estimatedPrice: args.estimatedPrice,
       disengagementCount: args.disengagementCount,
     });
+    return messageId;
   },
 });
 
@@ -188,7 +190,7 @@ export const saveResponseWithVerdict = internalMutation({
     estimatedPrice: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       role: "hank",
       content: args.content,
@@ -202,5 +204,6 @@ export const saveResponseWithVerdict = internalMutation({
       category: args.category,
       estimatedPrice: args.estimatedPrice,
     });
+    return messageId;
   },
 });

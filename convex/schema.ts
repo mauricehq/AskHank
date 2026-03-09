@@ -47,4 +47,51 @@ export default defineSchema({
     content: v.string(),
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
+
+  llmTraces: defineTable({
+    // Links
+    conversationId: v.id("conversations"),
+    messageId: v.optional(v.id("messages")),
+
+    // Request
+    systemPrompt: v.string(),
+    messagesArray: v.string(),
+    modelId: v.string(),
+    temperature: v.number(),
+    maxTokens: v.number(),
+
+    // Response
+    rawResponse: v.string(),
+    parsedResponse: v.string(),
+
+    // Scores
+    rawScores: v.string(),
+    sanitizedScores: v.string(),
+    scoringResult: v.string(),
+
+    // Stance
+    previousStance: v.string(),
+    newStance: v.string(),
+
+    // Decision
+    decisionType: v.string(),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+    disengagementCount: v.number(),
+
+    // Metrics
+    tokenUsage: v.object({
+      promptTokens: v.number(),
+      completionTokens: v.number(),
+      totalTokens: v.number(),
+    }),
+    durationMs: v.number(),
+
+    // Error
+    error: v.optional(v.string()),
+
+    createdAt: v.number(),
+  })
+    .index("by_conversation", ["conversationId", "createdAt"])
+    .index("by_message", ["messageId"]),
 });
