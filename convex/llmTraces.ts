@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
+import { requireAdmin } from "./lib/roles";
 
 export const saveTrace = internalMutation({
   args: {
@@ -34,5 +35,41 @@ export const saveTrace = internalMutation({
       ...args,
       createdAt: Date.now(),
     });
+  },
+});
+
+export const getTraceSummariesForConversation = query({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const traces = await ctx.db
+      .query("llmTraces")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .collect();
+    return traces.map((t) => ({
+      _id: t._id,
+      messageId: t.messageId,
+      previousStance: t.previousStance,
+      newStance: t.newStance,
+      sanitizedScores: t.sanitizedScores,
+      scoringResult: t.scoringResult,
+      category: t.category,
+      estimatedPrice: t.estimatedPrice,
+      disengagementCount: t.disengagementCount,
+      decisionType: t.decisionType,
+      durationMs: t.durationMs,
+      tokenUsage: t.tokenUsage,
+      error: t.error,
+    }));
+  },
+});
+
+export const getFullTrace = query({
+  args: { traceId: v.id("llmTraces") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db.get(args.traceId);
   },
 });
