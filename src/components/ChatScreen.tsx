@@ -13,7 +13,7 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ onNewConversation }: ChatScreenProps) {
-  const { messages, isThinking, isError, send, reset } = useConversation();
+  const { messages, isThinking, isError, send, reset, verdict } = useConversation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -45,9 +45,6 @@ export function ChatScreen({ onNewConversation }: ChatScreenProps) {
     reset();
     onNewConversation();
   };
-
-  // No verdict in Phase 2a
-  const verdict = null;
 
   return (
     <div className="flex flex-1 flex-col min-h-0">

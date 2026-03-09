@@ -13,4 +13,5 @@ export interface Verdict {
   quote: string;
 }
 
-export type ConversationStatus = "active" | "thinking" | "error";
+export type Stance = "IMMOVABLE" | "FIRM" | "SKEPTICAL" | "RELUCTANT" | "CONCEDE";
+export type ConversationStatus = "active" | "thinking" | "error" | "closed";

@@ -34,6 +34,9 @@ export const send = mutation({
       if (!conversation || conversation.userId !== user._id) {
         throw new Error("Conversation not found.");
       }
+      if (conversation.status === "closed") {
+        throw new Error("This conversation is closed.");
+      }
       if (conversation.status === "thinking") {
         throw new Error("Hank is still thinking.");
       }
@@ -136,5 +139,68 @@ export const setError = internalMutation({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.conversationId, { status: "error" });
+  },
+});
+
+export const internalGetConversation = internalQuery({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.conversationId);
+  },
+});
+
+export const saveResponseWithScoring = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    content: v.string(),
+    score: v.number(),
+    stance: v.string(),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+    disengagementCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "hank",
+      content: args.content,
+      createdAt: Date.now(),
+    });
+    await ctx.db.patch(args.conversationId, {
+      status: "active",
+      score: args.score,
+      stance: args.stance,
+      category: args.category,
+      estimatedPrice: args.estimatedPrice,
+      disengagementCount: args.disengagementCount,
+    });
+  },
+});
+
+export const saveResponseWithVerdict = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    content: v.string(),
+    verdict: v.union(v.literal("approved"), v.literal("denied")),
+    score: v.number(),
+    stance: v.string(),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "hank",
+      content: args.content,
+      createdAt: Date.now(),
+    });
+    await ctx.db.patch(args.conversationId, {
+      status: "closed",
+      verdict: args.verdict,
+      score: args.score,
+      stance: args.stance,
+      category: args.category,
+      estimatedPrice: args.estimatedPrice,
+    });
   },
 });

@@ -28,9 +28,17 @@ export default defineSchema({
     status: v.union(
       v.literal("active"),
       v.literal("thinking"),
-      v.literal("error")
+      v.literal("error"),
+      v.literal("closed")
     ),
     createdAt: v.number(),
+    // Phase 2b: Scoring engine fields
+    stance: v.optional(v.string()),
+    score: v.optional(v.number()),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+    disengagementCount: v.optional(v.number()),
+    verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
   }).index("by_user", ["userId"]),
 
   messages: defineTable({

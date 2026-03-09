@@ -10,6 +10,7 @@ interface ChatCompletionOptions {
   modelId: string;
   temperature?: number;
   maxTokens?: number;
+  responseFormat?: { type: "json_object" };
 }
 
 interface ChatCompletionResult {
@@ -32,7 +33,8 @@ export async function chatCompletion({
   messages,
   modelId,
   temperature = 0.8,
-  maxTokens = 256,
+  maxTokens = 512,
+  responseFormat,
 }: ChatCompletionOptions): Promise<ChatCompletionResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -52,6 +54,7 @@ export async function chatCompletion({
       messages,
       temperature,
       max_tokens: maxTokens,
+      ...(responseFormat && { response_format: responseFormat }),
     }),
   });
 

@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { Message } from "@/types/chat";
+import type { Message, Verdict, VerdictType } from "@/types/chat";
 
 export function useConversation() {
   const [conversationId, setConversationId] = useState<Id<"conversations"> | null>(null);
@@ -34,8 +34,19 @@ export function useConversation() {
   const isThinking = conversation?.status === "thinking";
   const isError = conversation?.status === "error";
 
+  const verdict: Verdict | null = useMemo(() => {
+    if (!conversation?.verdict || conversation?.status !== "closed") return null;
+    const hankMessages = messages.filter((m) => m.role === "hank");
+    const lastHankMsg = hankMessages[hankMessages.length - 1];
+    return {
+      type: conversation.verdict as VerdictType,
+      quote: lastHankMsg?.content ?? "",
+    };
+  }, [conversation?.verdict, conversation?.status, messages]);
+
   const send = useCallback(
     async (content: string) => {
+      if (conversation?.status === "closed") return;
       const id = await sendMutation({
         conversationId: conversationId ?? undefined,
         content,
@@ -44,12 +55,12 @@ export function useConversation() {
         setConversationId(id);
       }
     },
-    [sendMutation, conversationId]
+    [sendMutation, conversationId, conversation?.status]
   );
 
   const reset = useCallback(() => {
     setConversationId(null);
   }, []);
 
-  return { messages, isThinking, isError, send, reset };
+  return { messages, isThinking, isError, send, reset, verdict };
 }
