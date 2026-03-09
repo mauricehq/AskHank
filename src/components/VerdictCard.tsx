@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import type { Verdict } from "@/types/chat";
 
 interface VerdictCardProps {
@@ -9,7 +12,15 @@ export function VerdictCard({ verdict, onNewConversation }: VerdictCardProps) {
   const isDenied = verdict.type === "denied";
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        type: "spring",
+        stiffness: 300,
+        damping: 24,
+        delay: 0.3,
+      }}
       className={`text-center p-5 rounded-xl mt-2 mb-6 border-[1.5px] ${
         isDenied
           ? "border-denied bg-[rgba(198,90,46,0.08)]"
@@ -40,6 +51,6 @@ export function VerdictCard({ verdict, onNewConversation }: VerdictCardProps) {
           New conversation
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }

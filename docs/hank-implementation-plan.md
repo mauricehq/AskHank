@@ -99,11 +99,11 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] Mock typing flow: user sends → 1.5s delay → Hank responds, verdict after 3rd message
 - [x] Input bar disabled during typing, hidden post-verdict
 
-#### 2c-5: Animations (after 2c-4)
-- [ ] Framer Motion: message appear (slide/fade), sidebar toggle, drawer slide
-- [ ] Verdict reveal animation
-- [ ] Typing indicator pulse
-- [ ] Button press feedback
+#### 2c-5: Animations (after 2c-4) ✅
+- [x] Framer Motion: message appear (slide/fade), sidebar toggle, drawer slide
+- [x] Verdict reveal animation
+- [x] Typing indicator pulse
+- [x] Button press feedback
 
 ### 2a: LLM Integration
 - [ ] Convex action that calls Claude Haiku (or GPT-4o-mini)
