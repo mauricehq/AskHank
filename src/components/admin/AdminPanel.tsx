@@ -4,8 +4,9 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { UserManagement } from "./UserManagement";
 import { HankSettings } from "./HankSettings";
+import { TraceInspector } from "./TraceInspector";
 
-const TABS = ["Users", "Hank Settings"] as const;
+const TABS = ["Users", "Hank Settings", "Traces"] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminPanelProps {
@@ -55,7 +56,9 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[720px] px-4 py-4 md:px-6 md:py-6">
-          {activeTab === "Users" ? <UserManagement /> : <HankSettings />}
+          {activeTab === "Users" && <UserManagement />}
+          {activeTab === "Hank Settings" && <HankSettings />}
+          {activeTab === "Traces" && <TraceInspector />}
         </div>
       </div>
     </div>

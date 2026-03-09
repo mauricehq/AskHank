@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin } from "./lib/roles";
+import type { Id } from "./_generated/dataModel";
 
 export const listUsers = query({
   args: {},
@@ -51,5 +52,50 @@ export const setUserRole = mutation({
       role: args.role,
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const listConversations = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const conversations = await ctx.db
+      .query("conversations")
+      .order("desc")
+      .take(100);
+
+    // Batch-fetch user display names
+    const userIds = [...new Set(conversations.map((c) => c.userId))];
+    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+    const userMap = new Map<Id<"users">, string>();
+    for (const u of users) {
+      if (u) userMap.set(u._id, u.displayName || u.email || "Unknown");
+    }
+
+    return conversations.map((c) => ({
+      _id: c._id,
+      userId: c.userId,
+      userName: userMap.get(c.userId) ?? "Unknown",
+      status: c.status,
+      stance: c.stance,
+      score: c.score,
+      category: c.category,
+      estimatedPrice: c.estimatedPrice,
+      verdict: c.verdict,
+      createdAt: c.createdAt,
+    }));
+  },
+});
+
+export const getConversationMessages = query({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .collect();
   },
 });
