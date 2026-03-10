@@ -3,13 +3,18 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 
 export const testChat = internalAction({
   args: {
     conversationId: v.optional(v.id("conversations")),
     message: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    conversationId: Id<"conversations">;
+    response: string;
+    trace: unknown;
+  }> => {
     // 1. Find admin user for userId requirement
     const admin = await ctx.runQuery(internal.conversations.internalGetFirstAdmin);
     if (!admin) throw new Error("No admin user found. Create one first.");
@@ -42,7 +47,7 @@ export const testChat = internalAction({
 
     // 6. Extract Hank's latest response
     const lastTurn = trace[trace.length - 1];
-    const response = lastTurn?.hankResponse ?? "(no response)";
+    const response = (lastTurn as any)?.hankResponse ?? "(no response)";
 
     return { conversationId, response, trace };
   },
