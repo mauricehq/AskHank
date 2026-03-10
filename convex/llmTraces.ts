@@ -53,22 +53,16 @@ export const getTraceSummariesForConversation = query({
       )
       .collect();
     return traces.map((t) => {
-      let item: string | undefined;
-      try {
-        const raw = JSON.parse(t.rawScores);
-        if (typeof raw.item === "string" && raw.item !== "unknown") item = raw.item;
-      } catch { /* ignore */ }
-
       return {
         _id: t._id,
         messageId: t.messageId,
         previousStance: t.previousStance,
         newStance: t.newStance,
+        rawScores: t.rawScores,
         sanitizedScores: t.sanitizedScores,
         scoringResult: t.scoringResult,
         category: t.category,
         estimatedPrice: t.estimatedPrice,
-        item,
         disengagementCount: t.disengagementCount,
         stagnationCount: t.stagnationCount,
         decisionType: t.decisionType,

@@ -30,17 +30,46 @@ function parseScore(scoringResult: string): number | null {
   }
 }
 
+// Fields to skip in assessment display (shown elsewhere or internal)
+const ASSESSMENT_SKIP = new Set(["item"]);
+
+// Render assessment enum values with color hints
+const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
+  intent: { want: "text-red-400", need: "text-green-400", replace: "text-green-400", upgrade: "text-blue-400", gift: "text-yellow-400" },
+  current_solution: { broken: "text-green-400", failing: "text-green-400", outdated: "text-yellow-400", working: "text-red-400", none: "text-green-400" },
+  urgency: { immediate: "text-green-400", soon: "text-yellow-400", none: "text-red-400" },
+  beneficiary: { dependent: "text-green-400", shared: "text-blue-400", self: "text-zinc-400", gift_discretionary: "text-yellow-400" },
+};
+
+function AssessmentValue({ field, value }: { field: string; value: unknown }) {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-zinc-600">none</span>;
+    return <span className="text-yellow-400">{value.join(", ")}</span>;
+  }
+  if (value === null || value === "unknown") return <span className="text-zinc-600">{String(value)}</span>;
+  const color = ASSESSMENT_HIGHLIGHTS[field]?.[String(value)];
+  return <span className={color ?? "text-zinc-400"}>{String(value)}</span>;
+}
+
 function DebugBar({ trace }: { trace: TraceSummary }) {
   const [expanded, setExpanded] = useState(false);
 
+  let assessment: Record<string, unknown> | null = null;
   let parsedScores: Record<string, number> | null = null;
+  if (trace.rawScores) {
+    try {
+      const raw = JSON.parse(trace.rawScores);
+      if (typeof raw === "object" && raw !== null && raw.intent) assessment = raw;
+    } catch { /* ignore */ }
+  }
   if (trace.sanitizedScores) {
     try {
       parsedScores = JSON.parse(trace.sanitizedScores);
-    } catch {
-      // ignore parse errors
-    }
+    } catch { /* ignore */ }
   }
+
+  const item = assessment?.item;
+  const itemLabel = typeof item === "string" && item !== "unknown" ? item : null;
 
   const stanceTransition =
     trace.previousStance && trace.newStance
@@ -68,8 +97,8 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         {score !== null && (
           <span className="text-zinc-400 font-semibold">{score}</span>
         )}
-        {trace.item && (
-          <span className="text-zinc-500">{trace.item}{trace.estimatedPrice ? ` $${trace.estimatedPrice.toLocaleString()}` : ""}</span>
+        {itemLabel && (
+          <span className="text-zinc-500">{itemLabel}{trace.estimatedPrice ? ` $${trace.estimatedPrice.toLocaleString()}` : ""}</span>
         )}
         <span className="text-zinc-500">
           {trace.tokenUsage.totalTokens} tok · {trace.durationMs}ms
@@ -77,8 +106,23 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         <span className="ml-auto text-zinc-600">{expanded ? "▲" : "▼"}</span>
       </button>
 
+      {expanded && assessment && (
+        <div className="mt-2 space-y-0.5 font-mono text-[0.6rem] text-zinc-500">
+          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Assessment</div>
+          {Object.entries(assessment)
+            .filter(([key]) => !ASSESSMENT_SKIP.has(key))
+            .map(([key, value]) => (
+              <div key={key} className="flex justify-between gap-4">
+                <span className="shrink-0">{key}</span>
+                <AssessmentValue field={key} value={value} />
+              </div>
+            ))}
+        </div>
+      )}
+
       {expanded && parsedScores && (
         <div className="mt-2 space-y-0.5 font-mono text-[0.6rem] text-zinc-500">
+          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Mapped Scores</div>
           {Object.entries(parsedScores).map(([key, value]) => (
             <div key={key} className="flex justify-between">
               <span>{key}</span>
@@ -86,12 +130,6 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
             </div>
           ))}
         </div>
-      )}
-
-      {expanded && !parsedScores && trace.sanitizedScores && (
-        <pre className="mt-2 font-mono text-[0.6rem] text-zinc-500 whitespace-pre-wrap">
-          {trace.sanitizedScores}
-        </pre>
       )}
     </div>
   );
