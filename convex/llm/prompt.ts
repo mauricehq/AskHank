@@ -65,6 +65,7 @@ export function buildToolDefinition(): ToolDefinition {
               "emotional_triggers",
               "specificity",
               "consistency",
+              "beneficiary",
             ],
             properties: {
               item: {
@@ -75,7 +76,7 @@ export function buildToolDefinition(): ToolDefinition {
                 type: "string",
                 enum: ["want", "need", "replace", "upgrade", "gift"],
                 description:
-                  'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying for someone else.',
+                  'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying a discretionary gift for someone else (birthday, holiday, treat). For shared household needs or dependent needs, use "need" or "replace" with the appropriate beneficiary field.',
               },
               current_solution: {
                 type: "string",
@@ -136,10 +137,13 @@ export function buildToolDefinition(): ToolDefinition {
                     "retail_therapy",
                     "bored",
                     "impulse",
+                    "family_obligation",
+                    "guilt",
+                    "keeping_up_with_other_families",
                   ],
                 },
                 description:
-                  "Emotional language detected. Pick ALL that apply. Empty array if none.",
+                  "Emotional language detected. Pick ALL that apply. Includes self-oriented impulses AND relational rationalizations (family_obligation, guilt, keeping_up_with_other_families). Empty array if none.",
               },
               specificity: {
                 type: "string",
@@ -152,6 +156,12 @@ export function buildToolDefinition(): ToolDefinition {
                 enum: ["first_turn", "building", "consistent", "contradicting"],
                 description:
                   'Consistency across conversation. "first_turn" = first or second message. "building" = adding new supporting facts. "consistent" = repeating but not contradicting. "contradicting" = conflicts with earlier claims.',
+              },
+              beneficiary: {
+                type: "string",
+                enum: ["self", "shared", "dependent", "gift_discretionary"],
+                description:
+                  'Who primarily benefits? "self" = the user alone. "shared" = household/family uses it together (e.g. Netflix, family car). "dependent" = someone who depends on the user needs it (child\'s school laptop, elderly parent\'s device). "gift_discretionary" = discretionary gift (birthday present, treat for a friend). Default to "self" when unclear.',
               },
             },
           },
@@ -168,7 +178,7 @@ export function buildToolDefinition(): ToolDefinition {
           is_out_of_scope: {
             type: "boolean",
             description:
-              "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, gifts for others, business expenses.",
+              "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, business expenses. Note: gifts and purchases for family members are IN SCOPE — classify them using the beneficiary field instead.",
           },
           category: {
             type: "string",
@@ -276,8 +286,13 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - Investment advice: "I talk you out of buying things, not into them. Talk to a financial advisor."
 - Medical purchases: "If your doctor said you need it, you need it. I'm not fighting a doctor."
 - Insurance: "I'm not qualified for that and neither is the voice in your head that brought you here."
-- Gifts for others: "Buying for someone else? That's their problem, not mine. But if you're here asking, the budget's probably too high."
-- Business expenses: "If it makes you money, that's not impulse buying. That's investing. Different conversation."`,
+- Business expenses: "If it makes you money, that's not impulse buying. That's investing. Different conversation."
+
+RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
+- "It's for my wife/husband/partner" → "Did they ask for this, or did you decide they need it? Those are very different things."
+- "It's for the kids" → "Your kid needs this for school, or you feel bad and this is how you're fixing it?"
+- "The whole family uses it" → "The whole family uses it. How — every day, or you watched one movie together last month?"
+- "Everyone else's kids have one" → That's keeping up with the Joneses with a family wrapper. Call it out.`,
 
     // Conversation progress
     `CONVERSATION PROGRESS — this is turn ${turnCount}. ${
