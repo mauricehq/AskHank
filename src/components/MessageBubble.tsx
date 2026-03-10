@@ -10,10 +10,15 @@ interface MessageBubbleProps {
 
 const DECISION_COLORS: Record<string, string> = {
   normal: "bg-blue-500/20 text-blue-300",
+  "normal (stance floored)": "bg-blue-500/20 text-blue-300",
+  casual: "bg-zinc-500/20 text-zinc-300",
   "out-of-scope": "bg-zinc-500/20 text-zinc-300",
   concede: "bg-green-500/20 text-green-300",
-  "disengagement-denied": "bg-red-500/20 text-red-300",
   "disengagement-increment": "bg-yellow-500/20 text-yellow-300",
+  "disengagement-denied": "bg-red-500/20 text-red-300",
+  "stagnation-increment": "bg-yellow-500/20 text-yellow-300",
+  "stagnation-denied": "bg-red-500/20 text-red-300",
+  error: "bg-red-500/20 text-red-300",
 };
 
 function parseScore(scoringResult: string): number | null {
