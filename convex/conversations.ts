@@ -254,6 +254,51 @@ export const saveResponseWithScoring = internalMutation({
   },
 });
 
+// --- Test helpers (internal only, used by testChat) ---
+
+export const internalGetFirstAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "admin"))
+      .first();
+  },
+});
+
+export const createTestConversation = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("conversations", {
+      userId: args.userId,
+      status: "thinking",
+      createdAt: Date.now(),
+      disengagementCount: 0,
+      stagnationCount: 0,
+    });
+  },
+});
+
+export const insertTestMessage = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    if (conversation.status === "closed") throw new Error("Conversation is closed");
+
+    await ctx.db.patch(args.conversationId, { status: "thinking" });
+    await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "user",
+      content: args.content,
+      createdAt: Date.now(),
+    });
+  },
+});
+
 export const saveResponseWithVerdict = internalMutation({
   args: {
     conversationId: v.id("conversations"),
