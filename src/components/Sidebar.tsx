@@ -3,7 +3,7 @@
 import { ChevronLeft, Plus, Settings, Shield, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { HistoryItem } from "./HistoryItem";
@@ -35,11 +35,13 @@ interface SidebarProps {
   activeConversationId?: Id<"conversations"> | null;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
+  onDeleteConversation?: (id: Id<"conversations">) => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onDeleteConversation }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const history = useQuery(api.conversations.listForUser);
+  const deleteConversation = useMutation(api.conversations.deleteConversation);
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -102,6 +104,14 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
               onClick={() => {
                 if (!isDesktop) onClose();
                 onSelectConversation?.(item._id);
+              }}
+              onDelete={async () => {
+                try {
+                  await deleteConversation({ conversationId: item._id });
+                  onDeleteConversation?.(item._id);
+                } catch {
+                  // Mutation failed — Convex shows error toast, list stays unchanged
+                }
               }}
             />
           ))

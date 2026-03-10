@@ -50,6 +50,12 @@ export function AppShell() {
         activeConversationId={activeConversationId}
         onOpenAdmin={() => setCurrentView("admin")}
         onOpenSettings={() => setCurrentView("settings")}
+        onDeleteConversation={(id) => {
+          if (id === activeConversationId) {
+            setActiveConversationId(null);
+            setCurrentView("empty");
+          }
+        }}
       />
 
       {/* Main content */}

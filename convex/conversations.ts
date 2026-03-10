@@ -98,6 +98,38 @@ export const listForUser = query({
   },
 });
 
+export const deleteConversation = mutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.userId !== user._id) {
+      throw new Error("Conversation not found.");
+    }
+
+    // Delete all messages
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+
+    // Delete all LLM traces
+    const traces = await ctx.db
+      .query("llmTraces")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+    for (const trace of traces) {
+      await ctx.db.delete(trace._id);
+    }
+
+    // Delete the conversation itself
+    await ctx.db.delete(args.conversationId);
+  },
+});
+
 export const getConversation = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
