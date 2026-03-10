@@ -2,11 +2,17 @@ import type { Verdict } from "@/types/chat";
 
 interface VerdictCardProps {
   verdict: Verdict;
+  item?: string;
+  estimatedPrice?: number;
   onNewConversation: () => void;
 }
 
-export function VerdictCard({ verdict, onNewConversation }: VerdictCardProps) {
+export function VerdictCard({ verdict, item, estimatedPrice, onNewConversation }: VerdictCardProps) {
   const isDenied = verdict.type === "denied";
+
+  const itemLabel = item
+    ? `: ${item}${estimatedPrice ? ` ($${estimatedPrice.toLocaleString()})` : ""}`
+    : "";
 
   return (
     <div
@@ -21,7 +27,7 @@ export function VerdictCard({ verdict, onNewConversation }: VerdictCardProps) {
           isDenied ? "text-denied" : "text-approved"
         }`}
       >
-        CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}
+        CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}{itemLabel}
       </div>
       <p className="text-[0.9rem] italic text-text-secondary mb-4">
         &ldquo;{verdict.quote}&rdquo;

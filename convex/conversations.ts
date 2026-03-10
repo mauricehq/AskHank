@@ -79,7 +79,7 @@ export const listForUser = query({
           .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
           .first();
 
-        const title = firstMessage?.content
+        const fallbackTitle = firstMessage?.content
           ? firstMessage.content.length > 40
             ? firstMessage.content.slice(0, 40) + "…"
             : firstMessage.content
@@ -87,7 +87,7 @@ export const listForUser = query({
 
         return {
           _id: conv._id,
-          title,
+          title: conv.item ?? fallbackTitle,
           verdict: conv.verdict,
           status: conv.status,
           createdAt: conv.createdAt,
@@ -229,6 +229,7 @@ export const saveResponseWithScoring = internalMutation({
     stance: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
+    item: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
   },
@@ -245,6 +246,7 @@ export const saveResponseWithScoring = internalMutation({
       stance: args.stance,
       category: args.category,
       estimatedPrice: args.estimatedPrice,
+      item: args.item,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
     });
@@ -261,6 +263,7 @@ export const saveResponseWithVerdict = internalMutation({
     stance: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
+    item: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
   },
@@ -278,6 +281,7 @@ export const saveResponseWithVerdict = internalMutation({
       stance: args.stance,
       category: args.category,
       estimatedPrice: args.estimatedPrice,
+      item: args.item,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
     });

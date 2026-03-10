@@ -29,6 +29,7 @@ export type Urgency = "immediate" | "soon" | "none" | "unknown";
 export type PurchaseHistory = "impulse_pattern" | "planned" | "unknown";
 export type Specificity = "vague" | "moderate" | "specific" | "evidence";
 export type Consistency = "building" | "consistent" | "contradicting" | "first_turn";
+export type Beneficiary = "self" | "shared" | "dependent" | "gift_discretionary";
 
 export interface Assessment {
   item: string;
@@ -44,6 +45,7 @@ export interface Assessment {
   emotional_triggers: string[];
   specificity: Specificity;
   consistency: Consistency;
+  beneficiary: Beneficiary;
 }
 
 // --- Deterministic mapping tables ---
@@ -66,6 +68,20 @@ const ALTERNATIVES_MAP: Record<AlternativesTried, number> = {
 
 const FREQUENCY_MAP: Record<Frequency, number> = {
   daily: 9, weekly: 6, monthly: 3, rarely: 1, unknown: 0,
+};
+
+const BENEFICIARY_FUNCTIONAL_GAP: Record<Beneficiary, number> = {
+  self: 1.0,
+  shared: 1.3,
+  dependent: 1.5,
+  gift_discretionary: 0.5,
+};
+
+const BENEFICIARY_FREQUENCY: Record<Beneficiary, number> = {
+  self: 1.0,
+  shared: 1.2,
+  dependent: 1.3,
+  gift_discretionary: 0.7,
 };
 
 const URGENCY_MAP: Record<Urgency, number> = {
@@ -93,11 +109,20 @@ const CONSISTENCY_MAP: Record<Consistency, number> = {
 };
 
 export function mapAssessmentToScores(assessment: Assessment): ExtractedScores {
+  const bfGap = BENEFICIARY_FUNCTIONAL_GAP[assessment.beneficiary] ?? 1.0;
+  const bfFreq = BENEFICIARY_FREQUENCY[assessment.beneficiary] ?? 1.0;
+
   return {
-    functional_gap: FUNCTIONAL_GAP_MAP[assessment.intent]?.[assessment.current_solution] ?? 0,
+    functional_gap: Math.min(
+      (FUNCTIONAL_GAP_MAP[assessment.intent]?.[assessment.current_solution] ?? 0) * bfGap,
+      10
+    ),
     current_state: CURRENT_STATE_MAP[assessment.current_solution] ?? 0,
     alternatives_owned: ALTERNATIVES_MAP[assessment.alternatives_tried] ?? 0,
-    frequency_of_use: FREQUENCY_MAP[assessment.frequency] ?? 0,
+    frequency_of_use: Math.min(
+      (FREQUENCY_MAP[assessment.frequency] ?? 0) * bfFreq,
+      10
+    ),
     urgency: URGENCY_MAP[assessment.urgency] ?? 0,
     pattern_history: PURCHASE_HISTORY_MAP[assessment.purchase_history] ?? 3,
     emotional_reasoning: emotionalScore(assessment.emotional_triggers ?? []),

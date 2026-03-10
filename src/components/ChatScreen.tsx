@@ -20,7 +20,7 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
-  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation } = useConversation();
+  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice } = useConversation();
   const { isAdmin } = useUserAccess();
 
   const activeConversationId = hookConversationId ?? externalId;
@@ -110,7 +110,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
               </div>
             )}
             {verdict && (
-              <VerdictCard verdict={verdict} onNewConversation={handleNewConversation} />
+              <VerdictCard verdict={verdict} item={item} estimatedPrice={estimatedPrice} onNewConversation={handleNewConversation} />
             )}
             <div ref={messagesEndRef} />
           </div>

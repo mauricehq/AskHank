@@ -30,6 +30,10 @@ function coalesceCategory(llmCategory: string, stored?: string): string {
   return llmCategory && llmCategory !== "other" ? llmCategory : (stored || llmCategory || "other");
 }
 
+function coalesceItem(llmItem: string | undefined, stored?: string): string | undefined {
+  return llmItem && llmItem !== "unknown" ? llmItem : (stored ?? undefined);
+}
+
 const DEFAULT_ASSESSMENT: Assessment = {
   item: "unknown",
   intent: "want",
@@ -44,6 +48,7 @@ const DEFAULT_ASSESSMENT: Assessment = {
   emotional_triggers: [],
   specificity: "vague",
   consistency: "first_turn",
+  beneficiary: "self",
 };
 
 function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
@@ -79,6 +84,9 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
     consistency: (["building", "consistent", "contradicting", "first_turn"] as const).includes(raw.consistency as any)
       ? (raw.consistency as Assessment["consistency"])
       : DEFAULT_ASSESSMENT.consistency,
+    beneficiary: (["self", "shared", "dependent", "gift_discretionary"] as const).includes(raw.beneficiary as any)
+      ? (raw.beneficiary as Assessment["beneficiary"])
+      : DEFAULT_ASSESSMENT.beneficiary,
   };
 }
 
@@ -95,6 +103,7 @@ interface GetStanceResult {
   _stagnationCount: number;
   _category: string;
   _estimatedPrice?: number;
+  _item?: string;
   _decisionType: string;
   _mappedScores: ExtractedScores;
   _scoringResult: ScoringResult;
@@ -115,14 +124,17 @@ interface ConversationState {
   stagnationCount: number;
   storedPrice?: number;
   storedCategory?: string;
+  storedItem?: string;
   turnCount: number;
 }
 
 function executeGetStance(input: ToolArguments, state: ConversationState): GetStanceResult {
-  const { currentStance, disengagementCount, stagnationCount, storedPrice, storedCategory, turnCount } = state;
+  const { currentStance, disengagementCount, stagnationCount, storedPrice, storedCategory, storedItem, turnCount } = state;
 
+  const assessment = sanitizeAssessment(input.assessment);
   const estimatedPrice = coalescePrice(input.estimated_price, storedPrice);
   const category = coalesceCategory(input.category, storedCategory);
+  const item = coalesceItem(assessment.item, storedItem);
 
   // 1. Out of scope → no scoring, deflect
   if (input.is_out_of_scope) {
@@ -135,6 +147,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: stagnationCount,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "out-of-scope",
       _mappedScores: dummyScores,
       _scoringResult: { rawScore: 0, score: 0, stance: currentStance, thresholdMultiplier: 1 },
@@ -143,7 +156,6 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
 
   // 2. Previous stance was CONCEDE → approval verdict
   if (currentStance === "CONCEDE") {
-    const assessment = sanitizeAssessment(input.assessment);
     const mappedScores = mapAssessmentToScores(assessment);
     const scoring = computeScore(mappedScores, estimatedPrice, category);
     return {
@@ -156,6 +168,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: stagnationCount,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "concede",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
@@ -163,7 +176,6 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   }
 
   // 3-7: Score and apply guardrails. Never mutate scoring — keep raw for traces.
-  const assessment = sanitizeAssessment(input.assessment);
   const mappedScores = mapAssessmentToScores(assessment);
   const scoring = computeScore(mappedScores, estimatedPrice, category);
   const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
@@ -180,6 +192,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: stagnationCount,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "disengagement-denied",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
@@ -196,6 +209,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: stagnationCount,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "disengagement-increment",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
@@ -214,6 +228,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: stagnationCount + 1,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "stagnation-denied",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
@@ -240,6 +255,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _stagnationCount: newStagnation,
       _category: category,
       _estimatedPrice: estimatedPrice,
+      _item: item,
       _decisionType: "stagnation-increment",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
@@ -265,6 +281,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     _stagnationCount: 0,
     _category: category,
     _estimatedPrice: estimatedPrice,
+    _item: item,
     _decisionType: scoring.stance !== guardrailedStance ? "normal (stance floored)" : "normal",
     _mappedScores: mappedScores,
     _scoringResult: scoring,
@@ -439,6 +456,7 @@ export const respond = internalAction({
           stagnationCount,
           storedPrice: conversation.estimatedPrice,
           storedCategory: conversation.category,
+          storedItem: conversation.item,
           turnCount,
         });
 
@@ -524,6 +542,7 @@ export const respond = internalAction({
               stance: stanceResult.stance,
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
+              item: stanceResult._item,
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }
@@ -539,6 +558,7 @@ export const respond = internalAction({
               stance: stanceResult.stance,
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
+              item: stanceResult._item,
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }
