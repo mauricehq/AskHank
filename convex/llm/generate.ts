@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion } from "./openrouter";
 import { buildSystemPrompt, buildMessages } from "./prompt";
-import { computeScore, mapAssessmentToScores, applyStanceFloor, type Assessment, type Stance } from "./scoring";
+import { computeScore, mapAssessmentToScores, applyStanceGuardrails, type Assessment, type Stance } from "./scoring";
 
 const VALID_STANCES = new Set<string>(["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"]);
 
@@ -330,7 +330,7 @@ export const respond = internalAction({
       const category = coalesceCategory(parsed.category, conversation.category);
       const scoring = computeScore(mappedScores, estimatedPrice, category);
       const computedStance = scoring.stance;
-      scoring.stance = applyStanceFloor(scoring.stance, turnCount);
+      scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
       // 10. Handle disengagement
       if (parsed.is_non_answer) {
