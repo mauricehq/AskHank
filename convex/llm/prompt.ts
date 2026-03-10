@@ -36,7 +36,7 @@ export function buildToolDefinition(): ToolDefinition {
     function: {
       name: "get_stance",
       description:
-        "Call this when the user presents substantive facts or arguments about their purchase, even in response to your questions. Do NOT call it for casual chat, banter, or when you're still gathering basic information in the first 1-2 turns.",
+        "Assess every user message. For purchase arguments, fill in the assessment fully. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true.",
       parameters: {
         type: "object",
         required: [
@@ -255,10 +255,11 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 
     // Tool usage
     `TOOL USAGE:
-- Call get_stance when the user makes an argument about their purchase (new facts, defense, new info).
-- Do NOT call it for casual chat, answers to your own questions, banter, or info gathering.
-- When you call the tool, follow the guidance it returns.
-- When you do NOT call the tool, respond at your current stance (${stance}).
+- Call get_stance on EVERY user message. No exceptions.
+- For casual chat, greetings, or non-purchase topics: set is_out_of_scope to true.
+- For non-answers or disengagement ("whatever", "fine", "lol"): set is_non_answer to true.
+- For purchase arguments: fill the assessment based on evidence.
+- Follow the guidance the tool returns.
 - Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
 
     // Voice examples

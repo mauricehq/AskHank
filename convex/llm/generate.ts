@@ -417,7 +417,7 @@ export const respond = internalAction({
         modelId,
         maxTokens: 300,
         tools: [toolDef],
-        tool_choice: "auto",
+        tool_choice: "required",
       });
 
       const toolCall = call1.toolCalls?.[0];
@@ -572,7 +572,8 @@ export const respond = internalAction({
 
         await saveTraceQuietly();
       } else {
-        // --- B) No tool call (casual turn) ---
+        // --- B) No tool call (casual turn) — safety net, should not fire with tool_choice: required ---
+        console.warn("LLM skipped tool despite tool_choice: required — falling back to casual path");
         const durationMs = Date.now() - llmStart;
         const responseText = call1.content ?? "";
 

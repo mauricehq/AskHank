@@ -30,7 +30,7 @@ interface ChatCompletionOptions {
   maxTokens?: number;
   responseFormat?: { type: "json_object" };
   tools?: ToolDefinition[];
-  tool_choice?: "auto" | "none";
+  tool_choice?: "auto" | "none" | "required";
 }
 
 interface ChatCompletionResult {
