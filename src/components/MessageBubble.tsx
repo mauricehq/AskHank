@@ -68,6 +68,9 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         {score !== null && (
           <span className="text-zinc-400 font-semibold">{score}</span>
         )}
+        {trace.item && (
+          <span className="text-zinc-500">{trace.item}{trace.estimatedPrice ? ` $${trace.estimatedPrice.toLocaleString()}` : ""}</span>
+        )}
         <span className="text-zinc-500">
           {trace.tokenUsage.totalTokens} tok · {trace.durationMs}ms
         </span>
