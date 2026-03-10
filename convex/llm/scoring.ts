@@ -106,10 +106,27 @@ export function mapAssessmentToScores(assessment: Assessment): ExtractedScores {
   };
 }
 
-export function applyStanceFloor(stance: Stance, turnCount: number): Stance {
+const STANCE_ORDER: Stance[] = ["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"];
+
+export function applyStanceGuardrails(
+  computedStance: Stance,
+  previousStance: Stance,
+  turnCount: number
+): Stance {
+  let stance = computedStance;
+
+  // Floor: turns 1-2, minimum stance is FIRM
   if (turnCount <= 2 && stance === "IMMOVABLE") {
-    return "FIRM";
+    stance = "FIRM";
   }
+
+  // Pace cap: can only advance one level per turn
+  const prevIndex = STANCE_ORDER.indexOf(previousStance);
+  const newIndex = STANCE_ORDER.indexOf(stance);
+  if (newIndex > prevIndex + 1) {
+    stance = STANCE_ORDER[prevIndex + 1];
+  }
+
   return stance;
 }
 
