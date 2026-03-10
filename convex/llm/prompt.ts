@@ -69,7 +69,7 @@ export function buildToolDefinition(): ToolDefinition {
             properties: {
               item: {
                 type: "string",
-                description: "The item they want to buy.",
+                description: "The item they want to buy. Use a stable, concise label (e.g. 'streaming setup', 'iPad'). Only change it if the user's purchase intent has genuinely shifted.",
               },
               intent: {
                 type: "string",

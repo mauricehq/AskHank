@@ -37,6 +37,7 @@ export default defineSchema({
     score: v.optional(v.number()),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
+    item: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
