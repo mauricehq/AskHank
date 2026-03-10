@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
 import { VerdictCard } from "./VerdictCard";
 import { ScrollToBottom } from "./ScrollToBottom";
 import { useConversation } from "@/hooks/useConversation";
+import { useUserAccess } from "@/hooks/useUserAccess";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { TraceSummary } from "@/types/chat";
 
 interface ChatScreenProps {
   conversationId?: Id<"conversations"> | null;
@@ -17,6 +21,23 @@ interface ChatScreenProps {
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
   const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation } = useConversation();
+  const { isAdmin } = useUserAccess();
+
+  const activeConversationId = hookConversationId ?? externalId;
+  const traceSummaries = useQuery(
+    api.llmTraces.getTraceSummariesForConversation,
+    isAdmin && activeConversationId ? { conversationId: activeConversationId } : "skip"
+  );
+
+  const traceByMessageId = useMemo(() => {
+    const map = new Map<string, TraceSummary>();
+    if (traceSummaries) {
+      for (const t of traceSummaries) {
+        if (t.messageId) map.set(t.messageId, t);
+      }
+    }
+    return map;
+  }, [traceSummaries]);
 
   // Sync external ID into the hook
   useEffect(() => {
@@ -75,7 +96,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
         >
           <div className="mx-auto max-w-[720px] px-4 py-4 md:px-6 md:py-6">
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble key={msg.id} message={msg} trace={traceByMessageId.get(msg.id)} />
             ))}
             {isThinking && <TypingIndicator />}
             {isError && (

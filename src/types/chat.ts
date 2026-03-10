@@ -1,3 +1,6 @@
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "../../convex/_generated/api";
+
 export type MessageRole = "user" | "hank";
 
 export interface Message {
@@ -15,3 +18,7 @@ export interface Verdict {
 
 export type Stance = "IMMOVABLE" | "FIRM" | "SKEPTICAL" | "RELUCTANT" | "CONCEDE";
 export type ConversationStatus = "active" | "thinking" | "error" | "closed";
+
+export type TraceSummary = NonNullable<
+  FunctionReturnType<typeof api.llmTraces.getTraceSummariesForConversation>
+>[number];

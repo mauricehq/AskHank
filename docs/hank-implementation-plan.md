@@ -8,7 +8,7 @@
 ┌─────────────────┐     ┌─────────────────────────────────┐
 │                  │     │            Convex                │
 │   Next.js App    │────►│                                 │
-│   (Vercel)       │     │  Auth (Google OAuth)            │
+│   (Vercel)       │     │  Auth (Clerk, Google OAuth)     │
 │                  │     │  Database (conversations,       │
 │  - Chat UI       │     │    credits, saved total)        │
 │  - History       │     │  Scoring Engine (function)      │
@@ -19,8 +19,8 @@
                                    │
                                    ▼
                         ┌─────────────────────┐
-                        │  Claude Haiku /      │
-                        │  GPT-4o-mini         │
+                        │  DeepSeek / any model│
+                        │  via OpenRouter      │
                         └─────────────────────┘
 ```
 
@@ -32,7 +32,7 @@
 
 - [x] Init Next.js project in D:\code\AskHank
 - [x] Init Convex, connect to project
-- [ ] Deploy to Vercel (empty shell, confirms pipeline works)
+- [x] Deploy to Vercel (pipeline confirmed working)
 - [x] Set up environment variables (Convex URL, LLM API key)
 - [x] Basic layout component (app shell, nothing else)
 
@@ -62,15 +62,20 @@
 
 ---
 
-## Phase 2: Hank's Voice (The Core) — 2a/2b/2c ✅, 2d remaining
+## Phase 2: Hank's Voice (The Core)
 
 **Goal:** A working conversation with Hank. This is the make-or-break phase. If the voice doesn't land, nothing else matters.
 
 **Execution order: UI first (2c → 2a → 2b → 2d).** Build the chat UI against mock data so when LLM integration starts, voice tuning happens in the real UI — testing both simultaneously. No wasted iterations.
 
+**Extras built during Phase 2:**
+- Admin panel with role management (normal/insider/admin) and app settings (model selection)
+- Dark theme toggle with next-themes
+- Convex security hardening (requireUser/requireAdmin auth checks on all public functions)
+
 ### 2c: Conversation UI (FIRST)
 
-Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
+Broken into 5 increments. See `docs/chat-ui-spec.md` for full chat UI specification.
 
 #### 2c-1: App Shell & Sidebar ✅
 - [x] Flex layout: sidebar (280px) + chat area (remaining, centered 720px max)
@@ -100,25 +105,33 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [x] Input bar disabled during typing, hidden post-verdict
 
 #### 2c-5: Animations (after 2c-4) ✅
-- [x] Framer Motion: message appear (slide/fade), sidebar toggle, drawer slide
+- [x] CSS keyframes + Tailwind transitions (replaced Framer Motion to reduce bundle size)
+- [x] Message appear (slide/fade), sidebar toggle, drawer slide
 - [x] Verdict reveal animation
 - [x] Typing indicator pulse
 - [x] Button press feedback
 
 ### 2a: LLM Integration ✅
-- [x] Convex action that calls Claude Haiku (or GPT-4o-mini) — `convex/llm/generate.ts` via OpenRouter
-- [x] System prompt v1 — Hank's personality, voice rules, all 7 non-negotiable rules from the spec (`convex/llm/prompt.ts`)
+- [x] Convex action that calls LLM via OpenRouter (model configurable via admin panel, default DeepSeek)
+- [x] System prompt v1 — Hank's personality, voice rules, all 7 non-negotiable rules from the spec
 - [x] Basic request/response: send user message → get Hank's response
-- [x] Structured output: Hank's text response + JSON scores per factor (functional gap, current state, alternatives, frequency, urgency, pattern history, emotional reasoning, specificity, consistency)
-- [x] Out-of-scope deflection for non-purchase topics
+- [x] Structured JSON output: Hank's text response + scores per factor (functional gap, current state, alternatives, frequency, urgency, pattern history, emotional reasoning, specificity, consistency)
+
+**Decisions made:**
+- OpenRouter as LLM proxy (model-agnostic, easy to swap models via admin panel)
+- `ctx.scheduler.runAfter(0)` pattern for async LLM calls — user sees "thinking" state immediately
+- Admin panel controls model selection + app settings
 
 ### 2b: Scoring Engine ✅
-- [x] Convex function: takes structured scores, computes weighted total, returns stance (`convex/llm/scoring.ts`)
+- [x] Pure scoring function (`convex/llm/scoring.ts`): weighted factors, price/category modifiers, stance thresholds
 - [x] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
-- [x] Stance fed back into next LLM call as context: "Your current stance is: FIRM. Do not concede."
+- [x] Dynamic stance fed into each LLM call: "Your current stance is X. [stance-specific instructions]"
+- [x] One LLM call per turn — returns both response + scores as JSON (halves cost vs two-call approach)
 - [x] Disengagement detection: two consecutive non-answers → case closure (denied)
-- [x] Price bracket modifiers ($15/$50/$200/$500 thresholds)
-- [x] Category modifiers (cars, electronics, fashion, furniture, essentials, safety/health)
+- [x] Verdict system: conversations close with "approved" (CONCEDE stance) or "denied" (disengagement)
+- [x] VerdictCard wired to real data (was mocked in 2c)
+
+**Key design:** Stance comes from the PREVIOUS turn's scoring. First turn defaults to FIRM. The one-turn delay is invisible — first response is always pushback.
 
 ### 2d: Voice Tuning
 - [ ] Test 20-30 real conversations with different purchase scenarios
@@ -127,8 +140,6 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 - [ ] Test disengagement flow (one-word answers, "I want it" on repeat)
 - [ ] Test concession flow (genuinely justified purchases)
 - [ ] Adjust weights if concession rate is outside 10-15% target
-
-**Note:** Infrastructure is complete (prompt, scoring, stance injection, admin model switcher). What remains is the actual tuning work — running conversations and adjusting weights/prompt.
 
 **This phase is where you spend the most time.** Not on code — on the prompt. The system prompt IS the product. Iterate until Hank sounds right.
 
@@ -140,21 +151,16 @@ Broken into 5 increments. See `tmp-spec.md` for full chat UI specification.
 
 **Goal:** Conversations are saved. Hank remembers. The "saved $X" counter works.
 
-### 3a: Conversation Storage ✅
-- [x] Convex schema: conversations table (userId, status, stance, score, category, estimatedPrice, disengagementCount, verdict, createdAt) + messages table (conversationId, role, content, createdAt)
-- [x] Each conversation stored as it happens (messages added in real-time via `send` mutation)
-- [x] Verdict saved when conversation closes (denied/approved) via `saveResponseWithVerdict`
-- [x] Scores and stance updated after each Hank response via `saveResponseWithScoring`
+### 3a: Conversation Storage (partially done)
+- [x] Convex schema: conversations table (userId, status, stance, score, category, estimatedPrice, disengagementCount, verdict, createdAt)
+- [x] Separate messages table (conversationId, role, content, createdAt) — messages stored in real-time
+- [x] Verdict saved when conversation closes (approved/denied)
 - [ ] On close: generate one-line summary (pre-computed, not on-the-fly) — item, price, verdict, strongest claim, key quote
 
-### 3b: Conversation History ✅
-- [x] Sidebar shows chronological list of past conversations (reverse chrono, `listForUser` query)
-- [x] Each entry: item name (first user message, truncated), relative time, verdict badge (denied/approved/pending)
-- [x] Click to load full conversation with all messages
-- [x] Closed conversations show verdict card and hide input
-- [x] Active conversation highlighted in sidebar
-- [x] New conversation ID syncs back to parent for sidebar highlighting
-- [x] Skeleton loading state while history loads, empty state when no conversations
+### 3b: Conversation History
+- [ ] History screen — chronological list of past conversations
+- [ ] Each entry: item name, date, verdict (denied/approved), amount saved
+- [ ] Tap to revisit full conversation (read-only)
 
 ### 3c: "Saved $X" Counter
 - [ ] Running total stored per user in Convex
@@ -204,13 +210,13 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 
 **Goal:** The app feels good and produces shareable content.
 
-### 5a: Micro-interactions (Framer Motion)
-- [ ] Message appear animation (Hank's responses slide/fade in)
-- [ ] Typing indicator animation
-- [ ] Verdict reveal (denied = firm, approved = reluctant acknowledgment)
-- [ ] "Saved $X" counter tick-up animation
-- [ ] Screen transitions
-- [ ] Button press feedback
+### 5a: Micro-interactions ✅ (done in 2c-5, CSS keyframes)
+- [x] Message appear animation (Hank's responses slide/fade in)
+- [x] Typing indicator animation
+- [x] Verdict reveal (denied = firm, approved = reluctant acknowledgment)
+- [ ] "Saved $X" counter tick-up animation (needs Phase 3c first)
+- [x] Screen transitions
+- [x] Button press feedback
 
 ### 5b: Share
 - [ ] Share button on completed conversations
@@ -282,23 +288,17 @@ Only if web proves traction. Not before.
 
 ## Total Timeline (Web Launch)
 
-| Phase | Time | What |
-|-------|------|------|
-| 0: Setup ✅ | Hours | Project scaffolding |
-| 1: Auth ✅ | 1 day | Clerk auth (Google + Email/Password) |
-| 2: Hank's Voice ✅ (2d remaining) | 3-5 days | LLM, scoring engine, chat UI, prompt tuning |
-| 3: Persistence ✅ (3c/3d remaining) | 2-3 days | History, saved counter, memory (summaries) |
-| 4: Credits + Stripe | 2-3 days | Credit system, payments |
-| 5: Polish + Share | 2-3 days | Animations, share cards, landing content |
-| 6: Launch Prep | 1-2 days | Legal, domain, content prep |
-| **Total** | **~2-3 weeks** | **Web app live, TikTok engine running** |
-| 7: User Dossier | 2-3 days | v1.5 — post-launch, needs user data first |
-| 8: iOS | 1-2 weeks | Only if web proves traction |
-
-### Completed outside original plan
-- **Admin panel** — Model selection (primary + fallback), killswitch with reason, user management (`src/components/admin/`)
-- **Settings panel** — Display name editor, theme toggle, sign out, delete account with 2-step confirmation (`src/components/SettingsPanel.tsx`)
-- **Onboarding** — "What should Hank call you?" prompt for new users
+| Phase | Status | What |
+|-------|--------|------|
+| 0: Setup | ✅ Done | Project scaffolding |
+| 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
+| 2: Hank's Voice | ✅ 2c/2a/2b done, 2d remaining | Chat UI, LLM via OpenRouter, scoring engine |
+| 3: Persistence | Partial (3a storage done) | History UI, saved counter, memory |
+| 4: Credits + Stripe | Not started | Credit system, payments |
+| 5: Polish + Share | ✅ 5a done | Share cards, landing content remaining |
+| 6: Launch Prep | Not started | Legal, domain, content prep |
+| 7: User Dossier | Not started | v1.5 — post-launch, needs user data first |
+| 8: iOS | Not started | Only if web proves traction |
 
 Phase 2 is where you should spend the most time. The voice is the product. Everything else is a container.
 
@@ -306,9 +306,9 @@ Phase 2 is where you should spend the most time. The voice is the product. Every
 
 ## What to Mock During Development
 
-- **LLM responses** — mock Hank's replies while building UI. Only use real API calls when tuning the voice (Phase 2d).
+- ~~**LLM responses** — mock Hank's replies while building UI.~~ ✅ Real LLM calls wired up.
 - **Stripe** — use Stripe test mode throughout. Switch to live when launching.
-- **Scoring engine** — can hardcode stances while building conversation UI, then wire up real scoring.
+- ~~**Scoring engine** — can hardcode stances while building conversation UI.~~ ✅ Real scoring engine wired up.
 
 ---
 
@@ -405,8 +405,8 @@ Tyler's prompt structure in `lib/advisor/prompts.ts` maps directly to Hank:
 
 ## Open Questions Remaining
 
-1. **App name / domain** — "Hank" as the app? "Ask Hank"? Need a URL.
+1. ~~**App name / domain**~~ — AskHank / askhank.app.
 2. ~~**Photo input in web v1?**~~ **Yes — proven.** Already built camera-based scanning for Hopshelf (Google Gemini Flash). Same approach for Hank.
-3. **System prompt** — needs its own design doc. The most important deliverable.
+3. ~~**System prompt**~~ — Done. Lives in `convex/llm/prompt.ts`. Dynamic stance, JSON output, scoring guidelines.
 4. **Credit reset timezone** — UTC or user's timezone? UTC is simpler.
 5. **Conversation memory scope** — how many past conversations to inject as context? All of them gets expensive. Last 10? Last 30 days?
