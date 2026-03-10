@@ -98,13 +98,13 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
         <div className="space-y-2">
           <div>
             <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-              Raw Scores
+              Assessment
             </div>
             <JsonBlock data={rawScores} />
           </div>
           <div>
             <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-              Sanitized Scores
+              Mapped Scores
             </div>
             <JsonBlock data={sanitizedScores} />
           </div>

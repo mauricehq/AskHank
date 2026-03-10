@@ -125,16 +125,20 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 
 {
   "response": "Your response to the user (1-3 sentences, following all rules above)",
-  "scores": {
-    "functional_gap": 0,
-    "current_state": 0,
-    "alternatives_owned": 0,
-    "frequency_of_use": 0,
-    "urgency": 0,
-    "pattern_history": 3,
-    "emotional_reasoning": 0,
-    "specificity": 1.0,
-    "consistency": 1.0
+  "assessment": {
+    "item": "the item they want to buy",
+    "intent": "want",
+    "current_solution": "unknown",
+    "current_solution_detail": null,
+    "alternatives_tried": "unknown",
+    "alternatives_detail": null,
+    "frequency": "unknown",
+    "urgency": "none",
+    "urgency_detail": null,
+    "purchase_history": "unknown",
+    "emotional_triggers": [],
+    "specificity": "vague",
+    "consistency": "first_turn"
   },
   "category": "other",
   "estimated_price": 0,
@@ -143,25 +147,76 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
   "has_new_information": true
 }
 
-SCORING GUIDELINES — score based on what the user has DEMONSTRATED, not claimed:
+ASSESSMENT GUIDELINES — classify based on what the user has DEMONSTRATED, not claimed. Pick the option that best matches. Use "unknown" when there's no evidence either way.
 
-functional_gap (0-10): How real is the gap between what they have and what they need? 0 = no gap, they have something that works. 10 = critical gap, nothing they own can do this.
+intent — why do they want it?
+  "want" = pure desire, no functional reason
+  "need" = filling a gap, they don't have one
+  "replace" = current one is broken/failing
+  "upgrade" = current one works but they want better
+  "gift" = buying for someone else
 
-current_state (0-10): How broken/inadequate is their current solution? 0 = works perfectly fine. 10 = completely broken, dangerous, or non-functional.
+current_solution — what's the state of what they have now?
+  "broken" = completely non-functional
+  "failing" = works but has serious problems
+  "outdated" = works but significantly behind
+  "working" = works fine
+  "none" = they don't have one at all
+  "unknown" = hasn't been discussed
 
-alternatives_owned (0-10): Have they exhausted cheaper alternatives? 0 = obvious cheap alternatives exist. 10 = they've tried everything reasonable.
+current_solution_detail — brief evidence quote if they described their current situation (e.g. "screen cracked 2 weeks ago"). null if unknown.
 
-frequency_of_use (0-10): How often would they actually use this? 0 = once or twice. 10 = daily essential.
+alternatives_tried — have they explored other options?
+  "exhausted" = tried multiple alternatives, none worked
+  "some" = tried a few things
+  "none" = haven't tried anything else
+  "unknown" = hasn't been discussed
 
-urgency (0-10): Is there a real deadline or consequence for waiting? 0 = no urgency. 10 = immediate need with consequences.
+alternatives_detail — brief evidence if they mentioned trying alternatives (e.g. "took it to repair shop, $300 quote"). null if unknown.
 
-pattern_history (0-10): Neutral baseline. Use 3 for default (no cross-session data yet). Only deviate if the user reveals purchasing patterns in conversation.
+frequency — how often would they use this?
+  "daily" = every day or nearly
+  "weekly" = a few times a week
+  "monthly" = a few times a month
+  "rarely" = occasional use
+  "unknown" = hasn't been discussed
 
-emotional_reasoning (0 to -10): How much of their argument is emotion vs logic? 0 = purely logical. -10 = entirely emotional ("I just want it", "I deserve it", "it would make me happy").
+urgency — is there a real deadline or time pressure?
+  "immediate" = needs it now, real consequence for waiting
+  "soon" = needs it in days/weeks, soft deadline
+  "none" = no time pressure
+  "unknown" = hasn't been discussed
 
-specificity (0.3-1.5): Multiplier for how specific and detailed their arguments are. 0.3 = vague hand-waving. 1.0 = normal detail. 1.5 = extremely specific with evidence.
+urgency_detail — brief evidence if they mentioned urgency (e.g. "moving next week"). null if unknown.
 
-consistency (0.0-1.2): Multiplier for how consistent their arguments have been across the conversation. 0.0 = contradicting themselves. 1.0 = consistent. 1.2 = building a coherent case over multiple turns.
+purchase_history — what patterns has the user revealed?
+  "impulse_pattern" = admits to frequent impulse buying, retail therapy
+  "planned" = has been researching/saving, deliberate process
+  "unknown" = no pattern revealed
+
+emotional_triggers — array of emotional language detected. Pick ALL that apply from:
+  "i_want_it" = pure desire language ("I just want it", "I really want one")
+  "i_deserve_it" = entitlement ("I've earned this", "I work hard")
+  "treat_myself" = self-reward ("treating myself", "I deserve a treat")
+  "makes_me_happy" = happiness-based ("it would make me happy", "it brings me joy")
+  "everyone_has_one" = social pressure ("everyone has one", "my friends all have it")
+  "fomo" = fear of missing out ("sale ends soon", "limited edition", "might sell out")
+  "retail_therapy" = shopping as coping ("had a bad week", "stressed out")
+  "bored" = boredom-driven ("nothing else to do", "just browsing")
+  "impulse" = admitted impulse ("just saw it", "on a whim")
+  Empty array [] if no emotional triggers detected.
+
+specificity — how detailed are their arguments?
+  "vague" = hand-waving, no details ("I want a TV", "I need new shoes")
+  "moderate" = some details but gaps ("my phone is slow, thinking about iPhone")
+  "specific" = clear details ("my 5-year-old laptop crashes daily, need one for work")
+  "evidence" = specific facts with evidence ("repair shop quoted $300, replacement is $400, I use it 4hrs/day for work")
+
+consistency — how consistent across the conversation?
+  "first_turn" = this is the first or second message
+  "building" = adding new supporting facts that strengthen their case
+  "consistent" = repeating but not contradicting
+  "contradicting" = saying things that conflict with earlier claims
 
 CATEGORY — classify the purchase:
 electronics | cars | fashion | furniture | essentials | safety_health | other

@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion } from "./openrouter";
 import { buildSystemPrompt, buildMessages } from "./prompt";
-import { computeScore, type ExtractedScores, type Stance } from "./scoring";
+import { computeScore, mapAssessmentToScores, applyStanceFloor, type Assessment, type Stance } from "./scoring";
 
 const VALID_STANCES = new Set<string>(["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"]);
 
@@ -27,7 +27,7 @@ function coalesceCategory(llmCategory: string, stored?: string): string {
 
 interface StructuredResponse {
   response: string;
-  scores: ExtractedScores;
+  assessment: Assessment;
   category: string;
   estimated_price: number;
   is_non_answer: boolean;
@@ -35,22 +35,55 @@ interface StructuredResponse {
   has_new_information: boolean;
 }
 
-function clampScore(val: unknown, min: number, max: number, fallback: number): number {
-  const n = typeof val === "number" ? val : fallback;
-  return Math.max(min, Math.min(max, n));
-}
+const DEFAULT_ASSESSMENT: Assessment = {
+  item: "unknown",
+  intent: "want",
+  current_solution: "unknown",
+  current_solution_detail: null,
+  alternatives_tried: "unknown",
+  alternatives_detail: null,
+  frequency: "unknown",
+  urgency: "none",
+  urgency_detail: null,
+  purchase_history: "unknown",
+  emotional_triggers: [],
+  specificity: "vague",
+  consistency: "first_turn",
+};
 
-function sanitizeScores(raw: Record<string, unknown>): ExtractedScores {
+function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
   return {
-    functional_gap: clampScore(raw.functional_gap, 0, 10, 0),
-    current_state: clampScore(raw.current_state, 0, 10, 0),
-    alternatives_owned: clampScore(raw.alternatives_owned, 0, 10, 0),
-    frequency_of_use: clampScore(raw.frequency_of_use, 0, 10, 0),
-    urgency: clampScore(raw.urgency, 0, 10, 0),
-    pattern_history: clampScore(raw.pattern_history, 0, 10, 3),
-    emotional_reasoning: clampScore(raw.emotional_reasoning, -10, 0, 0),
-    specificity: clampScore(raw.specificity, 0.3, 1.5, 1.0),
-    consistency: clampScore(raw.consistency, 0.0, 1.2, 1.0),
+    item: typeof raw.item === "string" ? raw.item : DEFAULT_ASSESSMENT.item,
+    intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(raw.intent as any)
+      ? (raw.intent as Assessment["intent"])
+      : DEFAULT_ASSESSMENT.intent,
+    current_solution: (["none", "broken", "failing", "outdated", "working", "unknown"] as const).includes(raw.current_solution as any)
+      ? (raw.current_solution as Assessment["current_solution"])
+      : DEFAULT_ASSESSMENT.current_solution,
+    current_solution_detail: typeof raw.current_solution_detail === "string" ? raw.current_solution_detail : null,
+    alternatives_tried: (["exhausted", "some", "none", "unknown"] as const).includes(raw.alternatives_tried as any)
+      ? (raw.alternatives_tried as Assessment["alternatives_tried"])
+      : DEFAULT_ASSESSMENT.alternatives_tried,
+    alternatives_detail: typeof raw.alternatives_detail === "string" ? raw.alternatives_detail : null,
+    frequency: (["daily", "weekly", "monthly", "rarely", "unknown"] as const).includes(raw.frequency as any)
+      ? (raw.frequency as Assessment["frequency"])
+      : DEFAULT_ASSESSMENT.frequency,
+    urgency: (["immediate", "soon", "none", "unknown"] as const).includes(raw.urgency as any)
+      ? (raw.urgency as Assessment["urgency"])
+      : DEFAULT_ASSESSMENT.urgency,
+    urgency_detail: typeof raw.urgency_detail === "string" ? raw.urgency_detail : null,
+    purchase_history: (["impulse_pattern", "planned", "unknown"] as const).includes(raw.purchase_history as any)
+      ? (raw.purchase_history as Assessment["purchase_history"])
+      : DEFAULT_ASSESSMENT.purchase_history,
+    emotional_triggers: Array.isArray(raw.emotional_triggers)
+      ? raw.emotional_triggers.filter((t: unknown) => typeof t === "string")
+      : [],
+    specificity: (["vague", "moderate", "specific", "evidence"] as const).includes(raw.specificity as any)
+      ? (raw.specificity as Assessment["specificity"])
+      : DEFAULT_ASSESSMENT.specificity,
+    consistency: (["building", "consistent", "contradicting", "first_turn"] as const).includes(raw.consistency as any)
+      ? (raw.consistency as Assessment["consistency"])
+      : DEFAULT_ASSESSMENT.consistency,
   };
 }
 
@@ -95,14 +128,14 @@ function validateParsed(parsed: Record<string, unknown>): StructuredResponse {
     throw new Error("Parsed JSON has no response field");
   }
 
-  const rawScores =
-    typeof parsed.scores === "object" && parsed.scores !== null
-      ? (parsed.scores as Record<string, unknown>)
+  const rawAssessment =
+    typeof parsed.assessment === "object" && parsed.assessment !== null
+      ? (parsed.assessment as Record<string, unknown>)
       : {};
 
   return {
     response,
-    scores: sanitizeScores(rawScores),
+    assessment: sanitizeAssessment(rawAssessment),
     category: typeof parsed.category === "string" ? parsed.category : "other",
     estimated_price:
       typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
@@ -228,18 +261,19 @@ export const respond = internalAction({
         tokenUsage: result.usage,
       });
 
-      // Capture raw scores before sanitization
+      // Capture raw assessment before mapping
       try {
         const rawParsed = JSON.parse(result.content);
-        traceData.rawScores = JSON.stringify(rawParsed.scores ?? {});
+        traceData.rawScores = JSON.stringify(rawParsed.assessment ?? {});
       } catch {
         traceData.rawScores = "{}";
       }
 
-      // 6. Parse JSON response
+      // 6. Parse JSON response and map assessment to scores
       const parsed = parseStructuredResponse(result.content);
+      const mappedScores = mapAssessmentToScores(parsed.assessment);
       traceData.parsedResponse = JSON.stringify(parsed);
-      traceData.sanitizedScores = JSON.stringify(parsed.scores);
+      traceData.sanitizedScores = JSON.stringify(mappedScores);
 
       // 7. Out of scope — save response, skip scoring
       if (parsed.is_out_of_scope) {
@@ -265,7 +299,7 @@ export const respond = internalAction({
       if (currentStance === "CONCEDE") {
         const price = coalescePrice(parsed.estimated_price, conversation.estimatedPrice);
         const cat = coalesceCategory(parsed.category, conversation.category);
-        const scoring = computeScore(parsed.scores, price, cat);
+        const scoring = computeScore(mappedScores, price, cat);
         const messageId = await ctx.runMutation(internal.conversations.saveResponseWithVerdict, {
           conversationId: args.conversationId,
           content: parsed.response,
@@ -291,10 +325,12 @@ export const respond = internalAction({
         return;
       }
 
-      // 9. Run scoring
+      // 9. Run scoring with stance floor
       const estimatedPrice = coalescePrice(parsed.estimated_price, conversation.estimatedPrice);
       const category = coalesceCategory(parsed.category, conversation.category);
-      const scoring = computeScore(parsed.scores, estimatedPrice, category);
+      const scoring = computeScore(mappedScores, estimatedPrice, category);
+      const computedStance = scoring.stance;
+      scoring.stance = applyStanceFloor(scoring.stance, turnCount);
 
       // 10. Handle disengagement
       if (parsed.is_non_answer) {
@@ -428,7 +464,7 @@ export const respond = internalAction({
       });
       Object.assign(traceData, {
         messageId,
-        decisionType: "normal",
+        decisionType: computedStance !== scoring.stance ? "normal (stance floored)" : "normal",
         newStance: scoring.stance,
         scoringResult: JSON.stringify(scoring),
         category,
