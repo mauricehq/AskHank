@@ -230,6 +230,7 @@ export const saveResponseWithScoring = internalMutation({
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     item: v.optional(v.string()),
+    lastAssessment: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
   },
@@ -247,6 +248,7 @@ export const saveResponseWithScoring = internalMutation({
       category: args.category,
       estimatedPrice: args.estimatedPrice,
       item: args.item,
+      lastAssessment: args.lastAssessment,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
     });
@@ -309,6 +311,7 @@ export const saveResponseWithVerdict = internalMutation({
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     item: v.optional(v.string()),
+    lastAssessment: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
   },
@@ -327,6 +330,7 @@ export const saveResponseWithVerdict = internalMutation({
       category: args.category,
       estimatedPrice: args.estimatedPrice,
       item: args.item,
+      lastAssessment: args.lastAssessment,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
     });

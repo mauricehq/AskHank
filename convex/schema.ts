@@ -38,6 +38,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     item: v.optional(v.string()),
+    lastAssessment: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
@@ -94,6 +95,7 @@ export default defineSchema({
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),
+    coalescingOverrides: v.optional(v.string()),
 
     // Error
     error: v.optional(v.string()),

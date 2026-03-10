@@ -34,6 +34,49 @@ function coalesceItem(llmItem: string | undefined, stored?: string): string | un
   return llmItem && llmItem !== "unknown" ? llmItem : (stored ?? undefined);
 }
 
+const ALTERNATIVES_ORDER: Assessment["alternatives_tried"][] =
+  ["unknown", "none", "some", "exhausted"];
+const SPECIFICITY_ORDER: Assessment["specificity"][] =
+  ["vague", "moderate", "specific", "evidence"];
+const PRICE_POSITIONING_ORDER: Assessment["price_positioning"][] =
+  ["budget", "standard", "premium", "luxury"];
+
+function coalesceMonotonic<T>(newVal: T, prevVal: T, order: T[]): T {
+  const prevIdx = order.indexOf(prevVal);
+  const newIdx = order.indexOf(newVal);
+  if (prevIdx === -1) return newVal;
+  if (newIdx === -1) return prevVal;
+  return newIdx >= prevIdx ? newVal : prevVal;
+}
+
+function assessmentCoalescingDiff(
+  raw: Assessment,
+  coalesced: Assessment,
+): Record<string, { llm: unknown; kept: unknown }> | null {
+  const diff: Record<string, { llm: unknown; kept: unknown }> = {};
+  for (const key of Object.keys(raw) as (keyof Assessment)[]) {
+    const rawVal = raw[key];
+    const coalescedVal = coalesced[key];
+    if (JSON.stringify(rawVal) !== JSON.stringify(coalescedVal)) {
+      diff[key] = { llm: rawVal, kept: coalescedVal };
+    }
+  }
+  return Object.keys(diff).length > 0 ? diff : null;
+}
+
+function coalesceAssessment(current: Assessment, prev: Assessment | null): Assessment {
+  if (!prev) return current;
+  return {
+    ...current,
+    alternatives_tried: coalesceMonotonic(current.alternatives_tried, prev.alternatives_tried, ALTERNATIVES_ORDER),
+    specificity: coalesceMonotonic(current.specificity, prev.specificity, SPECIFICITY_ORDER),
+    price_positioning: coalesceMonotonic(current.price_positioning, prev.price_positioning, PRICE_POSITIONING_ORDER),
+    alternatives_detail: current.alternatives_detail ?? prev.alternatives_detail,
+    current_solution_detail: current.current_solution_detail ?? prev.current_solution_detail,
+    urgency_detail: current.urgency_detail ?? prev.urgency_detail,
+  };
+}
+
 const DEFAULT_ASSESSMENT: Assessment = {
   item: "unknown",
   intent: "want",
@@ -111,6 +154,7 @@ interface GetStanceResult {
   _decisionType: string;
   _mappedScores: ExtractedScores;
   _scoringResult: ScoringResult;
+  _coalescedAssessment: Assessment;
 }
 
 interface ToolArguments {
@@ -130,12 +174,14 @@ interface ConversationState {
   storedCategory?: string;
   storedItem?: string;
   turnCount: number;
+  previousAssessment?: Assessment | null;
 }
 
 function executeGetStance(input: ToolArguments, state: ConversationState): GetStanceResult {
   const { currentStance, disengagementCount, stagnationCount, storedPrice, storedCategory, storedItem, turnCount } = state;
 
-  const assessment = sanitizeAssessment(input.assessment);
+  const rawAssessment = sanitizeAssessment(input.assessment);
+  const assessment = coalesceAssessment(rawAssessment, state.previousAssessment ?? null);
   const estimatedPrice = coalescePrice(input.estimated_price, storedPrice);
   const category = coalesceCategory(input.category, storedCategory);
   const item = coalesceItem(assessment.item, storedItem);
@@ -155,6 +201,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "out-of-scope",
       _mappedScores: dummyScores,
       _scoringResult: { rawScore: 0, score: 0, stance: currentStance, thresholdMultiplier: 1, priceModifier: 1, positioningModifier: 1 },
+      _coalescedAssessment: state.previousAssessment ?? DEFAULT_ASSESSMENT,
     };
   }
 
@@ -176,6 +223,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "concede",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
+      _coalescedAssessment: assessment,
     };
   }
 
@@ -200,6 +248,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "disengagement-denied",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
+      _coalescedAssessment: assessment,
     };
   }
 
@@ -217,6 +266,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "disengagement-increment",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
+      _coalescedAssessment: assessment,
     };
   }
 
@@ -236,6 +286,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "stagnation-denied",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
+      _coalescedAssessment: assessment,
     };
   }
 
@@ -263,6 +314,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _decisionType: "stagnation-increment",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
+      _coalescedAssessment: assessment,
     };
   }
 
@@ -289,6 +341,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     _decisionType: scoring.stance !== guardrailedStance ? "normal (stance floored)" : "normal",
     _mappedScores: mappedScores,
     _scoringResult: scoring,
+    _coalescedAssessment: assessment,
   };
 }
 
@@ -320,6 +373,7 @@ type TraceData = Partial<{
   toolCalled: boolean;
   toolArguments: string;
   toolResult: string;
+  coalescingOverrides: string;
 }>;
 
 function addUsage(
@@ -369,6 +423,16 @@ export const respond = internalAction({
       const stagnationCount = conversation.stagnationCount ?? 0;
       const turnCount = messages.filter((m) => m.role === "user").length;
 
+      // Parse previous assessment for consistency
+      let previousAssessment: Assessment | null = null;
+      if (conversation.lastAssessment) {
+        try {
+          previousAssessment = sanitizeAssessment(JSON.parse(conversation.lastAssessment));
+        } catch {
+          previousAssessment = null;
+        }
+      }
+
       const modelId = (await ctx.runQuery(
         internal.conversations.internalGetSetting,
         { key: "hank_model" }
@@ -388,6 +452,7 @@ export const respond = internalAction({
         category: conversation.category,
         stagnationCount,
         turnCount,
+        previousAssessment: previousAssessment as Record<string, unknown> | null,
       });
 
       const llmMessages = buildMessages(
@@ -462,6 +527,7 @@ export const respond = internalAction({
           storedCategory: conversation.category,
           storedItem: conversation.item,
           turnCount,
+          previousAssessment,
         });
 
         // Build tool result for LLM (only public fields)
@@ -511,12 +577,14 @@ export const respond = internalAction({
             ? (toolArgs.assessment as Record<string, unknown>)
             : {}
         );
+        const coalescingDiff = assessmentCoalescingDiff(rawAssessment, stanceResult._coalescedAssessment);
 
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
           rawScores: JSON.stringify(rawAssessment),
+          coalescingOverrides: coalescingDiff ? JSON.stringify(coalescingDiff) : undefined,
           sanitizedScores: JSON.stringify(stanceResult._mappedScores),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
           parsedResponse: JSON.stringify({ response: responseText, toolArgs }),
@@ -547,6 +615,7 @@ export const respond = internalAction({
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
               item: stanceResult._item,
+              lastAssessment: JSON.stringify(stanceResult._coalescedAssessment),
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }
@@ -563,6 +632,7 @@ export const respond = internalAction({
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
               item: stanceResult._item,
+              lastAssessment: JSON.stringify(stanceResult._coalescedAssessment),
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }

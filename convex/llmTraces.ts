@@ -30,6 +30,7 @@ export const debugDump = internalQuery({
 
     return traces.map((t, i) => {
       const assessment = safeJsonParse(t.rawScores);
+      const coalescingOverrides = safeJsonParse(t.coalescingOverrides);
       const scores = safeJsonParse(t.sanitizedScores);
       const scoring = safeJsonParse(t.scoringResult);
       const toolArgs = safeJsonParse(t.toolArguments);
@@ -76,6 +77,7 @@ export const debugDump = internalQuery({
           price_positioning: assessment.price_positioning,
           emotional_triggers: assessment.emotional_triggers,
         } : null,
+        coalescingOverrides,
         mappedScores: scores,
         toolArgs: toolArgs ? {
           is_non_answer: toolArgs.is_non_answer,
@@ -121,6 +123,7 @@ export const saveTrace = internalMutation({
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),
+    coalescingOverrides: v.optional(v.string()),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

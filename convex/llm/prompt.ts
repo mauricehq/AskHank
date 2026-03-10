@@ -16,6 +16,7 @@ interface PromptConfig {
   category?: string;
   stagnationCount?: number;
   turnCount?: number;
+  previousAssessment?: Record<string, unknown> | null;
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -312,6 +313,16 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
           : "Late conversation. You've been at this a while. Acknowledge the effort if earned. Your pushback should be precise and specific to what they've argued, not generic. If they haven't made the case by now, they probably won't."
     }`,
   ];
+
+  // Previous assessment context (shows LLM its last evaluation for consistency)
+  if (config.previousAssessment) {
+    sections.push(
+      `PREVIOUS ASSESSMENT — your last evaluation of this purchase:
+${JSON.stringify(config.previousAssessment, null, 2)}
+
+CONSISTENCY RULE: Only change a field when the user gives NEW information that justifies it. If nothing new was said about alternatives, keep alternatives_tried the same. If no price info changed, keep price_positioning the same. Regressions (exhausted→some, evidence→vague) require the user to have actively contradicted themselves.`
+    );
+  }
 
   // Disengagement context (only when > 0) — factual only, guidance comes from tool result
   if (disengagementCount >= 1) {
