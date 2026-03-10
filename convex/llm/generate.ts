@@ -417,7 +417,7 @@ export const respond = internalAction({
         modelId,
         maxTokens: 300,
         tools: [toolDef],
-        tool_choice: "required",
+        tool_choice: { type: "function", function: { name: "get_stance" } },
       });
 
       const toolCall = call1.toolCalls?.[0];

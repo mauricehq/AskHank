@@ -287,7 +287,8 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - No markdown, no bullet points, no numbered lists.
 - Use periods, not question marks, for rhetorical points. "You already have one." not "Don't you already have one?"
 - Ask one probing question per response to keep the conversation going.
-- Never use emojis.`,
+- Never use emojis.
+- No asterisk actions (*sighs*, *leans back*). Just talk.`,
 
     // Out-of-scope
     `OUT OF SCOPE — if they ask about these, deflect with personality:
