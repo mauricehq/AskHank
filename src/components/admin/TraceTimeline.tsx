@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
 import { TraceDetail } from "./TraceDetail";
 
 const DECISION_COLORS: Record<string, string> = {
@@ -28,6 +28,7 @@ export function TraceTimeline({ conversationId }: TraceTimelineProps) {
     conversationId,
   });
   const [expandedId, setExpandedId] = useState<Id<"llmTraces"> | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (traces === undefined || messages === undefined) {
     return (
@@ -43,22 +44,44 @@ export function TraceTimeline({ conversationId }: TraceTimelineProps) {
     );
   }
 
-  // Build a map of messageId → user message content (the message that triggered each trace)
-  const messageMap = new Map<string, string>();
-  for (const msg of messages) {
-    messageMap.set(msg._id, msg.content);
+  // Build ordered messages and a lookup map
+  const sortedMsgs = [...messages].sort((a, b) => a.createdAt - b.createdAt);
+  const msgIndexById = new Map<string, number>();
+  for (let i = 0; i < sortedMsgs.length; i++) {
+    msgIndexById.set(sortedMsgs[i]._id, i);
   }
 
   return (
     <div className="space-y-1">
-      <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">
-        {traces.length} trace{traces.length !== 1 ? "s" : ""}
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">
+        <span>{traces.length} trace{traces.length !== 1 ? "s" : ""}</span>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(conversationId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-text-secondary hover:text-text hover:bg-bg-surface transition-colors"
+          title="Copy conversation ID"
+        >
+          {copied ? <Check size={10} /> : <Copy size={10} />}
+          {copied ? "Copied" : "Copy ID"}
+        </button>
       </div>
       {traces.map((trace, i) => {
         const isExpanded = expandedId === trace._id;
-        const triggerMsg = trace.messageId
-          ? messageMap.get(trace.messageId)
-          : null;
+        // trace.messageId points to Hank's response; find the user message before it
+        let userMsg: string | null = null;
+        let hankMsg: string | null = null;
+        if (trace.messageId) {
+          const idx = msgIndexById.get(trace.messageId);
+          if (idx !== undefined) {
+            hankMsg = sortedMsgs[idx].content;
+            if (idx > 0 && sortedMsgs[idx - 1].role === "user") {
+              userMsg = sortedMsgs[idx - 1].content;
+            }
+          }
+        }
         const decisionColor =
           DECISION_COLORS[trace.decisionType] ?? "bg-bg-surface text-text-secondary";
 
@@ -89,9 +112,14 @@ export function TraceTimeline({ conversationId }: TraceTimelineProps) {
                   {trace.durationMs}ms · {trace.tokenUsage.totalTokens} tok
                 </span>
               </div>
-              {triggerMsg && (
+              {userMsg && (
                 <div className="ml-6 truncate text-xs text-text-secondary">
-                  User: {triggerMsg}
+                  User: {userMsg}
+                </div>
+              )}
+              {hankMsg && (
+                <div className="ml-6 truncate text-xs text-text-secondary">
+                  Hank: {hankMsg}
                 </div>
               )}
               {trace.error && (

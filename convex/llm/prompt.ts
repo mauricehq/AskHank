@@ -203,7 +203,7 @@ export function buildToolDefinition(): ToolDefinition {
           estimated_price: {
             type: "number",
             description:
-              "Your best estimate of the item price in USD. Use 0 if unclear.",
+              "The item's price in USD. If the user states a price, use that. Otherwise estimate from the item and category. Must be greater than 0.",
           },
         },
       },
