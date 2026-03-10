@@ -36,7 +36,7 @@ export function buildToolDefinition(): ToolDefinition {
     function: {
       name: "get_stance",
       description:
-        "Call this when the user makes an argument about their purchase — new facts, a defense, or new information. Do NOT call it for casual chat, answers to your questions, banter, or info gathering.",
+        "Call this when the user presents substantive facts or arguments about their purchase, even in response to your questions. Do NOT call it for casual chat, banter, or when you're still gathering basic information in the first 1-2 turns.",
       parameters: {
         type: "object",
         required: [

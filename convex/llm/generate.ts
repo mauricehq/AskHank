@@ -162,14 +162,16 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
+  // 3-7: Score and apply guardrails. Never mutate scoring — keep raw for traces.
+  const assessment = sanitizeAssessment(input.assessment);
+  const mappedScores = mapAssessmentToScores(assessment);
+  const scoring = computeScore(mappedScores, estimatedPrice, category);
+  const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
+
   // 3. Non-answer + count >= 1 → denied verdict
   if (input.is_non_answer && disengagementCount >= 1) {
-    const assessment = sanitizeAssessment(input.assessment);
-    const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, category);
-    scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
     return {
-      stance: scoring.stance,
+      stance: guardrailedStance,
       score: scoring.score,
       guidance: "The user has disengaged. Deliver a memorable closing denial. Make it punchy and final.",
       verdict: "denied",
@@ -186,12 +188,8 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
 
   // 4. Non-answer (first) → increment counter, warning
   if (input.is_non_answer) {
-    const assessment = sanitizeAssessment(input.assessment);
-    const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, category);
-    scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
     return {
-      stance: scoring.stance,
+      stance: guardrailedStance,
       score: scoring.score,
       guidance: `The user gave a non-answer. Stay at your stance. Push them to make a real argument. Something like "That's not an argument. What's actually wrong with what you have now."`,
       _disengagementCount: 1,
@@ -206,12 +204,8 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
 
   // 5. No new information + count >= 4 → stagnation closure
   if (!input.has_new_information && stagnationCount >= 3) {
-    const assessment = sanitizeAssessment(input.assessment);
-    const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, category);
-    scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
     return {
-      stance: scoring.stance,
+      stance: guardrailedStance,
       score: scoring.score,
       guidance: `The user has repeated themselves ${stagnationCount + 1} times without new information. Deliver a final denial. Make it memorable. Something like "You've said the same thing ${stagnationCount + 1} different ways. The answer was no the first time. We're done."`,
       verdict: "denied",
@@ -229,10 +223,6 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   // 6. No new information (count < 4) → increment, escalating guidance
   if (!input.has_new_information) {
     const newStagnation = stagnationCount + 1;
-    const assessment = sanitizeAssessment(input.assessment);
-    const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, category);
-    scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
     const stagnationGuidance: Record<number, string> = {
       1: `They're repeating themselves. Call it out. "You said that already. Got anything new?"`,
@@ -243,7 +233,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       `They've repeated themselves ${newStagnation} times. Push hard for something new.`;
 
     return {
-      stance: scoring.stance,
+      stance: guardrailedStance,
       score: scoring.score,
       guidance,
       _disengagementCount: 0,
@@ -256,13 +246,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 7. Normal turn — score, apply guardrails, return new stance
-  const assessment = sanitizeAssessment(input.assessment);
-  const mappedScores = mapAssessmentToScores(assessment);
-  const scoring = computeScore(mappedScores, estimatedPrice, category);
-  const computedStance = scoring.stance;
-  scoring.stance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
-
+  // 7. Normal turn — return new stance
   const stanceGuidance: Record<Stance, string> = {
     IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
     FIRM: "Weak case. Don't concede unless overwhelming evidence.",
@@ -272,16 +256,16 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   };
 
   return {
-    stance: scoring.stance,
+    stance: guardrailedStance,
     score: scoring.score,
-    guidance: stanceGuidance[scoring.stance],
-    verdict: scoring.stance === "CONCEDE" ? "approved" : undefined,
-    closing: scoring.stance === "CONCEDE" ? true : undefined,
+    guidance: stanceGuidance[guardrailedStance],
+    verdict: guardrailedStance === "CONCEDE" ? "approved" : undefined,
+    closing: guardrailedStance === "CONCEDE" ? true : undefined,
     _disengagementCount: 0,
     _stagnationCount: 0,
     _category: category,
     _estimatedPrice: estimatedPrice,
-    _decisionType: computedStance !== scoring.stance ? "normal (stance floored)" : "normal",
+    _decisionType: scoring.stance !== guardrailedStance ? "normal (stance floored)" : "normal",
     _mappedScores: mappedScores,
     _scoringResult: scoring,
   };
@@ -494,7 +478,10 @@ export const respond = internalAction({
 
         const durationMs = Date.now() - llmStart;
         const totalUsage = addUsage(call1.usage, call2.usage);
-        const responseText = call2.content ?? "";
+        const responseText = call2.content;
+        if (!responseText) {
+          throw new Error("Call 2 returned empty content");
+        }
 
         // Capture trace data
         const rawAssessment = sanitizeAssessment(
