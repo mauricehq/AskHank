@@ -19,6 +19,100 @@ export interface ScoringResult {
   thresholdMultiplier: number;
 }
 
+// --- Assessment types (LLM extracts these classifications) ---
+
+export type Intent = "want" | "need" | "replace" | "upgrade" | "gift";
+export type CurrentSolution = "none" | "broken" | "failing" | "outdated" | "working" | "unknown";
+export type AlternativesTried = "exhausted" | "some" | "none" | "unknown";
+export type Frequency = "daily" | "weekly" | "monthly" | "rarely" | "unknown";
+export type Urgency = "immediate" | "soon" | "none" | "unknown";
+export type PurchaseHistory = "impulse_pattern" | "planned" | "unknown";
+export type Specificity = "vague" | "moderate" | "specific" | "evidence";
+export type Consistency = "building" | "consistent" | "contradicting" | "first_turn";
+
+export interface Assessment {
+  item: string;
+  intent: Intent;
+  current_solution: CurrentSolution;
+  current_solution_detail: string | null;
+  alternatives_tried: AlternativesTried;
+  alternatives_detail: string | null;
+  frequency: Frequency;
+  urgency: Urgency;
+  urgency_detail: string | null;
+  purchase_history: PurchaseHistory;
+  emotional_triggers: string[];
+  specificity: Specificity;
+  consistency: Consistency;
+}
+
+// --- Deterministic mapping tables ---
+
+const FUNCTIONAL_GAP_MAP: Record<Intent, Record<CurrentSolution, number>> = {
+  replace: { broken: 9, failing: 7, outdated: 5, none: 6, working: 2, unknown: 6 },
+  need:    { broken: 8, failing: 7, outdated: 6, none: 8, working: 4, unknown: 6 },
+  upgrade: { broken: 2, failing: 2, outdated: 2, none: 2, working: 2, unknown: 2 },
+  want:    { broken: 0, failing: 0, outdated: 0, none: 0, working: 0, unknown: 0 },
+  gift:    { broken: 3, failing: 3, outdated: 3, none: 3, working: 3, unknown: 3 },
+};
+
+const CURRENT_STATE_MAP: Record<CurrentSolution, number> = {
+  broken: 9, failing: 6, outdated: 3, working: 0, none: 5, unknown: 0,
+};
+
+const ALTERNATIVES_MAP: Record<AlternativesTried, number> = {
+  exhausted: 9, some: 5, none: 1, unknown: 0,
+};
+
+const FREQUENCY_MAP: Record<Frequency, number> = {
+  daily: 9, weekly: 6, monthly: 3, rarely: 1, unknown: 0,
+};
+
+const URGENCY_MAP: Record<Urgency, number> = {
+  immediate: 9, soon: 5, none: 0, unknown: 0,
+};
+
+const PURCHASE_HISTORY_MAP: Record<PurchaseHistory, number> = {
+  impulse_pattern: 1, planned: 7, unknown: 3,
+};
+
+function emotionalScore(triggers: string[]): number {
+  const count = triggers.length;
+  if (count === 0) return 0;
+  if (count === 1) return -3;
+  if (count === 2) return -5;
+  return -8;
+}
+
+const SPECIFICITY_MAP: Record<Specificity, number> = {
+  vague: 0.4, moderate: 0.8, specific: 1.2, evidence: 1.5,
+};
+
+const CONSISTENCY_MAP: Record<Consistency, number> = {
+  building: 1.2, consistent: 1.0, contradicting: 0.3, first_turn: 1.0,
+};
+
+export function mapAssessmentToScores(assessment: Assessment): ExtractedScores {
+  return {
+    functional_gap: FUNCTIONAL_GAP_MAP[assessment.intent]?.[assessment.current_solution] ?? 0,
+    current_state: CURRENT_STATE_MAP[assessment.current_solution] ?? 0,
+    alternatives_owned: ALTERNATIVES_MAP[assessment.alternatives_tried] ?? 0,
+    frequency_of_use: FREQUENCY_MAP[assessment.frequency] ?? 0,
+    urgency: URGENCY_MAP[assessment.urgency] ?? 0,
+    pattern_history: PURCHASE_HISTORY_MAP[assessment.purchase_history] ?? 3,
+    emotional_reasoning: emotionalScore(assessment.emotional_triggers ?? []),
+    specificity: SPECIFICITY_MAP[assessment.specificity] ?? 1.0,
+    consistency: CONSISTENCY_MAP[assessment.consistency] ?? 1.0,
+  };
+}
+
+export function applyStanceFloor(stance: Stance, turnCount: number): Stance {
+  if (turnCount <= 2 && stance === "IMMOVABLE") {
+    return "FIRM";
+  }
+  return stance;
+}
+
 // Weights
 const HEAVY = 3.0;
 const MEDIUM = 1.5;
