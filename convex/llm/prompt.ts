@@ -66,6 +66,7 @@ export function buildToolDefinition(): ToolDefinition {
               "specificity",
               "consistency",
               "beneficiary",
+              "price_positioning",
             ],
             properties: {
               item: {
@@ -162,6 +163,12 @@ export function buildToolDefinition(): ToolDefinition {
                 enum: ["self", "shared", "dependent", "gift_discretionary"],
                 description:
                   'Who primarily benefits? "self" = the user alone. "shared" = household/family uses it together (e.g. Netflix, family car). "dependent" = someone who depends on the user needs it (child\'s school laptop, elderly parent\'s device). "gift_discretionary" = discretionary gift (birthday present, treat for a friend). Default to "self" when unclear.',
+              },
+              price_positioning: {
+                type: "string",
+                enum: ["budget", "standard", "premium", "luxury"],
+                description:
+                  'Where this item sits in its market. "budget" = store-brand, clearance, refurbished. "standard" = name-brand at typical price (Nike, Samsung, IKEA). "premium" = high-end functional, paying for better specs/quality (MacBook Pro, Dyson, Herman Miller). "luxury" = true luxury where the brand is the point (Rolex, Hermès, Louis Vuitton, Bang & Olufsen). Rule of thumb: if a reasonable alternative exists at 1/3 the price with 90% of the function, it\'s luxury. Default to "standard" when unclear.',
               },
             },
           },

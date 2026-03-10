@@ -17,6 +17,8 @@ export interface ScoringResult {
   score: number;
   stance: Stance;
   thresholdMultiplier: number;
+  priceModifier: number;
+  positioningModifier: number;
 }
 
 // --- Assessment types (LLM extracts these classifications) ---
@@ -30,6 +32,7 @@ export type PurchaseHistory = "impulse_pattern" | "planned" | "unknown";
 export type Specificity = "vague" | "moderate" | "specific" | "evidence";
 export type Consistency = "building" | "consistent" | "contradicting" | "first_turn";
 export type Beneficiary = "self" | "shared" | "dependent" | "gift_discretionary";
+export type PricePositioning = "budget" | "standard" | "premium" | "luxury";
 
 export interface Assessment {
   item: string;
@@ -46,6 +49,7 @@ export interface Assessment {
   specificity: Specificity;
   consistency: Consistency;
   beneficiary: Beneficiary;
+  price_positioning: PricePositioning;
 }
 
 // --- Deterministic mapping tables ---
@@ -108,6 +112,13 @@ const CONSISTENCY_MAP: Record<Consistency, number> = {
   building: 1.2, consistent: 1.0, contradicting: 0.3, first_turn: 1.0,
 };
 
+const POSITIONING_MAP: Record<PricePositioning, number> = {
+  budget: 0.85,
+  standard: 1.0,
+  premium: 1.15,
+  luxury: 1.3,
+};
+
 export function mapAssessmentToScores(assessment: Assessment): ExtractedScores {
   const bfGap = BENEFICIARY_FUNCTIONAL_GAP[assessment.beneficiary] ?? 1.0;
   const bfFreq = BENEFICIARY_FREQUENCY[assessment.beneficiary] ?? 1.0;
@@ -159,26 +170,7 @@ export function applyStanceGuardrails(
 const HEAVY = 3.0;
 const MEDIUM = 1.5;
 const NEGATIVE = 2.0;
-
-// Price modifier brackets
-const PRICE_MODIFIERS: [number, number][] = [
-  [15, 0.6],
-  [50, 0.8],
-  [200, 1.0],
-  [500, 1.2],
-  [Infinity, 1.4],
-];
-
-// Category modifiers
-const CATEGORY_MODIFIERS: Record<string, number> = {
-  cars: 1.5,
-  electronics: 1.3,
-  fashion: 1.2,
-  furniture: 1.1,
-  essentials: 1.0,
-  safety_health: 0.8,
-  other: 1.0,
-};
+const MAX_OFFSET = 12;
 
 // Base stance thresholds (upper bound for each stance)
 const STANCE_THRESHOLDS: [number, Stance][] = [
@@ -192,22 +184,18 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function getPriceModifier(price: number | undefined): number {
+function computePriceModifier(price: number | undefined): number {
   if (price == null || price <= 0) return 1.0;
-  for (const [threshold, modifier] of PRICE_MODIFIERS) {
-    if (price < threshold) return modifier;
-  }
-  return 1.4;
-}
-
-function getCategoryModifier(category: string | undefined): number {
-  if (!category) return 1.0;
-  return CATEGORY_MODIFIERS[category] ?? 1.0;
+  return clamp(1.0 + 0.1 * Math.log(price / 100), 0.6, 1.5);
 }
 
 function determineStance(score: number, thresholdMultiplier: number): Stance {
   for (const [baseThreshold, stance] of STANCE_THRESHOLDS) {
-    if (score <= baseThreshold * thresholdMultiplier) {
+    const adjusted = Math.min(
+      baseThreshold * thresholdMultiplier,
+      baseThreshold + MAX_OFFSET
+    );
+    if (score <= adjusted) {
       return stance;
     }
   }
@@ -217,7 +205,7 @@ function determineStance(score: number, thresholdMultiplier: number): Stance {
 export function computeScore(
   scores: ExtractedScores,
   estimatedPrice?: number,
-  category?: string
+  pricePositioning?: PricePositioning
 ): ScoringResult {
   // Heavy factors (0-10 each)
   const heavySum =
@@ -244,11 +232,11 @@ export function computeScore(
   const rawScore = weightedSum * specificity * consistency;
   const score = clamp(Math.round(rawScore), 0, 100);
 
-  const priceModifier = getPriceModifier(estimatedPrice);
-  const categoryModifier = getCategoryModifier(category);
-  const thresholdMultiplier = priceModifier * categoryModifier;
+  const priceModifier = computePriceModifier(estimatedPrice);
+  const positioningModifier = POSITIONING_MAP[pricePositioning ?? "standard"] ?? 1.0;
+  const thresholdMultiplier = priceModifier * positioningModifier;
 
   const stance = determineStance(score, thresholdMultiplier);
 
-  return { rawScore, score, stance, thresholdMultiplier };
+  return { rawScore, score, stance, thresholdMultiplier, priceModifier, positioningModifier };
 }

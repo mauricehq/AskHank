@@ -49,6 +49,7 @@ const DEFAULT_ASSESSMENT: Assessment = {
   specificity: "vague",
   consistency: "first_turn",
   beneficiary: "self",
+  price_positioning: "standard",
 };
 
 function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
@@ -87,6 +88,9 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
     beneficiary: (["self", "shared", "dependent", "gift_discretionary"] as const).includes(raw.beneficiary as any)
       ? (raw.beneficiary as Assessment["beneficiary"])
       : DEFAULT_ASSESSMENT.beneficiary,
+    price_positioning: (["budget", "standard", "premium", "luxury"] as const).includes(raw.price_positioning as any)
+      ? (raw.price_positioning as Assessment["price_positioning"])
+      : DEFAULT_ASSESSMENT.price_positioning,
   };
 }
 
@@ -150,14 +154,14 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
       _item: item,
       _decisionType: "out-of-scope",
       _mappedScores: dummyScores,
-      _scoringResult: { rawScore: 0, score: 0, stance: currentStance, thresholdMultiplier: 1 },
+      _scoringResult: { rawScore: 0, score: 0, stance: currentStance, thresholdMultiplier: 1, priceModifier: 1, positioningModifier: 1 },
     };
   }
 
   // 2. Previous stance was CONCEDE → approval verdict
   if (currentStance === "CONCEDE") {
     const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, category);
+    const scoring = computeScore(mappedScores, estimatedPrice, assessment.price_positioning);
     return {
       stance: "CONCEDE",
       score: scoring.score,
@@ -177,7 +181,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
 
   // 3-7: Score and apply guardrails. Never mutate scoring — keep raw for traces.
   const mappedScores = mapAssessmentToScores(assessment);
-  const scoring = computeScore(mappedScores, estimatedPrice, category);
+  const scoring = computeScore(mappedScores, estimatedPrice, assessment.price_positioning);
   const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
   // 3. Non-answer + count >= 1 → denied verdict

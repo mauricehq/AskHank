@@ -39,6 +39,7 @@ const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
   current_solution: { broken: "text-green-400", failing: "text-green-400", outdated: "text-yellow-400", working: "text-red-400", none: "text-green-400" },
   urgency: { immediate: "text-green-400", soon: "text-yellow-400", none: "text-red-400" },
   beneficiary: { dependent: "text-green-400", shared: "text-blue-400", self: "text-zinc-400", gift_discretionary: "text-yellow-400" },
+  price_positioning: { budget: "text-green-400", standard: "text-zinc-400", premium: "text-amber-400", luxury: "text-red-400" },
 };
 
 function AssessmentValue({ field, value }: { field: string; value: unknown }) {

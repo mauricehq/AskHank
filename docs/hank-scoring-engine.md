@@ -1,4 +1,20 @@
-# Hank's Scoring Engine (v1)
+# Hank's Scoring Engine (v2)
+
+## What Changed (v1 → v2)
+
+v1 had a math problem: 46% of category/price combinations could never reach CONCEDE. Any electronics item $50+, any car $50+, any fashion item $50+, any furniture $200+ — the threshold multiplier pushed the CONCEDE bar above the score cap of 100. The product's core promise is that a genuinely strong case can win. v1 broke that promise for nearly half of all purchases.
+
+Three structural changes fix this:
+
+1. **Logarithmic price scaling** replaces flat brackets. Smooth curve, no cliffs, better differentiation at high prices.
+2. **Threshold caps** guarantee every stance is mathematically reachable. A perfect case can always reach CONCEDE.
+3. **Category modifiers removed from thresholds.** Redundant with price scaling, LLM assessment, and the new luxury detection. They created unfair impossibility without adding detection quality.
+
+One addition replaces category's role:
+
+4. **Price positioning** (`budget`/`standard`/`premium`/`luxury`) captures what price alone can't — a $300 Chromebook vs a $2,000 MacBook Pro. Same category, very different justification bars.
+
+---
 
 ## The Principle
 
@@ -8,9 +24,11 @@ The LLM cannot be trusted to decide when to concede — it will fold under press
 
 **v0 asked the LLM to score factors on 0-10 scales.** Problem: LLMs are bad at numerical calibration. "I want a TV" gets `functional_gap: 0, specificity: 0.4` producing a score of ~2 (IMMOVABLE) before the user has said anything. The numbers were inconsistent across conversations and impossible to debug — what does `current_state: 4` even mean?
 
-**v1 asks the LLM to classify facts.** Is the current solution broken, failing, or working? Is the intent want, need, or replace? The LLM picks from a menu. Our code maps those classifications to the same 0-10 scores deterministically via lookup tables. Same formula, same weights, same thresholds — just better inputs.
+**v1 asked the LLM to classify facts.** Is the current solution broken, failing, or working? Is the intent want, need, or replace? The LLM picks from a menu. Our code maps those classifications to the same 0-10 scores deterministically via lookup tables. Same formula, same weights, same thresholds — just better inputs.
 
-Why this is better:
+**v2 keeps the classification approach** but fixes the math that made concession impossible for common purchases, and adds price positioning so a premium $2,000 MacBook is harder to justify than a standard $300 Chromebook — without blanket-penalizing all electronics.
+
+Why classification is better than numerical scoring:
 - LLMs are good at "is this broken or working?" — bad at "rate this 3.7 out of 10"
 - "broken" means broken every time. "7 out of 10" means whatever the LLM feels like.
 - When a trace shows `intent: "want", current_solution: "unknown"`, you know exactly why the score is low. When it shows `functional_gap: 2`, you're guessing.
@@ -24,23 +42,26 @@ Why this is better:
 User message
     │
     ▼
-1. Category Detection (LLM)
+1. Category Detection (LLM — tool call)
     ├── Out-of-scope? → Deflect with Hank one-liner. Done.
     │
     ▼
-2. Extract Assessment (LLM)
+2. Extract Assessment (LLM — tool call)
     - Classify intent, current solution, frequency, urgency, etc.
     - Detect emotional triggers
+    - Classify price positioning (budget/standard/premium/luxury)
+    - Detect beneficiary (self/shared/dependent/gift)
     - Detect price range and purchase category
     │
     ▼
 3. Map & Score (Function — no LLM)
     - Map classifications → numerical scores via lookup tables
+    - Apply beneficiary multipliers to functional_gap and frequency
     - Weighted calculation
-    - Apply price tier modifier
-    - Apply category modifier
     - Apply specificity + consistency multipliers
-    - Apply stance floor (turns 1-2)
+    - Compute threshold multiplier (log price × positioning)
+    - Apply threshold caps (MAX_OFFSET = 12)
+    - Apply stance guardrails (floor + pace cap)
     │
     ▼
 4. Stance (Function output)
@@ -58,7 +79,7 @@ User message
 ```
 
 **Step 1** is the gatekeeper — investments, real estate, medical, etc. get deflected before any scoring happens.
-**Steps 2-5** are the conversation loop — classify, map, score, respond.
+**Steps 2-5** are the conversation loop — classify, map, score, respond. The LLM returns its assessment via a structured tool call, guaranteeing valid JSON with validated enum values.
 **Step 6** is the exit — disengagement, stagnation, or verdict.
 
 The LLM does steps 1, 2, and 5. The function does steps 3 and 4. Clean separation — mouth vs spine.
@@ -82,7 +103,7 @@ The LLM is good at "is their current solution broken or working?" — it's allow
 
 ## The Assessment (What the LLM Extracts)
 
-The LLM outputs a structured `assessment` object — no numbers, just classifications.
+The LLM outputs a structured `assessment` object via tool call — no numbers, just classifications.
 
 ```json
 {
@@ -99,7 +120,9 @@ The LLM outputs a structured `assessment` object — no numbers, just classifica
     "purchase_history": "unknown",
     "emotional_triggers": ["i_want_it"],
     "specificity": "vague",
-    "consistency": "first_turn"
+    "consistency": "first_turn",
+    "beneficiary": "self",
+    "price_positioning": "standard"
   }
 }
 ```
@@ -165,7 +188,7 @@ The LLM outputs a structured `assessment` object — no numbers, just classifica
 
 **Emotional Triggers** — array of detected emotional language:
 
-`i_want_it`, `i_deserve_it`, `treat_myself`, `makes_me_happy`, `everyone_has_one`, `fomo`, `retail_therapy`, `bored`, `impulse`
+`i_want_it`, `i_deserve_it`, `treat_myself`, `makes_me_happy`, `everyone_has_one`, `fomo`, `retail_therapy`, `bored`, `impulse`, `family_obligation`, `guilt`, `keeping_up_with_other_families`
 
 Empty array = no emotional reasoning detected. Each trigger actively hurts the score.
 
@@ -187,6 +210,34 @@ Empty array = no emotional reasoning detected. Each trigger actively hurts the s
 | `consistent` | Repeating but not contradicting |
 | `contradicting` | Conflicts with earlier claims |
 
+**Beneficiary** — who is the purchase for?
+
+| Value | Meaning | Effect |
+|-------|---------|--------|
+| `self` | For themselves | Baseline — no adjustment |
+| `shared` | Household/family use | Boosts functional_gap (×1.3) and frequency (×1.2) — shared items serve more people |
+| `dependent` | For a child/elder/someone in their care | Strongest boost (functional_gap ×1.5, frequency ×1.3) — harder to deny care obligations |
+| `gift_discretionary` | Gift with no obligation | Deflates scores (functional_gap ×0.5, frequency ×0.7) — "I want to buy them something nice" is want, not need |
+
+The LLM classifies based on how the user frames it. "My kid needs a new backpack for school" → `dependent`. "I want to get my friend a birthday gift" → `gift_discretionary`. "We need a new couch for the living room" → `shared`.
+
+**Price Positioning** — where does this item sit in its market?
+
+| Value | Meaning | Threshold Multiplier |
+|-------|---------|---------------------|
+| `budget` | Bottom of market, value-oriented | ×0.85 |
+| `standard` | Mid-range, typical choice | ×1.0 |
+| `premium` | High-end but not top-tier | ×1.15 |
+| `luxury` | Top-tier, aspirational | ×1.3 |
+
+This captures what price alone can't. A $300 Chromebook is `standard` — reasonable for what it is. A $2,000 MacBook Pro is `premium` — high-end but functional, you're paying for better specs. A $3,000 Hermès bag is `luxury` — you're paying for the brand. Same price range, very different justification bars.
+
+Classification guide for the LLM:
+- **budget**: Store-brand, clearance, refurbished, deliberately cheapest option. Walmart basics, Amazon knockoffs, used/renewed.
+- **standard**: Name-brand at typical price point, what most people buy. Nike running shoes, Samsung Galaxy, IKEA furniture, KitchenAid mixer.
+- **premium**: High-end functional. You're paying for better specs, build quality, or features — not status. MacBook Pro, Sony WH-1000XM5, Herman Miller chair, Dyson vacuum.
+- **luxury**: True luxury — the brand *is* the point. Rolex, Hermes, Louis Vuitton, Burberry, Bang & Olufsen, Porsche. You're paying for status, craftsmanship-as-identity, or exclusivity. If a reasonable alternative exists at 1/3 the price with 90% of the function, it's luxury.
+
 The `_detail` fields (`current_solution_detail`, `alternatives_detail`, `urgency_detail`) capture evidence quotes for Hank to reference in responses. They don't affect scoring.
 
 ---
@@ -195,9 +246,9 @@ The `_detail` fields (`current_solution_detail`, `alternatives_detail`, `urgency
 
 Our code maps each classification to the same 0-10 scale that `computeScore()` expects. No LLM judgment in this step — pure lookup.
 
-### Functional Gap (Compound: Intent × Current Solution)
+### Functional Gap (Compound: Intent × Current Solution × Beneficiary)
 
-This is the most important factor. It combines *why* they want it with *what they have now*.
+This is the most important factor. It combines *why* they want it with *what they have now*, then adjusts for *who it's for*.
 
 | Intent | Any current_solution |
 |--------|---------------------|
@@ -209,6 +260,15 @@ This is the most important factor. It combines *why* they want it with *what the
 
 `replace + broken` is the strongest possible case (9). `want + anything` is zero — wanting isn't a gap.
 
+After lookup, apply beneficiary multiplier:
+
+| Beneficiary | Functional Gap Multiplier |
+|-------------|--------------------------|
+| `self` | ×1.0 |
+| `shared` | ×1.3 |
+| `dependent` | ×1.5 |
+| `gift_discretionary` | ×0.5 |
+
 ### Single-Factor Maps
 
 | Factor | Classification → Score |
@@ -218,6 +278,26 @@ This is the most important factor. It combines *why* they want it with *what the
 | **Frequency** | `daily→9` `weekly→6` `monthly→3` `rarely→1` `unknown→0` |
 | **Urgency** | `immediate→9` `soon→5` `none→0` `unknown→0` |
 | **Pattern History** | `impulse_pattern→1` `planned→7` `unknown→3` |
+
+Frequency also gets a beneficiary multiplier:
+
+| Beneficiary | Frequency Multiplier |
+|-------------|---------------------|
+| `self` | ×1.0 |
+| `shared` | ×1.2 |
+| `dependent` | ×1.3 |
+| `gift_discretionary` | ×0.7 |
+
+### Positioning Multiplier Map
+
+Applied to the threshold multiplier (see Threshold Calculation below):
+
+| Positioning | Multiplier |
+|-------------|-----------|
+| `budget` | ×0.85 |
+| `standard` | ×1.0 |
+| `premium` | ×1.15 |
+| `luxury` | ×1.3 |
 
 ### Emotional Reasoning (Negative — Hurts Score)
 
@@ -249,8 +329,6 @@ Most fields default to `unknown` which maps to `0`. On turn 1, almost everything
 
 ## The Weighted Calculation
 
-Same formula as v0. The mapping tables produce the same `ExtractedScores` interface — `computeScore()` is unchanged.
-
 ```
 score = (
   (functional_gap * 3.0) +
@@ -273,7 +351,11 @@ Even with correct scoring, turn 1 naturally produces a very low score (most fiel
 
 This only affects IMMOVABLE → FIRM. If scoring produces SKEPTICAL or higher on turn 1 (unlikely but possible), it passes through unchanged.
 
-### Verdict Thresholds
+### Pace Cap
+
+Stance can advance at most one level per turn. This prevents a single strong message from jumping IMMOVABLE straight to CONCEDE. The score is computed honestly, but the stance moves one step at a time. A user who drops a strong case on turn 2 might go FIRM → SKEPTICAL, then SKEPTICAL → RELUCTANT on turn 3.
+
+### Base Verdict Thresholds
 
 | Score Range | Hank's Stance | Behavior |
 |-------------|--------------|----------|
@@ -285,87 +367,271 @@ This only affects IMMOVABLE → FIRM. If scoring produces SKEPTICAL or higher on
 
 Most impulse purchases will land 0-30. That's by design. The app's default answer is no.
 
-### Worked Example
+---
+
+## Price Scaling (Logarithmic)
+
+Price changes how hard Hank fights — not his personality, just the bar to clear. A $5 coffee doesn't get the same grilling as a $600 pair of headphones. But Hank still sounds like Hank at every tier.
+
+### Formula
+
+```
+priceModifier = clamp(1.0 + 0.1 × ln(price / 100), 0.6, 1.5)
+```
+
+Anchor point: $100 = 1.0 (neutral). Below $100, thresholds drop (easier). Above $100, thresholds rise (harder). The natural logarithm ensures diminishing returns — the jump from $100 to $1,000 matters more than $1,000 to $10,000.
+
+### Key Price Points
+
+| Price | Modifier | Effect |
+|-------|----------|--------|
+| $10 | 0.77 | Light pushback |
+| $25 | 0.86 | Below average scrutiny |
+| $50 | 0.93 | Near baseline |
+| $100 | 1.00 | Baseline — full Hank |
+| $200 | 1.07 | Slightly elevated |
+| $500 | 1.16 | Extra scrutiny |
+| $1,000 | 1.23 | Serious purchase territory |
+| $2,000 | 1.30 | Major purchase |
+| $5,000 | 1.39 | Near maximum difficulty |
+| $10,000 | 1.46 | Close to cap |
+| $15,000+ | 1.50 | Cap — maximum difficulty |
+
+### Why Logarithmic (v1 → v2)
+
+v1 used 5 flat brackets ($15/$50/$200/$500/∞) mapping to 0.6/0.8/1.0/1.2/1.4. Problems:
+- **Cliff effects**: $49 = 0.8, $51 = 1.0. A $2 difference shouldn't change Hank's behavior.
+- **No differentiation at the top**: $600 and $6,000 both got 1.4. A $600 keyboard and a $6,000 watch deserve very different bars.
+- **Combined with category modifiers, blew past the cap**: $500+ (1.4) × electronics (1.3) = 1.82 threshold multiplier. CONCEDE at 86 × 1.82 = 156. Impossible on a 100-point scale.
+
+The log curve fixes all three: smooth transitions, high-end differentiation, and bounded output.
+
+---
+
+## Threshold Calculation
+
+The threshold multiplier adjusts how high the score bar is for each stance level.
+
+### Computing the Multiplier
+
+```
+thresholdMultiplier = priceModifier × positioningModifier
+```
+
+That's it. Two factors, both bounded.
+
+**v1 also included category modifiers here.** v2 removes them. See "Why Category Modifiers Were Removed" below.
+
+### Applying the Multiplier (with Caps)
+
+```
+adjustedThreshold = min(baseThreshold × multiplier, baseThreshold + MAX_OFFSET)
+```
+
+`MAX_OFFSET = 12`. This caps how far any threshold can be pushed above its base value, regardless of multiplier.
+
+### Per-Stance Maximum Thresholds
+
+| Stance | Base Threshold | Max Adjusted (base + 12) |
+|--------|---------------|--------------------------|
+| IMMOVABLE | 30 | 42 |
+| FIRM | 50 | 62 |
+| SKEPTICAL | 70 | 82 |
+| RELUCTANT | 85 | 97 |
+
+A score of 98+ always reaches CONCEDE. A score of 83+ always reaches at least RELUCTANT. This is the core guarantee: **a perfect case always wins.**
+
+### Why Threshold Caps (v1 → v2)
+
+v1 had no caps. The adjusted threshold was simply `baseThreshold × multiplier`. With high multipliers, this produced thresholds above 100:
+
+- Cars $500+: 86 × (1.4 × 1.5) = 86 × 2.1 = **180** → impossible
+- Electronics $200+: 86 × (1.2 × 1.3) = 86 × 1.56 = **134** → impossible
+- Fashion $50+: 86 × (1.0 × 1.2) = 86 × 1.2 = **103** → impossible
+
+The cap mechanism preserves difficulty scaling (expensive luxury items are still the hardest) while guaranteeing reachability (they're hard, not impossible).
+
+---
+
+## Why Category Modifiers Were Removed from Thresholds
+
+v1 applied category multipliers (cars 1.5, electronics 1.3, fashion 1.2, etc.) to the threshold calculation. v2 removes them entirely from the math.
+
+**They're still in the system** — the LLM knows the category for prompting, conversation memory, and analytics. Category just doesn't affect the numerical threshold anymore.
+
+### Why They're Redundant
+
+1. **The LLM's assessment already captures category-relevant signals.** A phone upgrade gets `intent: "upgrade"` (functional_gap = 2) and the LLM naturally scrutinizes tech spec-bump arguments. A fashion purchase where they own 8 jackets gets `alternatives_tried: "none"` because they haven't exhausted what they own. The classification system handles category-specific skepticism through the actual facts of the case.
+
+2. **Price scaling already differentiates.** A $200 jacket (modifier 1.07) and a $2,000 jacket (modifier 1.30) face proportionally different bars. Adding a flat 1.2 category multiplier on top was double-counting.
+
+3. **Price positioning replaces the category signal.** The real distinction isn't "electronics vs fashion" — it's "budget vs luxury within any category." A $300 Chromebook and a $2,000 MacBook Pro are both electronics, but need very different justification bars. Price positioning captures this precisely.
+
+4. **Category modifiers created unfair impossibility.** The stacking of price brackets × category multipliers was the primary cause of the 46% unreachable problem. Removing them (along with adding caps) restores fairness.
+
+---
+
+## Reachability Analysis
+
+With v2's log pricing + positioning + threshold caps, every combination can reach CONCEDE.
+
+### Worst Case: Expensive Luxury Item
+
+A $10,000 luxury item (the hardest possible case):
+- priceModifier: 1.46
+- positioningModifier: 1.30
+- thresholdMultiplier: 1.46 × 1.30 = 1.90
+- RELUCTANT threshold: min(85 × 1.90, 97) = **97** (capped)
+- CONCEDE threshold: score > 97 → needs **98+**
+
+A score of 98 requires near-perfect classifications across all factors with high multipliers. Extremely difficult, but mathematically achievable. A broken essential with exhausted alternatives, daily use, immediate urgency, planned purchase, no emotional triggers, evidence-level specificity, and building consistency would score well above 98.
+
+### Best Case: Cheap Budget Item
+
+A $10 budget item (the easiest possible case):
+- priceModifier: 0.77
+- positioningModifier: 0.85
+- thresholdMultiplier: 0.77 × 0.85 = 0.65
+- RELUCTANT threshold: min(85 × 0.65, 97) = **55**
+- CONCEDE threshold: score > 55
+
+Even a moderate case clears this bar. A $5 coffee with a basic justification sails through.
+
+### Coverage
+
+| Price | Positioning | Multiplier | CONCEDE Threshold | Reachable? |
+|-------|------------|------------|-------------------|------------|
+| $10 | budget | 0.65 | 56 | Yes — easily |
+| $50 | standard | 0.93 | 80 | Yes — moderate case |
+| $200 | standard | 1.07 | 91 | Yes — strong case |
+| $500 | premium | 1.34 | 97 (capped) | Yes — very strong case |
+| $1,000 | premium | 1.41 | 97 (capped) | Yes — very strong case |
+| $2,000 | premium | 1.50 | 97 (capped) | Yes — very strong case |
+| $2,000 | luxury | 1.69 | 97 (capped) | Yes — near-perfect case |
+| $5,000 | luxury | 1.81 | 97 (capped) | Yes — near-perfect case |
+| $10,000 | luxury | 1.90 | 97 (capped) | Yes — near-perfect case |
+
+**100% of combinations are reachable.** The cap ensures the maximum CONCEDE threshold is always 97, which is achievable with a genuinely excellent case.
+
+---
+
+## Worked Examples
+
+### Example 1: Impulse TV Purchase
 
 **Turn 1:** "I want to buy a TV"
 
 ```
 Assessment: intent=want, current_solution=unknown, specificity=vague,
-            emotional_triggers=[i_want_it], consistency=first_turn
+            emotional_triggers=[i_want_it], consistency=first_turn,
+            beneficiary=self, price_positioning=standard
 
-Mapped:     functional_gap=0, current_state=0, alternatives=0,
-            frequency=0, urgency=0, pattern_history=3,
-            emotional=-3, specificity=0.4, consistency=1.0
+Mapped:     functional_gap=0 (×1.0 beneficiary), current_state=0,
+            alternatives=0, frequency=0 (×1.0 beneficiary),
+            urgency=0, pattern_history=3, emotional=-3,
+            specificity=0.4, consistency=1.0
 
 Calculation: (0+0+0)*3.0 + (0+0+3)*1.5 + (-3)*2.0 = -1.5
              -1.5 * 0.4 * 1.0 = -0.6 → clamped to 0
-             Score: 0 → IMMOVABLE → stance floor → FIRM
+
+Score: 0 → IMMOVABLE → stance floor → FIRM
 
 Hank challenges but gives them a chance to argue.
 ```
+
+### Example 2: Broken TV Replacement
 
 **Turn 2:** "My current TV broke last week, I watch it every day"
 
 ```
 Assessment: intent=replace, current_solution=broken, frequency=daily,
-            specificity=specific, consistency=building
+            specificity=specific, consistency=building,
+            beneficiary=self, price_positioning=standard
 
-Mapped:     functional_gap=9, current_state=9, alternatives=0,
-            frequency=9, urgency=0, pattern_history=3,
+Mapped:     functional_gap=9 (×1.0), current_state=9, alternatives=0,
+            frequency=9 (×1.0), urgency=0, pattern_history=3,
             emotional=0, specificity=1.2, consistency=1.2
 
 Calculation: (9+9+0)*3.0 + (9+0+3)*1.5 + 0*2.0 = 72
              72 * 1.2 * 1.2 = 103.68 → clamped to 100
 
-With electronics (1.3) + unknown price (1.0) → threshold multiplier 1.3:
-  SKEPTICAL threshold: 70 * 1.3 = 91
-  Score 100 > 91 → RELUCTANT
+Price: ~$500 TV, standard positioning
+  priceModifier = 1.0 + 0.1 × ln(500/100) = 1.0 + 0.1 × 1.61 = 1.16
+  positioningModifier = 1.0
+  thresholdMultiplier = 1.16
 
-Hank is almost convinced but pushes for final proof.
+Thresholds: SKEPTICAL = min(70 × 1.16, 82) = 81
+            RELUCTANT = min(85 × 1.16, 97) = 97 (capped)
+
+Score 100 > 97 → CONCEDE (but pace cap: max one level per turn)
+Previous stance: FIRM → advances to SKEPTICAL
+
+Hank: "Okay, a broken TV with daily use — you've got half a case."
 ```
 
-### Price Tier Modifiers
+### Example 3: Premium MacBook Pro
 
-Price changes how hard Hank fights — not his personality, just the bar to clear. A $5 coffee doesn't get the same grilling as a $600 pair of headphones. But Hank still sounds like Hank at every tier.
+**Turn 3 of a conversation:** "My 2019 MacBook is dying — battery swelling, quoted $300 for repair. I use it 8 hours a day for work. I've been researching for two months."
 
-| Price Range | Threshold Modifier | Hank's Energy |
-|------------|-------------------|---------------|
-| Under $15 | x0.6 | Light pushback. One exchange, maybe two. "Fine, but you asked." |
-| $15-50 | x0.8 | Standard skepticism. 2-3 exchanges. |
-| $50-200 | x1.0 | Full Hank. The default experience. |
-| $200-500 | x1.2 | Extra scrutiny. "That's rent money in some cities." |
-| $500+ | x1.4 | Hank at his hardest. You better have a real case. |
+```
+Assessment: intent=replace, current_solution=failing,
+            frequency=daily, urgency=soon, alternatives_tried=some,
+            purchase_history=planned, specificity=evidence,
+            consistency=building, beneficiary=self,
+            price_positioning=premium
 
-Small purchase approvals still feel earned — Hank doesn't rubber stamp. He lets it through with a jab. "You have beer at home. But fine, it's Tree House. Don't make it a habit." That one line is the difference between a yes-machine and Hank.
+Mapped:     functional_gap=7, current_state=6, alternatives=5,
+            frequency=9, urgency=5, pattern_history=7,
+            emotional=0, specificity=1.5, consistency=1.2
 
-Price tier and category modifiers stack. A $40 beer is x0.8 (price) with no category bump. A $1,200 laptop is x1.4 (price) x1.3 (electronics) = x1.82. A $50,000 car is x1.4 (price) x1.5 (cars) = x2.1. Good luck.
+Calculation: (7+6+5)*3.0 + (9+5+7)*1.5 + 0*2.0 = 54 + 31.5 = 85.5
+             85.5 * 1.5 * 1.2 = 153.9 → clamped to 100
 
-### Category Modifiers
+Price: $2,000, premium positioning
+  priceModifier = 1.0 + 0.1 × ln(2000/100) = 1.0 + 0.1 × 3.0 = 1.30
+  positioningModifier = 1.15
+  thresholdMultiplier = 1.30 × 1.15 = 1.50
 
-Some categories deserve extra skepticism by default. These are the purchases people waste the most on — high-ticket items where "I want something nicer" masquerades as need.
+Thresholds: RELUCTANT = min(85 × 1.50, 97) = 97 (capped)
 
-The category modifier scales the concession threshold up, making it harder to reach approval.
+Score 100 > 97 → CONCEDE (pace cap may apply depending on previous stance)
 
-| Category | Modifier | Why |
-|----------|----------|-----|
-| **Cars** | x1.5 | Ultimate depreciating asset. Loses 20% driving off the lot. "Does it start? Does it get you there? Then no." Only approved if the current one is genuinely unsafe or repair costs exceed value. |
-| **Electronics** | x1.3 | New model every year. "Your phone is 2 years old" is not broken. Hank doesn't care about spec bumps. |
-| **Fashion/Shoes** | x1.2 | Alternatives owned is almost always high. "You have 8 jackets. What's number 9 going to do?" |
-| **Furniture** | x1.1 | Slightly elevated. People replace functional furniture for aesthetics. |
-| **Essentials** | x1.0 | No modifier. Groceries, hygiene, medicine — Hank's not a monster. |
-| **Safety/Health** | x0.8 | Easier to approve. Broken smoke detector, failing brakes, medical needs — Hank doesn't mess around with safety. |
+Hard but achievable. A failing daily-use work tool with evidence and research clears
+the premium bar.
+```
 
-**How it works:** The concession threshold (normally 86) gets multiplied by the category modifier. A car needs a score of ~129 on a 100-point scale — meaning you basically need perfect scores on every factor plus high multipliers. That's by design. You almost can't get a car past Hank unless it's genuinely dying.
+### Example 4: Kid's Winter Coat (Dependent)
 
-**The LLM detects the category** from the user's description or photo. The function applies the modifier. The user never sees the numbers — they just feel Hank being harder on some things than others.
+"My daughter's winter coat is too small, she needs a new one for school."
 
-**Category-specific Hank lines:**
-- Cars: "Does it start? Does it stop? Then you have a car. Case closed."
-- Electronics: "Your current one does everything the new one does. You just want the ad to stop haunting you."
-- Fashion: "You own 8 jackets. This isn't a gap in your wardrobe. This is a hobby."
-- Shoes: "How many feet do you have? Two. How many pairs do you own? Exactly."
+```
+Assessment: intent=need, current_solution=failing, frequency=daily,
+            urgency=immediate, beneficiary=dependent,
+            specificity=specific, consistency=first_turn,
+            price_positioning=standard
 
-### Out-of-Scope Categories
+Mapped:     functional_gap=7 × 1.5 (dependent) = 10.5, current_state=6,
+            alternatives=0, frequency=9 × 1.3 (dependent) = 11.7,
+            urgency=9, pattern_history=3, emotional=0,
+            specificity=1.2, consistency=1.0
+
+Calculation: (10.5+6+0)*3.0 + (11.7+9+3)*1.5 + 0 = 49.5 + 35.55 = 85.05
+             85.05 * 1.2 * 1.0 = 102.06 → clamped to 100
+
+Price: $80 coat, standard positioning
+  priceModifier = 1.0 + 0.1 × ln(80/100) = 1.0 + 0.1 × (-0.22) = 0.98
+  positioningModifier = 1.0
+  thresholdMultiplier = 0.98
+
+Thresholds: RELUCTANT = min(85 × 0.98, 97) = 83
+Score 100 > 85 (CONCEDE base × 0.98 = 84) → CONCEDE
+
+Dependent + genuine need + standard price = relatively easy approval. Hank's not a monster.
+```
+
+---
+
+## Out-of-Scope Categories
 
 Some things Hank doesn't touch. No scoring, no cross-examination, just a clean deflection.
 
@@ -508,8 +774,8 @@ The quick denial is not a failure mode. It's the core experience for most users.
 
 ## Implementation
 
-- **LLM extracts assessment** as structured JSON — classifications, not numbers — alongside Hank's conversational response
-- **Convex function** maps classifications to scores via lookup tables, computes weighted total, applies stance floor, returns stance
+- **LLM extracts assessment** as structured JSON via tool call — classifications, not numbers — alongside Hank's conversational response
+- **Convex function** maps classifications to scores via lookup tables, computes weighted total, applies stance guardrails, returns stance
 - **Stance feeds back** into the next LLM call as context: "Your stance is FIRM. Do not concede."
 - **Conversation history** stored in Convex, fed as context for pattern detection
 - **Past conversations** summarized and injected for cross-session memory
@@ -520,7 +786,7 @@ The LLM prompt explicitly says: "You do not decide when to concede. You will be 
 
 | File | Role |
 |------|------|
-| `convex/llm/scoring.ts` | Assessment types, mapping tables, `mapAssessmentToScores()`, `computeScore()`, `applyStanceFloor()` |
+| `convex/llm/scoring.ts` | Assessment types, mapping tables, `mapAssessmentToScores()`, `computeScore()`, `applyStanceGuardrails()` |
 | `convex/llm/prompt.ts` | System prompt with classification extraction guidelines |
 | `convex/llm/generate.ts` | Orchestrates: LLM call → parse assessment → map → score → save |
 | `src/components/admin/TraceDetail.tsx` | Admin trace viewer (shows Assessment + Mapped Scores + Scoring Result) |
@@ -528,11 +794,11 @@ The LLM prompt explicitly says: "You do not decide when to concede. You will be 
 ### Trace Data (Admin Debugging)
 
 Traces store three layers for each turn:
-- **Assessment** — the raw LLM classifications (`intent: "want"`, `current_solution: "broken"`, etc.)
+- **Assessment** — the raw LLM classifications (`intent: "want"`, `current_solution: "broken"`, `price_positioning: "luxury"`, `beneficiary: "self"`, etc.)
 - **Mapped Scores** — the deterministic output of the lookup tables (`functional_gap: 9`, `current_state: 9`, etc.)
-- **Scoring Result** — the final computation (`score: 86`, `stance: "RELUCTANT"`, `thresholdMultiplier: 1.3`)
+- **Scoring Result** — the final computation (`score: 86`, `stance: "RELUCTANT"`, `thresholdMultiplier: 1.69`, `priceModifier: 1.30`, `positioningModifier: 1.30`)
 
-When a stance floor is applied, the trace `decisionType` shows `"normal (stance floored)"`.
+When a stance guardrail is applied, the trace `decisionType` shows `"normal (stance floored)"` or `"normal (pace capped)"`.
 
 ---
 
@@ -720,23 +986,50 @@ Cheap. Fits easily. Gets more valuable every conversation.
 
 ## Tuning
 
-The mapping table values are hypothetical and need testing with real conversations. Adjust based on:
+The mapping table values are hypothetical and need testing with real conversations. The v2 scoring engine has the following tunable knobs:
+
+### Score Weights
+- Heavy factor weight (functional_gap, current_state, alternatives): `3.0`
+- Medium factor weight (frequency, urgency, pattern_history): `1.5`
+- Negative factor weight (emotional_reasoning): `2.0`
+
+### Multiplier Tables
+- Specificity multipliers: `vague→0.4` `moderate→0.8` `specific→1.2` `evidence→1.5`
+- Consistency multipliers: `building→1.2` `consistent→1.0` `contradicting→0.3` `first_turn→1.0`
+
+### Beneficiary Multipliers
+- Functional gap: `self→1.0` `shared→1.3` `dependent→1.5` `gift_discretionary→0.5`
+- Frequency: `self→1.0` `shared→1.2` `dependent→1.3` `gift_discretionary→0.7`
+
+### Price Scaling
+- Log scale anchor: `100` (price at which modifier = 1.0)
+- Log scale factor: `0.1` (how fast the curve rises)
+- Clamp bounds: `[0.6, 1.5]`
+- Formula: `clamp(1.0 + 0.1 × ln(price / 100), 0.6, 1.5)`
+
+### Price Positioning Multipliers
+- `budget→0.85` `standard→1.0` `premium→1.15` `luxury→1.3`
+
+### Threshold Caps
+- `MAX_OFFSET = 12` (maximum points added to any base threshold)
+- Per-stance caps: IMMOVABLE 42, FIRM 62, SKEPTICAL 82, RELUCTANT 97
+
+### Base Thresholds
+- IMMOVABLE: 0-30, FIRM: 31-50, SKEPTICAL: 51-70, RELUCTANT: 71-85, CONCEDE: 86+
+
+### Stance Guardrails
+- Stance floor: turns 1-2, IMMOVABLE → FIRM
+- Pace cap: max one stance level advance per turn
+
+### What to Watch
 
 - Is the concession rate around 10-15%? (Too high = too easy, too low = feels rigged)
 - Are concessions going to genuinely justified purchases?
 - Are users finding obvious gaming strategies?
 - Does the conversation feel varied or repetitive?
-- Are stance jumps between turns too volatile? (If so, consider a max-one-level-per-turn cap)
+- Are stance jumps between turns too volatile?
+- Are luxury items appropriately harder but not impossible?
+- Are dependent/shared purchases getting fair treatment?
+- Is the log price curve differentiating well at the high end?
 
 The mapping tables are knobs. Change a number, redeploy, every conversation is affected consistently. That's the advantage of deterministic scoring over LLM calibration — tuning is predictable.
-
-### Known Tradeoffs (v0 → v1)
-
-**Better:**
-- Consistency — same classification always produces the same score
-- Debuggability — traces show readable classifications, not opaque numbers
-- Tunability — change a lookup table value, not a prompt paragraph
-
-**Watch for:**
-- Score volatility — one strong argument can cause a big stance jump because the tables map mechanically with no "go slowly" instinct. Price/category modifiers dampen this for expensive items. May need a max-one-stance-level-per-turn cap if jumps feel too fast in practice.
-- Granularity loss — "kinda failing" has to be either `failing` (→6) or `working` (→0). The step function is coarser than a continuous 0-10 scale. Multiple factors combining still produce fine-grained total scores, but individual dimensions are discrete.
