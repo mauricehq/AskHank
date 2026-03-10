@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MessageBubble } from "./MessageBubble";
@@ -48,12 +48,17 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
     }
   }, [externalId, loadConversation, reset]);
 
-  // Sync newly-created conversation ID back to parent
+  // Sync newly-created conversation ID back to parent.
+  // Use a ref for externalId so this effect only fires when hookConversationId
+  // changes — not when externalId changes (which would cause a ping-pong loop
+  // between the two effects when switching conversations).
+  const externalIdRef: RefObject<Id<"conversations"> | null | undefined> = useRef(externalId);
+  externalIdRef.current = externalId;
   useEffect(() => {
-    if (hookConversationId && hookConversationId !== externalId) {
+    if (hookConversationId && hookConversationId !== externalIdRef.current) {
       onConversationCreated?.(hookConversationId);
     }
-  }, [hookConversationId, externalId, onConversationCreated]);
+  }, [hookConversationId, onConversationCreated]);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
