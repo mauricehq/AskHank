@@ -27,6 +27,8 @@ export const send = mutation({
         userId: user._id,
         status: "thinking",
         createdAt: Date.now(),
+        disengagementCount: 0,
+        stagnationCount: 0,
       });
     } else {
       // Verify ownership and state
@@ -196,6 +198,7 @@ export const saveResponseWithScoring = internalMutation({
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     disengagementCount: v.number(),
+    stagnationCount: v.number(),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -211,6 +214,7 @@ export const saveResponseWithScoring = internalMutation({
       category: args.category,
       estimatedPrice: args.estimatedPrice,
       disengagementCount: args.disengagementCount,
+      stagnationCount: args.stagnationCount,
     });
     return messageId;
   },
@@ -225,6 +229,8 @@ export const saveResponseWithVerdict = internalMutation({
     stance: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
+    disengagementCount: v.number(),
+    stagnationCount: v.number(),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -240,6 +246,8 @@ export const saveResponseWithVerdict = internalMutation({
       stance: args.stance,
       category: args.category,
       estimatedPrice: args.estimatedPrice,
+      disengagementCount: args.disengagementCount,
+      stagnationCount: args.stagnationCount,
     });
     return messageId;
   },

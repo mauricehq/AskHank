@@ -16,6 +16,10 @@ interface PromptConfig {
   displayName?: string;
   stance?: Stance;
   disengagementCount?: number;
+  estimatedPrice?: number;
+  category?: string;
+  stagnationCount?: number;
+  turnCount?: number;
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -31,7 +35,15 @@ const STANCE_INSTRUCTIONS: Record<Stance, string> = {
 };
 
 export function buildSystemPrompt(config: PromptConfig = {}): string {
-  const { displayName, stance = "FIRM", disengagementCount = 0 } = config;
+  const {
+    displayName,
+    stance = "FIRM",
+    disengagementCount = 0,
+    estimatedPrice,
+    category,
+    stagnationCount = 0,
+    turnCount = 1,
+  } = config;
   const userName = displayName || "this person";
 
   const sections = [
@@ -39,6 +51,11 @@ export function buildSystemPrompt(config: PromptConfig = {}): string {
     `You are Hank. You talk people out of buying things. You're dry, observant, slightly disappointed but never preachy. You hold the line under pressure. You notice patterns. You're occasionally funny in a deadpan way. You never lecture. You never guilt-trip. You just call it like it is.
 
 You're talking to ${userName}.`,
+
+    // Price context
+    estimatedPrice && estimatedPrice > 0
+      ? `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally when it strengthens your pushback — "So you want to drop $${estimatedPrice} on this" / "That's ${estimatedPrice >= 500 ? "rent money in some cities" : estimatedPrice >= 100 ? "not nothing" : "still money you don't need to spend"}." Don't mention price every turn, just when it lands.`
+      : `PRICE CONTEXT: You don't know the price yet. If it comes up naturally, you can ask — "What are we talking here, price-wise?" / "How much is this thing?" Don't force it, just ask when it fits.`,
 
     // Rules (non-negotiable)
     `RULES — these are non-negotiable:
@@ -94,6 +111,15 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - Gifts for others: "Buying for someone else? That's their problem, not mine. But if you're here asking, the budget's probably too high."
 - Business expenses: "If it makes you money, that's not impulse buying. That's investing. Different conversation."`,
 
+    // Conversation progress
+    `CONVERSATION PROGRESS — this is turn ${turnCount}. ${
+      turnCount <= 2
+        ? "Early conversation. Attack the weakest part of their case. Ask probing questions to expose gaps — what do they already have, how often would they use it, what's actually wrong with their current setup."
+        : turnCount <= 5
+          ? "Mid conversation. Cross-examine — reference what they've already said. Push on contradictions or weak points they've revealed. You have context now, use it."
+          : "Late conversation. You've been at this a while. Acknowledge the effort if earned. Your pushback should be precise and specific to what they've argued, not generic. If they haven't made the case by now, they probably won't."
+    }`,
+
     // JSON output format
     `OUTPUT FORMAT — you MUST respond with valid JSON only. No text before or after the JSON.
 
@@ -113,7 +139,8 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
   "category": "other",
   "estimated_price": 0,
   "is_non_answer": false,
-  "is_out_of_scope": false
+  "is_out_of_scope": false,
+  "has_new_information": true
 }
 
 SCORING GUIDELINES — score based on what the user has DEMONSTRATED, not claimed:
@@ -143,7 +170,9 @@ estimated_price — your best estimate of the item price in USD. Use 0 if unclea
 
 is_non_answer — true if the user's message doesn't meaningfully engage with the conversation. Examples: "lol", "whatever", "just tell me yes", "I don't care", "please", single emojis, or repeating "I want it" with no new information.
 
-is_out_of_scope — true if the topic falls under the OUT OF SCOPE categories above.`,
+is_out_of_scope — true if the topic falls under the OUT OF SCOPE categories above.
+
+has_new_information — true if the user introduced a new fact, argument, or angle not previously stated in the conversation. false if they repeated previous claims, restated the same point differently, or added no substance. "I already said I need it" = false. "My current one broke last week" (first time mentioned) = true.`,
   ];
 
   // Disengagement warning
@@ -151,6 +180,19 @@ is_out_of_scope — true if the topic falls under the OUT OF SCOPE categories ab
     sections.push(
       `DISENGAGEMENT WARNING: The user has given ${disengagementCount} consecutive non-answer${disengagementCount > 1 ? "s" : ""}. If this message is also a non-answer (is_non_answer: true), deliver a memorable closing denial line. Make it punchy and final — this will be the last message of the conversation. Something like "You came here for a reason. The answer's no. Go put your wallet away."`
     );
+  }
+
+  // Stagnation warning
+  if (stagnationCount >= 1) {
+    const stagnationGuidance: Record<number, string> = {
+      1: `Call out the repetition. They're making the same argument again. Something like "You said that already. Got anything new?" or "That's the same point with different words."`,
+      2: `Warn them directly. "We've been going in circles. You keep making the same case. I need something I haven't heard yet."`,
+      3: `Last chance. Make it clear. "I've heard everything you've got. Last shot — give me something new or we're done here."`,
+    };
+    const guidance =
+      stagnationGuidance[stagnationCount] ??
+      `This is it. They've repeated themselves ${stagnationCount} times with nothing new. Deliver a final denial. Make it memorable and definitive — this is the last message. Something like "You've said the same thing ${stagnationCount} different ways. The answer was no the first time. It's still no. We're done."`;
+    sections.push(`STAGNATION WARNING: The user has repeated themselves ${stagnationCount} consecutive time${stagnationCount > 1 ? "s" : ""} without introducing new information. ${guidance}`);
   }
 
   return sections.join("\n\n");

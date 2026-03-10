@@ -22,6 +22,7 @@ export const saveTrace = internalMutation({
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     disengagementCount: v.number(),
+    stagnationCount: v.number(),
     tokenUsage: v.object({
       promptTokens: v.number(),
       completionTokens: v.number(),
@@ -58,6 +59,7 @@ export const getTraceSummariesForConversation = query({
       category: t.category,
       estimatedPrice: t.estimatedPrice,
       disengagementCount: t.disengagementCount,
+      stagnationCount: t.stagnationCount,
       decisionType: t.decisionType,
       durationMs: t.durationMs,
       tokenUsage: t.tokenUsage,

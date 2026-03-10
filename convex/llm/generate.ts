@@ -32,6 +32,7 @@ interface StructuredResponse {
   estimated_price: number;
   is_non_answer: boolean;
   is_out_of_scope: boolean;
+  has_new_information: boolean;
 }
 
 function clampScore(val: unknown, min: number, max: number, fallback: number): number {
@@ -107,6 +108,7 @@ function validateParsed(parsed: Record<string, unknown>): StructuredResponse {
       typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
     is_non_answer: parsed.is_non_answer === true,
     is_out_of_scope: parsed.is_out_of_scope === true,
+    has_new_information: parsed.has_new_information !== false,
   };
 }
 
@@ -129,6 +131,7 @@ type TraceData = Partial<{
   category: string;
   estimatedPrice: number;
   disengagementCount: number;
+  stagnationCount: number;
   tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
   durationMs: number;
   error: string;
@@ -168,6 +171,10 @@ export const respond = internalAction({
 
       const currentStance = toStance(conversation.stance);
       const disengagementCount = conversation.disengagementCount ?? 0;
+      const stagnationCount = conversation.stagnationCount ?? 0;
+
+      // Compute turn count from user messages
+      const turnCount = messages.filter((m) => m.role === "user").length;
 
       // 3. Fetch model + display name
       const modelId = (await ctx.runQuery(
@@ -185,6 +192,10 @@ export const respond = internalAction({
         displayName: displayName ?? undefined,
         stance: currentStance,
         disengagementCount,
+        estimatedPrice: conversation.estimatedPrice,
+        category: conversation.category,
+        stagnationCount,
+        turnCount,
       });
 
       const llmMessages = buildMessages(
@@ -243,6 +254,8 @@ export const respond = internalAction({
           scoringResult: "{}",
           category: parsed.category,
           estimatedPrice: parsed.estimated_price > 0 ? parsed.estimated_price : undefined,
+          disengagementCount,
+          stagnationCount,
         });
         await saveTraceQuietly();
         return;
@@ -261,6 +274,8 @@ export const respond = internalAction({
           stance: "CONCEDE",
           category: cat,
           estimatedPrice: price,
+          disengagementCount,
+          stagnationCount,
         });
         Object.assign(traceData, {
           messageId,
@@ -269,6 +284,8 @@ export const respond = internalAction({
           scoringResult: JSON.stringify(scoring),
           category: cat,
           estimatedPrice: price,
+          disengagementCount,
+          stagnationCount,
         });
         await saveTraceQuietly();
         return;
@@ -293,6 +310,8 @@ export const respond = internalAction({
               stance: scoring.stance,
               category,
               estimatedPrice,
+              disengagementCount: disengagementCount + 1,
+              stagnationCount,
             }
           );
           Object.assign(traceData, {
@@ -302,6 +321,8 @@ export const respond = internalAction({
             scoringResult: JSON.stringify(scoring),
             category,
             estimatedPrice,
+            disengagementCount: disengagementCount + 1,
+            stagnationCount,
           });
           await saveTraceQuietly();
           return;
@@ -317,6 +338,7 @@ export const respond = internalAction({
             category,
             estimatedPrice,
             disengagementCount: 1,
+            stagnationCount,
           }
         );
         Object.assign(traceData, {
@@ -327,12 +349,73 @@ export const respond = internalAction({
           category,
           estimatedPrice,
           disengagementCount: 1,
+          stagnationCount,
         });
         await saveTraceQuietly();
         return;
       }
 
-      // 11. Normal turn — save with scoring, reset disengagement
+      // 11. Handle stagnation (repeating arguments without new info)
+      if (!parsed.has_new_information && !parsed.is_non_answer) {
+        const newStagnation = stagnationCount + 1;
+        if (newStagnation >= 4) {
+          // Stagnation closure — denied verdict
+          const messageId = await ctx.runMutation(
+            internal.conversations.saveResponseWithVerdict,
+            {
+              conversationId: args.conversationId,
+              content: parsed.response,
+              verdict: "denied",
+              score: scoring.score,
+              stance: scoring.stance,
+              category,
+              estimatedPrice,
+              disengagementCount: 0,
+              stagnationCount: newStagnation,
+            }
+          );
+          Object.assign(traceData, {
+            messageId,
+            decisionType: "stagnation-denied",
+            newStance: scoring.stance,
+            scoringResult: JSON.stringify(scoring),
+            category,
+            estimatedPrice,
+            disengagementCount: 0,
+            stagnationCount: newStagnation,
+          });
+          await saveTraceQuietly();
+          return;
+        }
+        // Increment stagnation
+        const messageId = await ctx.runMutation(
+          internal.conversations.saveResponseWithScoring,
+          {
+            conversationId: args.conversationId,
+            content: parsed.response,
+            score: scoring.score,
+            stance: scoring.stance,
+            category,
+            estimatedPrice,
+            disengagementCount: 0,
+            stagnationCount: newStagnation,
+          }
+        );
+        Object.assign(traceData, {
+          messageId,
+          decisionType: "stagnation-increment",
+          newStance: scoring.stance,
+          scoringResult: JSON.stringify(scoring),
+          category,
+          estimatedPrice,
+          disengagementCount: 0,
+          stagnationCount: newStagnation,
+        });
+        await saveTraceQuietly();
+        return;
+      }
+
+      // 12. Normal turn — save with scoring, reset disengagement and stagnation
       const messageId = await ctx.runMutation(internal.conversations.saveResponseWithScoring, {
         conversationId: args.conversationId,
         content: parsed.response,
@@ -341,6 +424,7 @@ export const respond = internalAction({
         category,
         estimatedPrice,
         disengagementCount: 0,
+        stagnationCount: 0,
       });
       Object.assign(traceData, {
         messageId,
@@ -350,6 +434,7 @@ export const respond = internalAction({
         category,
         estimatedPrice,
         disengagementCount: 0,
+        stagnationCount: 0,
       });
       await saveTraceQuietly();
     } catch (error) {
@@ -364,6 +449,8 @@ export const respond = internalAction({
           sanitizedScores: traceData.sanitizedScores ?? "{}",
           rawScores: traceData.rawScores ?? "{}",
           scoringResult: traceData.scoringResult ?? "{}",
+          disengagementCount: traceData.disengagementCount ?? 0,
+          stagnationCount: traceData.stagnationCount ?? 0,
         });
         await saveTraceQuietly();
       }
