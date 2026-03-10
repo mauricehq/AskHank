@@ -1,10 +1,20 @@
-# Hank's Scoring Engine
+# Hank's Scoring Engine (v1)
 
 ## The Principle
 
-The LLM analyzes. The function decides. Hank delivers.
+The LLM classifies. The function scores. Hank delivers.
 
 The LLM cannot be trusted to decide when to concede — it will fold under pressure (proven live when it caved on "I want it" in three words). The scoring engine is the guardrail that prevents sycophancy from killing the product.
+
+**v0 asked the LLM to score factors on 0-10 scales.** Problem: LLMs are bad at numerical calibration. "I want a TV" gets `functional_gap: 0, specificity: 0.4` producing a score of ~2 (IMMOVABLE) before the user has said anything. The numbers were inconsistent across conversations and impossible to debug — what does `current_state: 4` even mean?
+
+**v1 asks the LLM to classify facts.** Is the current solution broken, failing, or working? Is the intent want, need, or replace? The LLM picks from a menu. Our code maps those classifications to the same 0-10 scores deterministically via lookup tables. Same formula, same weights, same thresholds — just better inputs.
+
+Why this is better:
+- LLMs are good at "is this broken or working?" — bad at "rate this 3.7 out of 10"
+- "broken" means broken every time. "7 out of 10" means whatever the LLM feels like.
+- When a trace shows `intent: "want", current_solution: "unknown"`, you know exactly why the score is low. When it shows `functional_gap: 2`, you're guessing.
+- Tuning is code changes, not prompt engineering. Change a number in a lookup table, redeploy, every conversation is affected consistently.
 
 ---
 
@@ -18,17 +28,19 @@ User message
     ├── Out-of-scope? → Deflect with Hank one-liner. Done.
     │
     ▼
-2. Extract Scores (LLM)
-    - Functional gap, current state, alternatives, etc.
-    - Detect price range
-    - Detect purchase category (car, electronics, fashion, etc.)
+2. Extract Assessment (LLM)
+    - Classify intent, current solution, frequency, urgency, etc.
+    - Detect emotional triggers
+    - Detect price range and purchase category
     │
     ▼
-3. Scoring Engine (Function — no LLM)
+3. Map & Score (Function — no LLM)
+    - Map classifications → numerical scores via lookup tables
     - Weighted calculation
     - Apply price tier modifier
     - Apply category modifier
     - Apply specificity + consistency multipliers
+    - Apply stance floor (turns 1-2)
     │
     ▼
 4. Stance (Function output)
@@ -39,14 +51,15 @@ User message
     - "Your stance is FIRM. Do not concede."
     │
     ▼
-6. Disengagement Check
+6. Disengagement / Stagnation Check
     - Two consecutive non-answers? → Case closure. Denied.
+    - Four consecutive repeats with no new info? → Case closure. Denied.
     - Otherwise → Loop back to step 2.
 ```
 
 **Step 1** is the gatekeeper — investments, real estate, medical, etc. get deflected before any scoring happens.
-**Steps 2-5** are the conversation loop — extract, score, stance, respond.
-**Step 6** is the exit — disengagement or verdict.
+**Steps 2-5** are the conversation loop — classify, map, score, respond.
+**Step 6** is the exit — disengagement, stagnation, or verdict.
 
 The LLM does steps 1, 2, and 5. The function does steps 3 and 4. Clean separation — mouth vs spine.
 
@@ -56,108 +69,209 @@ The LLM does steps 1, 2, and 5. The function does steps 3 and 4. Clean separatio
 
 1. User says what they want to buy
 2. Hank responds in character — pushes back, asks questions, cross-examines
-3. After each user reply, the LLM extracts structured scores across all factors
-4. A Convex function (no LLM) computes the weighted verdict
+3. After each user reply, the LLM reads the **full conversation** and classifies the case as it stands now
+4. A Convex function (no LLM) maps classifications to numbers and computes the weighted verdict
 5. The verdict tells the LLM what stance to take next
 6. Hank delivers the stance in his voice
 
-The LLM is good at evaluating "how specific was that answer?" — it's allowed to do that. It's just never allowed to decide "should I give in?" — because it always will.
+The LLM is good at "is their current solution broken or working?" — it's allowed to classify that. It's just never allowed to decide "should I give in?" — because it always will.
+
+**The score doesn't carry over between turns.** Each turn, the LLM reads the entire conversation and produces a fresh assessment of the cumulative case. The conversation memory lives in the LLM's context window, not in the score. Turn 3 isn't scored in isolation — the LLM sees turns 1, 2, and 3 together and classifies the full picture. Scores naturally rise as users reveal more facts through arguing.
 
 ---
 
-## The Factors
+## The Assessment (What the LLM Extracts)
 
-### Heavy Weight
+The LLM outputs a structured `assessment` object — no numbers, just classifications.
 
-**Functional Gap**
-- Can the user literally not do something without this item?
-- "I need running shoes and I only have dress shoes" → scores high
-- "I want nicer headphones" → scores zero
-- Hank asks: "What can't you do right now without this?"
+```json
+{
+  "assessment": {
+    "item": "iPhone 15 Pro",
+    "intent": "want",
+    "current_solution": "unknown",
+    "current_solution_detail": null,
+    "alternatives_tried": "unknown",
+    "alternatives_detail": null,
+    "frequency": "unknown",
+    "urgency": "none",
+    "urgency_detail": null,
+    "purchase_history": "unknown",
+    "emotional_triggers": ["i_want_it"],
+    "specificity": "vague",
+    "consistency": "first_turn"
+  }
+}
+```
 
-**Current State**
-- What's actually wrong with what they currently own?
-- "My laptop is 7 years old and crashes daily" → scores high
-- "Mine is fine but the new one is better" → scores zero
-- Hank asks: "What's wrong with the one you have?" / "When did it break?" / "Can it be repaired?" / "How old is it?"
+### Classification Fields
 
-**Alternatives Owned**
-- Does the user already own something that serves this purpose?
-- "I have zero winter coats and it's December" → scores high
-- "I have 6 pairs of shoes but not THESE shoes" → scores zero
-- Hank asks: "Don't you already have something that does this?" / "How many of these do you own?"
+**Intent** — why do they want it?
 
-### Medium Weight
+| Value | Meaning |
+|-------|---------|
+| `want` | Pure desire, no functional reason |
+| `need` | Filling a gap, they don't have one |
+| `replace` | Current one is broken/failing |
+| `upgrade` | Current one works but they want better |
+| `gift` | Buying for someone else |
 
-**Frequency of Use**
-- How often will they realistically use this item?
-- "I'd use it every day for work" → scores high
-- "For special occasions" / "Once in a while" → scores low
-- Hank asks: "How often will you actually use this? Be honest." / "When's the last time you used the one you have?"
+**Current Solution** — what's the state of what they have now?
 
-**Urgency**
-- Is there a real reason this needs to happen now?
-- "My only winter coat ripped and it's snowing tomorrow" → scores high
-- "It's on sale" / "I just saw it" / no reason → scores zero
-- Sales are not urgency. Hank knows the difference.
-- Hank asks: "Why today? What happens if you wait a month?"
+| Value | Meaning |
+|-------|---------|
+| `broken` | Completely non-functional |
+| `failing` | Works but has serious problems |
+| `outdated` | Works but significantly behind |
+| `working` | Works fine |
+| `none` | They don't have one at all |
+| `unknown` | Hasn't been discussed |
 
-**Pattern History**
-- How many times has the user asked about this category?
-- First time asking about headphones → neutral
-- Third time this month asking about headphones → actively hurts score
-- Hank asks: "You asked about headphones two weeks ago. And last month. What changed?"
-- This factor gets heavier the more they ask. Repeat behavior is a red flag.
+**Alternatives Tried** — have they explored other options?
 
-### Multipliers (Scale Everything)
+| Value | Meaning |
+|-------|---------|
+| `exhausted` | Tried multiple alternatives, none worked |
+| `some` | Tried a few things |
+| `none` | Haven't tried anything else |
+| `unknown` | Hasn't been discussed |
 
-**Specificity**
-- How concrete and detailed are the user's answers?
-- "My 2019 MacBook Pro has a swelling battery and Apple quoted $300 to fix it" → high specificity, amplifies all scores
-- "It's old and slow" → low specificity, deflates all scores
-- Specific answers multiply the total. Vague answers shrink it.
-- The user doesn't know this factor exists. They can't game what they don't see.
+**Frequency** — how often would they use this?
 
-**Consistency**
-- Do the answers hold up under cross-examination or contradict?
-- User says "I never use my current one" then later "I use it every day" → contradiction detected, tanks everything
-- Consistent, detailed story across 3-4 follow-ups → maintains or boosts score
-- Contradictions are catastrophic. One inconsistency can collapse an otherwise strong case.
-- Hank notices: "Wait — you said you never wear them. Now they're worn out?"
+| Value | Meaning |
+|-------|---------|
+| `daily` | Every day or nearly |
+| `weekly` | A few times a week |
+| `monthly` | A few times a month |
+| `rarely` | Occasional use |
+| `unknown` | Hasn't been discussed |
 
-### Negative Weight (Actively Hurts Score)
+**Urgency** — is there a real deadline?
 
-**Emotional Reasoning**
-- Any argument based on feelings rather than function actively reduces the score
-- "I want it" → negative
-- "I deserve it" → negative
-- "It's on sale" → negative
-- "Everyone has one" → negative
-- "I've always wanted one" → negative
-- "It would make me happy" → negative
-- These don't just score zero. They pull the total down. The more emotional arguments the user makes, the harder it gets to reach the threshold.
-- Hank escalates on these: "You've said 'I want it' three times now. That's not a reason. That's a craving."
+| Value | Meaning |
+|-------|---------|
+| `immediate` | Needs it now, real consequence for waiting |
+| `soon` | Days/weeks, soft deadline |
+| `none` | No time pressure |
+| `unknown` | Hasn't been discussed |
+
+**Purchase History** — revealed patterns?
+
+| Value | Meaning |
+|-------|---------|
+| `impulse_pattern` | Admits to frequent impulse buying |
+| `planned` | Has been researching/saving |
+| `unknown` | No pattern revealed |
+
+**Emotional Triggers** — array of detected emotional language:
+
+`i_want_it`, `i_deserve_it`, `treat_myself`, `makes_me_happy`, `everyone_has_one`, `fomo`, `retail_therapy`, `bored`, `impulse`
+
+Empty array = no emotional reasoning detected. Each trigger actively hurts the score.
+
+**Specificity** — how detailed are their arguments?
+
+| Value | Meaning |
+|-------|---------|
+| `vague` | Hand-waving, no details ("I want a TV") |
+| `moderate` | Some details but gaps ("my phone is slow") |
+| `specific` | Clear details ("crashes daily, need for work") |
+| `evidence` | Facts with proof ("repair quoted $300, replacement $400") |
+
+**Consistency** — how consistent across the conversation?
+
+| Value | Meaning |
+|-------|---------|
+| `first_turn` | First or second message |
+| `building` | Adding new facts that strengthen the case |
+| `consistent` | Repeating but not contradicting |
+| `contradicting` | Conflicts with earlier claims |
+
+The `_detail` fields (`current_solution_detail`, `alternatives_detail`, `urgency_detail`) capture evidence quotes for Hank to reference in responses. They don't affect scoring.
+
+---
+
+## The Mapping Tables (Classification → Score)
+
+Our code maps each classification to the same 0-10 scale that `computeScore()` expects. No LLM judgment in this step — pure lookup.
+
+### Functional Gap (Compound: Intent × Current Solution)
+
+This is the most important factor. It combines *why* they want it with *what they have now*.
+
+| Intent | Any current_solution |
+|--------|---------------------|
+| `replace` | `broken→9` `failing→7` `outdated→5` `none→6` `working→2` `unknown→6` |
+| `need` | `broken→8` `failing→7` `outdated→6` `none→8` `working→4` `unknown→6` |
+| `upgrade` | All → `2` |
+| `want` | All → `0` |
+| `gift` | All → `3` |
+
+`replace + broken` is the strongest possible case (9). `want + anything` is zero — wanting isn't a gap.
+
+### Single-Factor Maps
+
+| Factor | Classification → Score |
+|--------|----------------------|
+| **Current State** | `broken→9` `failing→6` `outdated→3` `none→5` `working→0` `unknown→0` |
+| **Alternatives** | `exhausted→9` `some→5` `none→1` `unknown→0` |
+| **Frequency** | `daily→9` `weekly→6` `monthly→3` `rarely→1` `unknown→0` |
+| **Urgency** | `immediate→9` `soon→5` `none→0` `unknown→0` |
+| **Pattern History** | `impulse_pattern→1` `planned→7` `unknown→3` |
+
+### Emotional Reasoning (Negative — Hurts Score)
+
+Based on trigger count, not type:
+
+| Triggers detected | Score |
+|-------------------|-------|
+| 0 | `0` |
+| 1 | `-3` |
+| 2 | `-5` |
+| 3+ | `-8` |
+
+More emotional arguments = harder to win. These don't just score zero — they pull the total down.
+
+### Multipliers
+
+| Factor | Classification → Multiplier |
+|--------|----------------------------|
+| **Specificity** | `vague→0.4` `moderate→0.8` `specific→1.2` `evidence→1.5` |
+| **Consistency** | `building→1.2` `consistent→1.0` `contradicting→0.3` `first_turn→1.0` |
+
+Vague arguments deflate everything. Contradictions are catastrophic — 0.3x on your entire score.
+
+### Unknown = Zero (by Design)
+
+Most fields default to `unknown` which maps to `0`. On turn 1, almost everything is unknown, so the score is naturally low. That's correct — they haven't argued yet. The score rises as they reveal facts through the conversation.
 
 ---
 
 ## The Weighted Calculation
 
+Same formula as v0. The mapping tables produce the same `ExtractedScores` interface — `computeScore()` is unchanged.
+
 ```
 score = (
-  (functional_gap * HEAVY) +
-  (current_state * HEAVY) +
-  (alternatives * HEAVY) +
-  (frequency * MEDIUM) +
-  (urgency * MEDIUM) +
-  (pattern_history * MEDIUM) +
-  (emotional * NEGATIVE)
-) * specificity_multiplier * consistency_multiplier
+  (functional_gap * 3.0) +
+  (current_state * 3.0) +
+  (alternatives * 3.0) +
+  (frequency * 1.5) +
+  (urgency * 1.5) +
+  (pattern_history * 1.5) +
+  (emotional * 2.0)
+) * specificity * consistency
 ```
 
-Each factor: 0-10 scale (extracted by LLM)
-Specificity multiplier: 0.3 to 1.5
-Consistency multiplier: 0.0 to 1.2 (contradiction = near zero, kills everything)
-Emotional: 0 to -10 (only goes negative)
+Result clamped to 0-100.
+
+### Stance Floor (Turns 1-2)
+
+Even with correct scoring, turn 1 naturally produces a very low score (most fields `unknown` → 0). That maps to IMMOVABLE — "no case whatsoever." But IMMOVABLE is the wrong *tone* for someone who just walked in. They haven't had a chance to argue.
+
+**Rule:** On turns 1-2, IMMOVABLE is promoted to FIRM. The score stays honest (it's still low), but Hank's tone says "convince me" instead of "you have no case."
+
+This only affects IMMOVABLE → FIRM. If scoring produces SKEPTICAL or higher on turn 1 (unlikely but possible), it passes through unchanged.
 
 ### Verdict Thresholds
 
@@ -170,6 +284,45 @@ Emotional: 0 to -10 (only goes negative)
 | 86-100 | **Concedes** | "Fine. Get the laptop. Yours is ancient." |
 
 Most impulse purchases will land 0-30. That's by design. The app's default answer is no.
+
+### Worked Example
+
+**Turn 1:** "I want to buy a TV"
+
+```
+Assessment: intent=want, current_solution=unknown, specificity=vague,
+            emotional_triggers=[i_want_it], consistency=first_turn
+
+Mapped:     functional_gap=0, current_state=0, alternatives=0,
+            frequency=0, urgency=0, pattern_history=3,
+            emotional=-3, specificity=0.4, consistency=1.0
+
+Calculation: (0+0+0)*3.0 + (0+0+3)*1.5 + (-3)*2.0 = -1.5
+             -1.5 * 0.4 * 1.0 = -0.6 → clamped to 0
+             Score: 0 → IMMOVABLE → stance floor → FIRM
+
+Hank challenges but gives them a chance to argue.
+```
+
+**Turn 2:** "My current TV broke last week, I watch it every day"
+
+```
+Assessment: intent=replace, current_solution=broken, frequency=daily,
+            specificity=specific, consistency=building
+
+Mapped:     functional_gap=9, current_state=9, alternatives=0,
+            frequency=9, urgency=0, pattern_history=3,
+            emotional=0, specificity=1.2, consistency=1.2
+
+Calculation: (9+9+0)*3.0 + (9+0+3)*1.5 + 0*2.0 = 72
+             72 * 1.2 * 1.2 = 103.68 → clamped to 100
+
+With electronics (1.3) + unknown price (1.0) → threshold multiplier 1.3:
+  SKEPTICAL threshold: 70 * 1.3 = 91
+  Score 100 > 91 → RELUCTANT
+
+Hank is almost convinced but pushes for final proof.
+```
 
 ### Price Tier Modifiers
 
@@ -244,17 +397,19 @@ The deflections still sound like Hank — dry, pointed, in character. He doesn't
 
 1. **One strong factor isn't enough.** "It's broken" scores current state but if you own 5 alternatives and use it once a year, you're still denied.
 
-2. **Emotional arguments actively hurt you.** You can't pad your score with "I really want it." It makes things worse.
+2. **Emotional arguments actively hurt you.** You can't pad your score with "I really want it." It makes things worse. Each trigger detected pulls the score down.
 
-3. **Consistency is a multiplier, not a factor.** One contradiction doesn't just lose you points on one axis — it deflates your entire score.
+3. **Consistency is a multiplier, not a factor.** One contradiction doesn't just lose you points on one axis — it deflates your entire score to 0.3x.
 
-4. **Specificity is invisible.** Users don't know vague answers are hurting them. They can't strategize around it.
+4. **Specificity is invisible.** Users don't know vague answers are hurting them. `vague` gives a 0.4x multiplier — less than half credit on everything.
 
 5. **Pattern history compounds.** Gaming works once. By the third time you claim something is broken, Hank's suspicion is through the roof.
 
 6. **Cross-examination is unpredictable.** Hank attacks from whichever factor is weakest. Users can't prepare because they don't know which angle is coming next.
 
 7. **Memory is the ultimate guard.** You can't repeat the same strategy across conversations. Hank remembers everything.
+
+8. **Classifications are transparent to us, opaque to users.** We can see exactly why the score is what it is. Users just experience Hank being hard to convince.
 
 ---
 
@@ -302,7 +457,7 @@ The most common interaction won't be a heated debate. It'll be someone who wants
 
 The scoring engine handles the verdict naturally — low specificity multiplier crushes the score, emotional reasoning stacks negative weight, the case never gets close to approval. But the **conversation** still needs a clean exit. Hank asking a fourth probing question to someone giving one-word answers is just annoying.
 
-### The Rule
+### Disengagement Rule
 
 **Two consecutive non-answers → Hank closes the case.**
 
@@ -311,6 +466,16 @@ A non-answer is:
 - Restating "I want it" without new information
 - Ignoring the question entirely
 - Getting assertive without arguing ("Just tell me it's okay")
+
+### Stagnation Rule
+
+**Four consecutive repeats with no new information → Hank closes the case.**
+
+The LLM flags `has_new_information: false` when the user restates the same argument without adding substance. Escalating warnings at each stage:
+1. "You said that already. Got anything new?"
+2. "We've been going in circles."
+3. "Last shot — give me something new or we're done."
+4. Case closure.
 
 ### Case Closure (Denied)
 
@@ -343,13 +508,31 @@ The quick denial is not a failure mode. It's the core experience for most users.
 
 ## Implementation
 
-- **LLM extracts scores** as structured output (JSON) alongside Hank's conversational response
-- **Convex function** receives the scores, computes weighted total, returns stance
-- **Stance feeds back** into the next LLM call as context: "Your current stance is: FIRM. Do not concede."
+- **LLM extracts assessment** as structured JSON — classifications, not numbers — alongside Hank's conversational response
+- **Convex function** maps classifications to scores via lookup tables, computes weighted total, applies stance floor, returns stance
+- **Stance feeds back** into the next LLM call as context: "Your stance is FIRM. Do not concede."
 - **Conversation history** stored in Convex, fed as context for pattern detection
 - **Past conversations** summarized and injected for cross-session memory
 
 The LLM prompt explicitly says: "You do not decide when to concede. You will be told your stance. Follow it."
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `convex/llm/scoring.ts` | Assessment types, mapping tables, `mapAssessmentToScores()`, `computeScore()`, `applyStanceFloor()` |
+| `convex/llm/prompt.ts` | System prompt with classification extraction guidelines |
+| `convex/llm/generate.ts` | Orchestrates: LLM call → parse assessment → map → score → save |
+| `src/components/admin/TraceDetail.tsx` | Admin trace viewer (shows Assessment + Mapped Scores + Scoring Result) |
+
+### Trace Data (Admin Debugging)
+
+Traces store three layers for each turn:
+- **Assessment** — the raw LLM classifications (`intent: "want"`, `current_solution: "broken"`, etc.)
+- **Mapped Scores** — the deterministic output of the lookup tables (`functional_gap: 9`, `current_state: 9`, etc.)
+- **Scoring Result** — the final computation (`score: 86`, `stance: "RELUCTANT"`, `thresholdMultiplier: 1.3`)
+
+When a stance floor is applied, the trace `decisionType` shows `"normal (stance floored)"`.
 
 ---
 
@@ -537,11 +720,23 @@ Cheap. Fits easily. Gets more valuable every conversation.
 
 ## Tuning
 
-Weights, thresholds, and multiplier ranges need testing with real conversations. Start with the values above, then adjust based on:
+The mapping table values are hypothetical and need testing with real conversations. Adjust based on:
 
 - Is the concession rate around 10-15%? (Too high = too easy, too low = feels rigged)
 - Are concessions going to genuinely justified purchases?
 - Are users finding obvious gaming strategies?
 - Does the conversation feel varied or repetitive?
+- Are stance jumps between turns too volatile? (If so, consider a max-one-level-per-turn cap)
 
-The weights are knobs. Turn them based on real data.
+The mapping tables are knobs. Change a number, redeploy, every conversation is affected consistently. That's the advantage of deterministic scoring over LLM calibration — tuning is predictable.
+
+### Known Tradeoffs (v0 → v1)
+
+**Better:**
+- Consistency — same classification always produces the same score
+- Debuggability — traces show readable classifications, not opaque numbers
+- Tunability — change a lookup table value, not a prompt paragraph
+
+**Watch for:**
+- Score volatility — one strong argument can cause a big stance jump because the tables map mechanically with no "go slowly" instinct. Price/category modifiers dampen this for expensive items. May need a max-one-stance-level-per-turn cap if jumps feel too fast in practice.
+- Granularity loss — "kinda failing" has to be either `failing` (→6) or `working` (→0). The step function is coarser than a continuous 0-10 scale. Multiple factors combining still produce fine-grained total scores, but individual dimensions are discrete.
