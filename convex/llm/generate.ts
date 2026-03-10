@@ -38,6 +38,12 @@ const ALTERNATIVES_ORDER: Assessment["alternatives_tried"][] =
   ["unknown", "none", "some", "exhausted"];
 const SPECIFICITY_ORDER: Assessment["specificity"][] =
   ["vague", "moderate", "specific", "evidence"];
+const FREQUENCY_ORDER: Assessment["frequency"][] =
+  ["unknown", "rarely", "monthly", "weekly", "daily"];
+const URGENCY_ORDER: Assessment["urgency"][] =
+  ["unknown", "none", "soon", "immediate"];
+const CURRENT_SOLUTION_ORDER: Assessment["current_solution"][] =
+  ["unknown", "working", "outdated", "none", "failing", "broken"];
 function coalesceMonotonic<T>(newVal: T, prevVal: T, order: T[]): T {
   const prevIdx = order.indexOf(prevVal);
   const newIdx = order.indexOf(newVal);
@@ -63,10 +69,40 @@ function assessmentCoalescingDiff(
 
 function coalesceAssessment(current: Assessment, prev: Assessment | null): Assessment {
   if (!prev) return current;
+
+  const contradicting = current.consistency === "contradicting";
+
   return {
     ...current,
+    // Pure monotonic (existing) — never regress, even on contradiction
     alternatives_tried: coalesceMonotonic(current.alternatives_tried, prev.alternatives_tried, ALTERNATIVES_ORDER),
     specificity: coalesceMonotonic(current.specificity, prev.specificity, SPECIFICITY_ORDER),
+
+    // Monotonic unless contradicting — ordered fields
+    frequency: contradicting
+      ? current.frequency
+      : coalesceMonotonic(current.frequency, prev.frequency, FREQUENCY_ORDER),
+    urgency: contradicting
+      ? current.urgency
+      : coalesceMonotonic(current.urgency, prev.urgency, URGENCY_ORDER),
+    current_solution: contradicting
+      ? current.current_solution
+      : coalesceMonotonic(current.current_solution, prev.current_solution, CURRENT_SOLUTION_ORDER),
+
+    // Default-hold unless contradicting — unordered fields
+    intent: !contradicting && current.intent === "want" && prev.intent !== "want"
+      ? prev.intent : current.intent,
+    beneficiary: !contradicting && current.beneficiary === "self" && prev.beneficiary !== "self"
+      ? prev.beneficiary : current.beneficiary,
+    purchase_history: !contradicting && current.purchase_history === "unknown" && prev.purchase_history !== "unknown"
+      ? prev.purchase_history : current.purchase_history,
+
+    // Array union unless contradicting
+    emotional_triggers: contradicting
+      ? current.emotional_triggers
+      : [...new Set([...prev.emotional_triggers, ...current.emotional_triggers])],
+
+    // Null-fill (existing)
     alternatives_detail: current.alternatives_detail ?? prev.alternatives_detail,
     current_solution_detail: current.current_solution_detail ?? prev.current_solution_detail,
     urgency_detail: current.urgency_detail ?? prev.urgency_detail,
