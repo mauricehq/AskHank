@@ -44,6 +44,12 @@ const URGENCY_ORDER: Assessment["urgency"][] =
   ["unknown", "none", "soon", "immediate"];
 const CURRENT_SOLUTION_ORDER: Assessment["current_solution"][] =
   ["unknown", "working", "outdated", "none", "failing", "broken"];
+const INTENT_ORDER: Assessment["intent"][] =
+  ["want", "upgrade", "gift", "need", "replace"];
+const BENEFICIARY_ORDER: Assessment["beneficiary"][] =
+  ["gift_discretionary", "self", "shared", "dependent"];
+const PURCHASE_HISTORY_ORDER: Assessment["purchase_history"][] =
+  ["unknown", "impulse_pattern", "planned"];
 function coalesceMonotonic<T>(newVal: T, prevVal: T, order: T[]): T {
   const prevIdx = order.indexOf(prevVal);
   const newIdx = order.indexOf(newVal);
@@ -89,13 +95,17 @@ function coalesceAssessment(current: Assessment, prev: Assessment | null): Asses
       ? current.current_solution
       : coalesceMonotonic(current.current_solution, prev.current_solution, CURRENT_SOLUTION_ORDER),
 
-    // Default-hold unless contradicting — unordered fields
-    intent: !contradicting && current.intent === "want" && prev.intent !== "want"
-      ? prev.intent : current.intent,
-    beneficiary: !contradicting && current.beneficiary === "self" && prev.beneficiary !== "self"
-      ? prev.beneficiary : current.beneficiary,
-    purchase_history: !contradicting && current.purchase_history === "unknown" && prev.purchase_history !== "unknown"
-      ? prev.purchase_history : current.purchase_history,
+    intent: contradicting
+      ? current.intent
+      : coalesceMonotonic(current.intent, prev.intent, INTENT_ORDER),
+
+    // Monotonic unless contradicting — beneficiary & purchase_history
+    beneficiary: contradicting
+      ? current.beneficiary
+      : coalesceMonotonic(current.beneficiary, prev.beneficiary, BENEFICIARY_ORDER),
+    purchase_history: contradicting
+      ? current.purchase_history
+      : coalesceMonotonic(current.purchase_history, prev.purchase_history, PURCHASE_HISTORY_ORDER),
 
     // Array union unless contradicting
     emotional_triggers: contradicting
