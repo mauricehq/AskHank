@@ -38,9 +38,6 @@ const ALTERNATIVES_ORDER: Assessment["alternatives_tried"][] =
   ["unknown", "none", "some", "exhausted"];
 const SPECIFICITY_ORDER: Assessment["specificity"][] =
   ["vague", "moderate", "specific", "evidence"];
-const PRICE_POSITIONING_ORDER: Assessment["price_positioning"][] =
-  ["budget", "standard", "premium", "luxury"];
-
 function coalesceMonotonic<T>(newVal: T, prevVal: T, order: T[]): T {
   const prevIdx = order.indexOf(prevVal);
   const newIdx = order.indexOf(newVal);
@@ -70,7 +67,6 @@ function coalesceAssessment(current: Assessment, prev: Assessment | null): Asses
     ...current,
     alternatives_tried: coalesceMonotonic(current.alternatives_tried, prev.alternatives_tried, ALTERNATIVES_ORDER),
     specificity: coalesceMonotonic(current.specificity, prev.specificity, SPECIFICITY_ORDER),
-    price_positioning: coalesceMonotonic(current.price_positioning, prev.price_positioning, PRICE_POSITIONING_ORDER),
     alternatives_detail: current.alternatives_detail ?? prev.alternatives_detail,
     current_solution_detail: current.current_solution_detail ?? prev.current_solution_detail,
     urgency_detail: current.urgency_detail ?? prev.urgency_detail,
@@ -162,6 +158,7 @@ interface ToolArguments {
   is_non_answer: boolean;
   has_new_information: boolean;
   is_out_of_scope: boolean;
+  user_backed_down: boolean;
   category: string;
   estimated_price: number;
 }
@@ -227,12 +224,32 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 3-7: Score and apply guardrails. Never mutate scoring — keep raw for traces.
+  // 3-8: Score and apply guardrails. Never mutate scoring — keep raw for traces.
   const mappedScores = mapAssessmentToScores(assessment);
   const scoring = computeScore(mappedScores, estimatedPrice, assessment.price_positioning);
   const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
-  // 3. Non-answer + count >= 1 → denied verdict
+  // 3. User backed down → denied verdict (Hank wins)
+  if (input.user_backed_down) {
+    return {
+      stance: guardrailedStance,
+      score: scoring.score,
+      guidance: "Victory. The user backed down. Give a brief, dry, memorable closing line. Don't pile on — they made the right call and you both know it.",
+      verdict: "denied",
+      closing: true,
+      _disengagementCount: 0,
+      _stagnationCount: 0,
+      _category: category,
+      _estimatedPrice: estimatedPrice,
+      _item: item,
+      _decisionType: "user-backed-down",
+      _mappedScores: mappedScores,
+      _scoringResult: scoring,
+      _coalescedAssessment: assessment,
+    };
+  }
+
+  // 4. Non-answer + count >= 1 → denied verdict
   if (input.is_non_answer && disengagementCount >= 1) {
     return {
       stance: guardrailedStance,
@@ -252,7 +269,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 4. Non-answer (first) → increment counter, warning
+  // 5. Non-answer (first) → increment counter, warning
   if (input.is_non_answer) {
     return {
       stance: guardrailedStance,
@@ -270,7 +287,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 5. No new information + count >= 4 → stagnation closure
+  // 6. No new information + count >= 4 → stagnation closure
   if (!input.has_new_information && stagnationCount >= 3) {
     return {
       stance: guardrailedStance,
@@ -290,7 +307,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 6. No new information (count < 4) → increment, escalating guidance
+  // 7. No new information (count < 4) → increment, escalating guidance
   if (!input.has_new_information) {
     const newStagnation = stagnationCount + 1;
 
@@ -318,7 +335,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
     };
   }
 
-  // 7. Normal turn — return new stance
+  // 8. Normal turn — return new stance
   const stanceGuidance: Record<Stance, string> = {
     IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
     FIRM: "Weak case. Don't concede unless overwhelming evidence.",
@@ -485,7 +502,25 @@ export const respond = internalAction({
         tool_choice: { type: "function", function: { name: "get_stance" } },
       });
 
-      const toolCall = call1.toolCalls?.[0];
+      let toolCall = call1.toolCalls?.[0];
+      let call1Usage = call1.usage;
+
+      // Retry once if tool call missing (model occasionally skips despite tool_choice)
+      if (!toolCall || toolCall.function.name !== "get_stance") {
+        console.warn("LLM skipped tool — retrying (attempt 2)");
+        const retry = await chatCompletion({
+          messages: llmMessages,
+          modelId,
+          maxTokens: 300,
+          tools: [toolDef],
+          tool_choice: { type: "function", function: { name: "get_stance" } },
+        });
+        call1Usage = addUsage(call1.usage, retry.usage);
+        const retryToolCall = retry.toolCalls?.[0];
+        if (retryToolCall && retryToolCall.function.name === "get_stance") {
+          toolCall = retryToolCall;
+        }
+      }
 
       // 5. BRANCH — only handle get_stance; other tool names treated as casual
       //    If LLM returned only tool_calls with wrong name (no content), re-call without tools
@@ -502,6 +537,7 @@ export const respond = internalAction({
             is_non_answer: raw.is_non_answer === true,
             has_new_information: raw.has_new_information !== false,
             is_out_of_scope: raw.is_out_of_scope === true,
+            user_backed_down: raw.user_backed_down === true,
             category: typeof raw.category === "string" ? raw.category : "other",
             estimated_price: typeof raw.estimated_price === "number" ? raw.estimated_price : 0,
           };
@@ -512,6 +548,7 @@ export const respond = internalAction({
             is_non_answer: false,
             has_new_information: true,
             is_out_of_scope: false,
+            user_backed_down: false,
             category: "other",
             estimated_price: 0,
           };
@@ -565,7 +602,7 @@ export const respond = internalAction({
         });
 
         const durationMs = Date.now() - llmStart;
-        const totalUsage = addUsage(call1.usage, call2.usage);
+        const totalUsage = addUsage(call1Usage, call2.usage);
         const responseText = call2.content;
         if (!responseText) {
           throw new Error("Call 2 returned empty content");
@@ -652,7 +689,7 @@ export const respond = internalAction({
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
-          tokenUsage: call1.usage,
+          tokenUsage: call1Usage,
           rawScores: "{}",
           sanitizedScores: "{}",
           scoringResult: "{}",
