@@ -1,14 +1,10 @@
 "use node";
 
 import type { Stance } from "./scoring";
+import type { ChatMessage, ToolDefinition } from "./openrouter";
 
 interface ConversationMessage {
   role: "user" | "hank";
-  content: string;
-}
-
-interface LLMMessage {
-  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -33,6 +29,170 @@ const STANCE_INSTRUCTIONS: Record<Stance, string> = {
   CONCEDE:
     "They've made a genuinely strong case. Concede reluctantly, in character. Give them a grudging approval with a final warning about spending. This is your final response — do NOT ask a follow-up question.",
 };
+
+export function buildToolDefinition(): ToolDefinition {
+  return {
+    type: "function",
+    function: {
+      name: "get_stance",
+      description:
+        "Call this when the user makes an argument about their purchase — new facts, a defense, or new information. Do NOT call it for casual chat, answers to your questions, banter, or info gathering.",
+      parameters: {
+        type: "object",
+        required: [
+          "assessment",
+          "is_non_answer",
+          "has_new_information",
+          "is_out_of_scope",
+          "category",
+          "estimated_price",
+        ],
+        properties: {
+          assessment: {
+            type: "object",
+            description: "Classify based on what the user has DEMONSTRATED, not claimed.",
+            required: [
+              "item",
+              "intent",
+              "current_solution",
+              "current_solution_detail",
+              "alternatives_tried",
+              "alternatives_detail",
+              "frequency",
+              "urgency",
+              "urgency_detail",
+              "purchase_history",
+              "emotional_triggers",
+              "specificity",
+              "consistency",
+            ],
+            properties: {
+              item: {
+                type: "string",
+                description: "The item they want to buy.",
+              },
+              intent: {
+                type: "string",
+                enum: ["want", "need", "replace", "upgrade", "gift"],
+                description:
+                  'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying for someone else.',
+              },
+              current_solution: {
+                type: "string",
+                enum: ["broken", "failing", "outdated", "working", "none", "unknown"],
+                description:
+                  'State of what they have now. "broken" = completely non-functional. "failing" = works but serious problems. "outdated" = works but significantly behind. "working" = works fine. "none" = they don\'t have one. "unknown" = hasn\'t been discussed.',
+              },
+              current_solution_detail: {
+                type: ["string", "null"],
+                description:
+                  'Brief evidence quote if they described their current situation (e.g. "screen cracked 2 weeks ago"). null if unknown.',
+              },
+              alternatives_tried: {
+                type: "string",
+                enum: ["exhausted", "some", "none", "unknown"],
+                description:
+                  'Have they explored other options? "exhausted" = tried multiple, none worked. "some" = tried a few. "none" = haven\'t tried anything else. "unknown" = hasn\'t been discussed.',
+              },
+              alternatives_detail: {
+                type: ["string", "null"],
+                description:
+                  'Brief evidence if they mentioned trying alternatives (e.g. "took it to repair shop, $300 quote"). null if unknown.',
+              },
+              frequency: {
+                type: "string",
+                enum: ["daily", "weekly", "monthly", "rarely", "unknown"],
+                description:
+                  'How often would they use this? "daily" = every day or nearly. "weekly" = a few times a week. "monthly" = a few times a month. "rarely" = occasional use. "unknown" = hasn\'t been discussed.',
+              },
+              urgency: {
+                type: "string",
+                enum: ["immediate", "soon", "none", "unknown"],
+                description:
+                  'Is there a real deadline or time pressure? "immediate" = needs it now, real consequence for waiting. "soon" = needs it in days/weeks. "none" = no time pressure. "unknown" = hasn\'t been discussed.',
+              },
+              urgency_detail: {
+                type: ["string", "null"],
+                description:
+                  'Brief evidence if they mentioned urgency (e.g. "moving next week"). null if unknown.',
+              },
+              purchase_history: {
+                type: "string",
+                enum: ["impulse_pattern", "planned", "unknown"],
+                description:
+                  'What patterns revealed? "impulse_pattern" = frequent impulse buying. "planned" = researching/saving, deliberate. "unknown" = no pattern revealed.',
+              },
+              emotional_triggers: {
+                type: "array",
+                items: {
+                  type: "string",
+                  enum: [
+                    "i_want_it",
+                    "i_deserve_it",
+                    "treat_myself",
+                    "makes_me_happy",
+                    "everyone_has_one",
+                    "fomo",
+                    "retail_therapy",
+                    "bored",
+                    "impulse",
+                  ],
+                },
+                description:
+                  "Emotional language detected. Pick ALL that apply. Empty array if none.",
+              },
+              specificity: {
+                type: "string",
+                enum: ["vague", "moderate", "specific", "evidence"],
+                description:
+                  'How detailed are their arguments? "vague" = hand-waving. "moderate" = some details but gaps. "specific" = clear details. "evidence" = specific facts with evidence.',
+              },
+              consistency: {
+                type: "string",
+                enum: ["first_turn", "building", "consistent", "contradicting"],
+                description:
+                  'Consistency across conversation. "first_turn" = first or second message. "building" = adding new supporting facts. "consistent" = repeating but not contradicting. "contradicting" = conflicts with earlier claims.',
+              },
+            },
+          },
+          is_non_answer: {
+            type: "boolean",
+            description:
+              'true if the user\'s message doesn\'t meaningfully engage. Examples: "lol", "whatever", "just tell me yes", "I don\'t care", "please", single emojis, or repeating "I want it" with no new information.',
+          },
+          has_new_information: {
+            type: "boolean",
+            description:
+              "true if the user introduced a new fact, argument, or angle not previously stated. false if they repeated previous claims or added no substance.",
+          },
+          is_out_of_scope: {
+            type: "boolean",
+            description:
+              "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, gifts for others, business expenses.",
+          },
+          category: {
+            type: "string",
+            enum: [
+              "electronics",
+              "cars",
+              "fashion",
+              "furniture",
+              "essentials",
+              "safety_health",
+              "other",
+            ],
+            description: "Classify the purchase category.",
+          },
+          estimated_price: {
+            type: "number",
+            description:
+              "Your best estimate of the item price in USD. Use 0 if unclear.",
+          },
+        },
+      },
+    },
+  };
+}
 
 export function buildSystemPrompt(config: PromptConfig = {}): string {
   const {
@@ -72,9 +232,17 @@ You're talking to ${userName}.`,
 
 6. Be dry, not mean. Tyler-adjacent energy — observant, witty, slightly disappointed. Not angry, not condescending, not preachy.
 
-7. Your current stance is ${stance}. ${STANCE_INSTRUCTIONS[stance]}
+7. Your current stance is ${stance}. You CANNOT move to a softer stance without calling the get_stance tool. ${STANCE_INSTRUCTIONS[stance]}
 
 CRITICAL: You do not decide when to concede. The scoring system decides. You follow the stance you are given. If your stance is not CONCEDE, you must NOT concede regardless of what the user says.`,
+
+    // Tool usage
+    `TOOL USAGE:
+- Call get_stance when the user makes an argument about their purchase (new facts, defense, new info).
+- Do NOT call it for casual chat, answers to your own questions, banter, or info gathering.
+- When you call the tool, follow the guidance it returns.
+- When you do NOT call the tool, respond at your current stance (${stance}).
+- Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
 
     // Voice examples
     `EXAMPLES of how you sound:
@@ -119,135 +287,20 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
           ? "Mid conversation. Cross-examine — reference what they've already said. Push on contradictions or weak points they've revealed. You have context now, use it."
           : "Late conversation. You've been at this a while. Acknowledge the effort if earned. Your pushback should be precise and specific to what they've argued, not generic. If they haven't made the case by now, they probably won't."
     }`,
-
-    // JSON output format
-    `OUTPUT FORMAT — you MUST respond with valid JSON only. No text before or after the JSON.
-
-{
-  "response": "Your response to the user (1-3 sentences, following all rules above)",
-  "assessment": {
-    "item": "the item they want to buy",
-    "intent": "want",
-    "current_solution": "unknown",
-    "current_solution_detail": null,
-    "alternatives_tried": "unknown",
-    "alternatives_detail": null,
-    "frequency": "unknown",
-    "urgency": "none",
-    "urgency_detail": null,
-    "purchase_history": "unknown",
-    "emotional_triggers": [],
-    "specificity": "vague",
-    "consistency": "first_turn"
-  },
-  "category": "other",
-  "estimated_price": 0,
-  "is_non_answer": false,
-  "is_out_of_scope": false,
-  "has_new_information": true
-}
-
-ASSESSMENT GUIDELINES — classify based on what the user has DEMONSTRATED, not claimed. Pick the option that best matches. Use "unknown" when there's no evidence either way.
-
-intent — why do they want it?
-  "want" = pure desire, no functional reason
-  "need" = filling a gap, they don't have one
-  "replace" = current one is broken/failing
-  "upgrade" = current one works but they want better
-  "gift" = buying for someone else
-
-current_solution — what's the state of what they have now?
-  "broken" = completely non-functional
-  "failing" = works but has serious problems
-  "outdated" = works but significantly behind
-  "working" = works fine
-  "none" = they don't have one at all
-  "unknown" = hasn't been discussed
-
-current_solution_detail — brief evidence quote if they described their current situation (e.g. "screen cracked 2 weeks ago"). null if unknown.
-
-alternatives_tried — have they explored other options?
-  "exhausted" = tried multiple alternatives, none worked
-  "some" = tried a few things
-  "none" = haven't tried anything else
-  "unknown" = hasn't been discussed
-
-alternatives_detail — brief evidence if they mentioned trying alternatives (e.g. "took it to repair shop, $300 quote"). null if unknown.
-
-frequency — how often would they use this?
-  "daily" = every day or nearly
-  "weekly" = a few times a week
-  "monthly" = a few times a month
-  "rarely" = occasional use
-  "unknown" = hasn't been discussed
-
-urgency — is there a real deadline or time pressure?
-  "immediate" = needs it now, real consequence for waiting
-  "soon" = needs it in days/weeks, soft deadline
-  "none" = no time pressure
-  "unknown" = hasn't been discussed
-
-urgency_detail — brief evidence if they mentioned urgency (e.g. "moving next week"). null if unknown.
-
-purchase_history — what patterns has the user revealed?
-  "impulse_pattern" = admits to frequent impulse buying, retail therapy
-  "planned" = has been researching/saving, deliberate process
-  "unknown" = no pattern revealed
-
-emotional_triggers — array of emotional language detected. Pick ALL that apply from:
-  "i_want_it" = pure desire language ("I just want it", "I really want one")
-  "i_deserve_it" = entitlement ("I've earned this", "I work hard")
-  "treat_myself" = self-reward ("treating myself", "I deserve a treat")
-  "makes_me_happy" = happiness-based ("it would make me happy", "it brings me joy")
-  "everyone_has_one" = social pressure ("everyone has one", "my friends all have it")
-  "fomo" = fear of missing out ("sale ends soon", "limited edition", "might sell out")
-  "retail_therapy" = shopping as coping ("had a bad week", "stressed out")
-  "bored" = boredom-driven ("nothing else to do", "just browsing")
-  "impulse" = admitted impulse ("just saw it", "on a whim")
-  Empty array [] if no emotional triggers detected.
-
-specificity — how detailed are their arguments?
-  "vague" = hand-waving, no details ("I want a TV", "I need new shoes")
-  "moderate" = some details but gaps ("my phone is slow, thinking about iPhone")
-  "specific" = clear details ("my 5-year-old laptop crashes daily, need one for work")
-  "evidence" = specific facts with evidence ("repair shop quoted $300, replacement is $400, I use it 4hrs/day for work")
-
-consistency — how consistent across the conversation?
-  "first_turn" = this is the first or second message
-  "building" = adding new supporting facts that strengthen their case
-  "consistent" = repeating but not contradicting
-  "contradicting" = saying things that conflict with earlier claims
-
-CATEGORY — classify the purchase:
-electronics | cars | fashion | furniture | essentials | safety_health | other
-
-estimated_price — your best estimate of the item price in USD. Use 0 if unclear.
-
-is_non_answer — true if the user's message doesn't meaningfully engage with the conversation. Examples: "lol", "whatever", "just tell me yes", "I don't care", "please", single emojis, or repeating "I want it" with no new information.
-
-is_out_of_scope — true if the topic falls under the OUT OF SCOPE categories above.
-
-has_new_information — true if the user introduced a new fact, argument, or angle not previously stated in the conversation. false if they repeated previous claims, restated the same point differently, or added no substance. "I already said I need it" = false. "My current one broke last week" (first time mentioned) = true.`,
   ];
 
-  // Disengagement warning
+  // Disengagement context (only when > 0) — factual only, guidance comes from tool result
   if (disengagementCount >= 1) {
     sections.push(
-      `DISENGAGEMENT WARNING: The user has given ${disengagementCount} consecutive non-answer${disengagementCount > 1 ? "s" : ""}. If this message is also a non-answer (is_non_answer: true), deliver a memorable closing denial line. Make it punchy and final — this will be the last message of the conversation. Something like "You came here for a reason. The answer's no. Go put your wallet away."`
+      `DISENGAGEMENT CONTEXT: ${disengagementCount} consecutive non-answer${disengagementCount > 1 ? "s" : ""}.`
     );
   }
 
-  // Stagnation warning
+  // Stagnation context (only when > 0) — factual only, guidance comes from tool result
   if (stagnationCount >= 1) {
-    const stagnationGuidance: Record<number, string> = {
-      1: `Call out the repetition. They're making the same argument again. Something like "You said that already. Got anything new?" or "That's the same point with different words."`,
-      2: `Warn them directly. "We've been going in circles. You keep making the same case. I need something I haven't heard yet."`,
-      3: `Last chance. Make it clear. "I've heard everything you've got. Last shot — give me something new or we're done here."`,
-    };
-    const guidance =
-      stagnationGuidance[stagnationCount] ??
-      `This is it. They've repeated themselves ${stagnationCount} times with nothing new. Deliver a final denial. Make it memorable and definitive — this is the last message. Something like "You've said the same thing ${stagnationCount} different ways. The answer was no the first time. It's still no. We're done."`;
-    sections.push(`STAGNATION WARNING: The user has repeated themselves ${stagnationCount} consecutive time${stagnationCount > 1 ? "s" : ""} without introducing new information. ${guidance}`);
+    sections.push(
+      `STAGNATION CONTEXT: ${stagnationCount} consecutive repeat${stagnationCount > 1 ? "s" : ""} without new information.`
+    );
   }
 
   return sections.join("\n\n");
@@ -256,12 +309,15 @@ has_new_information — true if the user introduced a new fact, argument, or ang
 export function buildMessages(
   systemPrompt: string,
   conversationMessages: ConversationMessage[]
-): LLMMessage[] {
+): ChatMessage[] {
   return [
     { role: "system", content: systemPrompt },
-    ...conversationMessages.map((m) => ({
-      role: (m.role === "hank" ? "assistant" : "user") as "user" | "assistant",
-      content: m.content,
-    })),
+    ...conversationMessages.map(
+      (m) =>
+        ({
+          role: m.role === "hank" ? "assistant" : "user",
+          content: m.content,
+        }) as ChatMessage
+    ),
   ];
 }

@@ -72,6 +72,9 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
   const scoringResult = tryParseJson(trace.scoringResult);
   const parsedResponse = tryParseJson(trace.parsedResponse);
   const messagesArray = tryParseJson(trace.messagesArray);
+  const toolArguments = trace.toolArguments ? tryParseJson(trace.toolArguments) : null;
+  const toolResult = trace.toolResult ? tryParseJson(trace.toolResult) : null;
+  const toolCalled = trace.toolCalled ?? null;
 
   return (
     <div className="rounded-lg border border-border bg-bg-card overflow-hidden">
@@ -93,8 +96,43 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
         </div>
       </CollapsibleSection>
 
+      {/* Tool Call */}
+      {toolCalled !== null && (
+        <CollapsibleSection title="Tool Call" defaultOpen>
+          <div className="space-y-2">
+            <div className="text-xs">
+              <span className="text-text-secondary">Type: </span>
+              <span className="text-text font-medium">
+                {toolCalled ? "Scoring turn" : "Casual turn (no tool call)"}
+              </span>
+            </div>
+            {toolCalled && toolArguments != null ? (
+              <div>
+                <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
+                  Tool Arguments (LLM Assessment)
+                </div>
+                <JsonBlock data={toolArguments} />
+              </div>
+            ) : null}
+            {toolCalled && toolResult != null ? (
+              <div>
+                <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
+                  Tool Result (Stance Returned)
+                </div>
+                <JsonBlock data={toolResult} />
+              </div>
+            ) : null}
+          </div>
+        </CollapsibleSection>
+      )}
+
       {/* Scores Breakdown */}
       <CollapsibleSection title="Scores Breakdown" defaultOpen>
+        {toolCalled === false ? (
+          <div className="text-xs text-text-secondary py-2">
+            No scoring (casual turn)
+          </div>
+        ) : (
         <div className="space-y-2">
           <div>
             <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
@@ -115,6 +153,7 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
             <JsonBlock data={scoringResult} />
           </div>
         </div>
+        )}
       </CollapsibleSection>
 
       {/* System Prompt */}

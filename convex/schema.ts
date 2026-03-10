@@ -89,6 +89,11 @@ export default defineSchema({
     }),
     durationMs: v.number(),
 
+    // Tool calling (v2)
+    toolCalled: v.optional(v.boolean()),
+    toolArguments: v.optional(v.string()),
+    toolResult: v.optional(v.string()),
+
     // Error
     error: v.optional(v.string()),
 

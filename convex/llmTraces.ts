@@ -29,6 +29,9 @@ export const saveTrace = internalMutation({
       totalTokens: v.number(),
     }),
     durationMs: v.number(),
+    toolCalled: v.optional(v.boolean()),
+    toolArguments: v.optional(v.string()),
+    toolResult: v.optional(v.string()),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -61,6 +64,7 @@ export const getTraceSummariesForConversation = query({
       disengagementCount: t.disengagementCount,
       stagnationCount: t.stagnationCount,
       decisionType: t.decisionType,
+      toolCalled: t.toolCalled,
       durationMs: t.durationMs,
       tokenUsage: t.tokenUsage,
       error: t.error,
