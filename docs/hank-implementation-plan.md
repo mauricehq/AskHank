@@ -133,13 +133,13 @@ Broken into 5 increments. See `docs/chat-ui-spec.md` for full chat UI specificat
 
 **Key design:** Stance comes from the PREVIOUS turn's scoring. First turn defaults to FIRM. The one-turn delay is invisible — first response is always pushback.
 
-### 2d: Voice Tuning
-- [ ] Test 20-30 real conversations with different purchase scenarios
-- [ ] Tune system prompt based on where Hank is too soft or too harsh
-- [ ] Verify scoring engine produces correct stances
-- [ ] Test disengagement flow (one-word answers, "I want it" on repeat)
-- [ ] Test concession flow (genuinely justified purchases)
-- [ ] Adjust weights if concession rate is outside 10-15% target
+### 2d: Voice Tuning ✅
+- [x] Test 20-30 real conversations with different purchase scenarios
+- [x] Tune system prompt based on where Hank is too soft or too harsh
+- [x] Verify scoring engine produces correct stances
+- [x] Test disengagement flow (one-word answers, "I want it" on repeat)
+- [x] Test concession flow (genuinely justified purchases)
+- [x] Adjust weights if concession rate is outside 10-15% target
 
 ### 2e: Anti-Patterns + Signature Move Tracking
 
@@ -456,7 +456,7 @@ Only if web proves traction. Not before.
 |-------|--------|------|
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
-| 2: Hank's Voice | ✅ 2c/2a/2b done, 2d/2e remaining | Chat UI, LLM, scoring, anti-patterns, signature moves |
+| 2: Hank's Voice | ✅ 2c/2a/2b/2d done, 2e remaining | Chat UI, LLM, scoring, voice tuned, anti-patterns + signature moves remaining |
 | 3: Persistence | Partial (3a storage done) | History UI, saved counter, memory |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
