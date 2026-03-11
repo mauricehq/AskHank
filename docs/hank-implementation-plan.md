@@ -141,6 +141,47 @@ Broken into 5 increments. See `docs/chat-ui-spec.md` for full chat UI specificat
 - [ ] Test concession flow (genuinely justified purchases)
 - [ ] Adjust weights if concession rate is outside 10-15% target
 
+### 2e: Anti-Patterns + Signature Move Tracking
+
+**Borrowed from Hopshelf's Tyler system.** Tyler has a 690-line style guide, explicit anti-patterns, and signature move frequency control that prevents repetitive responses. Hank needs the same guardrails.
+
+#### Anti-Patterns (add to system prompt)
+
+Explicit "NEVER sound like this" examples that prevent LLM drift into generic AI territory:
+- [ ] Add anti-pattern section to `convex/llm/prompt.ts`
+- "Let's think about this purchase holistically..." (self-help bot)
+- "I understand how you feel..." (sympathetic enabler)
+- "You're an adult, your choice" (defeatist — violates Rule 2)
+- "Based on my analysis of consumer spending patterns..." (data nerd)
+- "That's nice but maybe not right now?" (soft no)
+- "You should really think about your financial habits..." (lecturer)
+- "Okay but like, that IS a pretty cool thing though..." (buddy enabler)
+
+**Reference:** `Hopshelf/docs/advisor/BARTENDER_STYLE_GUIDE.md` — Tyler's anti-patterns section. Same pattern, different character.
+
+#### Signature Move Types
+
+Define Hank's recurring move types so we can track and rotate them:
+
+| Move | What | Example |
+|------|------|---------|
+| **The Math** | Puts a number on it | "That's rent money in some cities." |
+| **The Callback** | References what they own | "You already own three of these." |
+| **The Deflation** | Punctures the want | "You just want the aesthetic." |
+| **The Pattern Call** | Notes repetition | "That's the third time you've said 'I want it'." |
+| **The Reframe** | Renames the purchase | "You're paying for a badge, not a car." |
+| **The Contradiction** | Uses their words against them | "You said you needed to save. Two impulse purchases ago." |
+
+#### Frequency Control
+
+- [ ] Add `extractRecentMoves()` — regex scan of last 2 Hank messages to detect which move types were used
+- [ ] Inject `RECENT MOVES (vary your approach): Turn 2: the math. Turn 4: the callback. Try a different pattern or none at all.` into system prompt
+- [ ] Not every message needs a signature move — sometimes Hank just says no
+
+**Reference:** `Hopshelf/lib/advisor/prompts.ts` — Tyler's `extractRecentMoves()` and RECENT MOVES injection pattern. Same mechanism, different move types.
+
+**Day 30 Test (from Hopshelf):** Every Hank line must feel good on the 30th read. Signature moves at 1-in-3 frequency max. No gimmicks that age poorly.
+
 **This phase is where you spend the most time.** Not on code — on the prompt. The system prompt IS the product. Iterate until Hank sounds right.
 
 **Time:** 3-5 days (mostly prompt tuning, not code).
@@ -218,11 +259,31 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 - [x] Screen transitions
 - [x] Button press feedback
 
-### 5b: Share
-- [ ] Share button on completed conversations
-- [ ] Generates a share card (image) with the conversation highlight
-- [ ] Optimized for Instagram Stories / TikTok
-- [ ] Include app name/URL on the card
+### 5b: Share (Verdict Card + Roast Card)
+
+**Borrowed from Hopshelf's shareable card system.** Hopshelf generates OG images via Puppeteer with public token-based URLs, two-step download (generate → save), and `navigator.share()` with clipboard fallback. Same infrastructure, adapted for conversation moments.
+
+#### Verdict Card (primary — build first)
+- [ ] Add `shareToken` field to conversations table (generated on verdict)
+- [ ] Public route: `/verdict/[token]` — displays verdict with OG metadata
+- [ ] OG image generation (1200x630 for social unfurl, 1080x1350 for download)
+- [ ] Card content: item, price, verdict (DENIED/APPROVED), Hank's closing quote, stance progression
+- [ ] Share modal: copy link (desktop) / native share (mobile) + download PNG
+
+#### Roast Card (secondary — highest virality potential)
+- [ ] Extract best Hank quote per conversation (sharpest/funniest line, not always the closing line)
+- [ ] Store as `bestQuote` on conversation when verdict is issued
+- [ ] Public route: `/roast/[token]` — single devastating quote with item + verdict
+- [ ] Optimized for vertical format (1080x1350) — Instagram Stories / TikTok friendly
+- [ ] Include app URL on every card as CTA
+
+#### Share UX
+- [ ] Enable the currently-disabled Share button on VerdictCard
+- [ ] Two options: "Share Verdict" (full context) and "Share Roast" (single quote)
+- [ ] Two-step download flow (generate image on first tap, save on second — iOS Safari safe)
+- [ ] `navigator.share()` on mobile with clipboard fallback on desktop
+
+**Reference:** `Hopshelf/components/share/ShareCardModal.tsx` — generic share pattern with iOS Safari safe download handling.
 
 ### 5c: Landing Content
 - [ ] Marketing section on the same site (root page or above-the-fold before sign-in)
@@ -256,13 +317,46 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 
 Only when early users have 10-15+ conversations. The dossier needs data to be useful.
 
+**Borrowed from Hopshelf's `computeDossier()` pattern.** Tyler injects ~200 tokens of compact YAML into every prompt — top styles, streaks, blind spots, pace. Hank's dossier is the same idea for purchase behavior.
+
+### 7a: Purchase History Schema
+- [ ] Ensure conversation summaries capture: item, category, price, verdict, strongest claim, key quote
+- [ ] Track per-user aggregates: total attempts, resistance rate (% denied), top categories, avg price
+- [ ] Log outcomes: what argument worked, when user backed down, what they said
+
+### 7b: Dossier Builder (pure function)
+- [ ] `computeHankDossier(conversations, user)` — takes history, outputs dossier
+- [ ] Tier system (from Hopshelf): cold_start (0-2 attempts, no patterns), observer (3-9, emerging patterns), full (10+, complete dossier with callbacks)
 - [ ] Convex schema: dossier document per user (owns[], context{}, weaknesses[], track_record{})
 - [ ] After each conversation, LLM extracts new facts (items owned, life details, condition updates)
 - [ ] Convex function merges new facts into existing dossier — updates, never duplicates
-- [ ] Inject dossier as YAML into system prompt alongside conversation summaries (~500 tokens)
+
+### 7c: Dossier Injection
+- [ ] Format as compact YAML (~200 tokens), inject into system prompt as `YOUR KNOWLEDGE OF THIS BUYER:`
 - [ ] Dossier feeds into scoring engine — alternatives owned becomes real data, not guessing
 - [ ] Total memory overhead: ~2,000 tokens (dossier + summaries + stance). Cheap.
 - [ ] User never fills out a profile — Hank learns by listening
+
+Example dossier (full tier):
+```yaml
+basics:
+  regular_since: "January 2026"
+  attempted_purchases: 14
+  hank_wins: 12 (86%)
+  recent_streak: "4 rejections in a row"
+patterns:
+  top_categories: "Tech Gadgets (5), Home Decor (4), Fashion (3)"
+  weak_points: "FOMO purchases, anything for the dog"
+  resistance_score: 8/10
+recent:
+  last_attempt: "Air fryer ($89) — Denied 3d ago"
+  what_worked: "Counted existing appliances, asked where you'd put it"
+callbacks:
+  - "Said 'never another gadget' on Jan 15 — now on gadget #5"
+  - "Bought headphones after backing down last time"
+```
+
+**Reference:** `Hopshelf/lib/advisor/dossier.ts` — `computeDossier()` with tier-aware sections and YAML formatting. `Hopshelf/lib/advisor/prompts.ts` — injection pattern.
 
 See hank-scoring-engine.md for full dossier design and YAML format.
 
@@ -270,7 +364,77 @@ See hank-scoring-engine.md for full dossier design and YAML format.
 
 ---
 
-## Phase 8: iOS (Deferred)
+## Phase 8: Banger System (v2 — Post-Dossier)
+
+**Borrowed from Hopshelf's `advisorBanger.ts`.** Tyler has a mic-drop system that fires max once per session when data warrants it. 11 trigger detectors across 3 tiers, scored with a threshold gate. Hank needs the same — moments where a single line crystallizes the case against buying.
+
+**Requires:** Phase 7 (dossier) for cross-conversation triggers. Some triggers work within a single conversation and could ship earlier.
+
+### 8a: Trigger Detectors
+
+**Tier 1 (+2 points each) — fire alone in blunt mode:**
+
+| Trigger | Pattern | Tone |
+|---------|---------|------|
+| `emotionalReasoningOnly` | Zero functional arguments, all FOMO/status/desire/boredom | `authority_drop` |
+| `cyclicalPurchaser` | History shows repeat impulse pattern in same category (needs dossier) | `emotional_hook` |
+| `alternativeAvailable` | User owns working equivalent, can't articulate why this is better | `authority_drop` |
+| `impulseExposed` | User didn't mention this item before today, now it's urgent | `cinematic_line` |
+
+**Tier 2 (+1 point each):**
+
+| Trigger | Pattern | Tone |
+|---------|---------|------|
+| `untestedAlternatives` | Hasn't tried cheaper/free options, convinced they won't work | `subtle_roast` |
+| `vagueUseCase` | Can't articulate how often or why they'd use it | `authority_drop` |
+| `priceRationalized` | Mentioned price concern, then talked themselves out of it | `cinematic_line` |
+| `contradictionCaught` | Walked back a previous strong claim (consistency = contradicting) | `subtle_roast` |
+
+**Tier 3 (+1 point each):**
+
+| Trigger | Pattern | Tone |
+|---------|---------|------|
+| `firstConversation` | No prior history with this user | `emotional_hook` |
+| `budgetPressure` | Mentioned savings goals or money concerns in passing | `emotional_hook` |
+| `repeatCategory` | Third+ attempt in the same category (needs dossier) | `subtle_roast` |
+
+### 8b: Scoring Gate
+
+```
+threshold = 3 (normal) or 2 (blunt mode, if added later)
+score = sum of fired triggers (Tier 1 = +2, Tier 2/3 = +1)
+fire if: score >= threshold AND no banger fired this conversation
+```
+
+Max one banger per conversation. Scarcity creates weight — when Hank fires one, it lands harder because it's rare.
+
+### 8c: Tone Directions
+
+```
+authority_drop:    "close the case — the purchase doesn't hold water"
+subtle_roast:      "needle the rationalization — the humor is in the observation"
+cinematic_line:    "pause the momentum — shift from buying energy to reflecting energy"
+emotional_hook:    "make it personal — connect the doubt to something felt, not measured"
+```
+
+### 8d: Implementation
+
+- [ ] `convex/llm/hankBanger.ts` — trigger detectors + scoring gate + tone selection
+- [ ] Input: current assessment, previous assessment, conversation history, user dossier (if available)
+- [ ] Output: `{ fire: boolean, tone?: string, direction?: string, triggers?: string[] }`
+- [ ] Inject into system prompt when fired: `BANGER MOMENT: [tone direction]. 2-8 words max. Do NOT force it — if your response doesn't naturally lead to a closer, skip it.`
+- [ ] Track `lastBangerTurn` in conversation state to enforce once-per-conversation gate
+- [ ] LLM has escape hatch — can decline if the direction doesn't fit naturally
+
+**Reference:** `Hopshelf/lib/advisor/advisorBanger.ts` — full trigger/scoring/tone system. `Hopshelf/lib/advisor/openCardMoment.ts` — additional moment detection patterns.
+
+**Why this matters for shareability:** Banger lines are the lines people screenshot. "You're shopping for confidence, not a product." "You know how this ends. Don't repeat it." The banger system engineers these moments instead of hoping the LLM produces them.
+
+**Time:** 2-3 days.
+
+---
+
+## Phase 9: iOS (Deferred)
 
 Only if web proves traction. Not before.
 
@@ -292,15 +456,18 @@ Only if web proves traction. Not before.
 |-------|--------|------|
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
-| 2: Hank's Voice | ✅ 2c/2a/2b done, 2d remaining | Chat UI, LLM via OpenRouter, scoring engine |
+| 2: Hank's Voice | ✅ 2c/2a/2b done, 2d/2e remaining | Chat UI, LLM, scoring, anti-patterns, signature moves |
 | 3: Persistence | Partial (3a storage done) | History UI, saved counter, memory |
 | 4: Credits + Stripe | Not started | Credit system, payments |
-| 5: Polish + Share | ✅ 5a done | Share cards, landing content remaining |
+| 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
 | 7: User Dossier | Not started | v1.5 — post-launch, needs user data first |
-| 8: iOS | Not started | Only if web proves traction |
+| 8: Banger System | Not started | v2 — post-dossier, engineers screenshot-worthy moments |
+| 9: iOS | Not started | Only if web proves traction |
 
 Phase 2 is where you should spend the most time. The voice is the product. Everything else is a container.
+
+The path to bangers: **2e** (signature moves) → **5b** (shareable cards) → **7** (dossier) → **8** (banger system). Each phase builds on the last. Signature moves teach Hank variety. Cards make moments shareable. The dossier gives Hank memory. Bangers engineer the moments worth sharing.
 
 ---
 
