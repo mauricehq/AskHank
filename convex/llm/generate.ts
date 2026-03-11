@@ -139,6 +139,10 @@ const DEFAULT_ASSESSMENT: Assessment = {
   price_positioning: "standard",
   estimated_price: 0,
   category: "other",
+  is_non_answer: false,
+  has_new_information: true,   // defensive: assume new info unless LLM says otherwise
+  is_out_of_scope: false,
+  user_backed_down: false,
 };
 
 function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
@@ -184,7 +188,20 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
     category: (["electronics", "cars", "fashion", "furniture", "essentials", "safety_health", "other"] as const).includes(raw.category as any)
       ? (raw.category as string)
       : "other",
+    is_non_answer: raw.is_non_answer === true,
+    has_new_information: raw.has_new_information !== false,  // default true
+    is_out_of_scope: raw.is_out_of_scope === true,
+    user_backed_down: raw.user_backed_down === true,
   };
+}
+
+/** Strip per-message boolean flags before persisting to lastAssessment.
+ *  These are per-turn signals — storing them would leak into the PREVIOUS
+ *  ASSESSMENT shown to the LLM, causing the CONSISTENCY RULE to persist
+ *  stale values across turns. */
+function stripPerMessageFlags(a: Assessment): Record<string, unknown> {
+  const { is_non_answer, has_new_information, is_out_of_scope, user_backed_down, ...rest } = a;
+  return rest;
 }
 
 // --- Tool result types ---
@@ -207,14 +224,6 @@ interface GetStanceResult {
   _coalescedAssessment: Assessment;
 }
 
-interface ToolArguments {
-  assessment: Record<string, unknown>;
-  is_non_answer: boolean;
-  has_new_information: boolean;
-  is_out_of_scope: boolean;
-  user_backed_down: boolean;
-}
-
 interface ConversationState {
   currentStance: Stance;
   disengagementCount: number;
@@ -224,17 +233,17 @@ interface ConversationState {
   previousAssessment?: Assessment | null;
 }
 
-function executeGetStance(input: ToolArguments, state: ConversationState): GetStanceResult {
+function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: ConversationState): GetStanceResult {
   const { currentStance, disengagementCount, stagnationCount, storedItem, turnCount } = state;
 
-  const rawAssessment = sanitizeAssessment(input.assessment);
+  const rawAssessment = sanitizeAssessment(rawAssessmentInput);
   const assessment = coalesceAssessment(rawAssessment, state.previousAssessment ?? null);
   const estimatedPrice = assessment.estimated_price > 0 ? assessment.estimated_price : undefined;
   const category = assessment.category;
   const item = coalesceItem(assessment.item, storedItem);
 
   // 1. Out of scope → no scoring, deflect
-  if (input.is_out_of_scope) {
+  if (assessment.is_out_of_scope) {
     const dummyScores = mapAssessmentToScores(DEFAULT_ASSESSMENT);
     return {
       stance: currentStance,
@@ -280,7 +289,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
   // 3. User backed down → denied verdict (Hank wins)
-  if (input.user_backed_down) {
+  if (assessment.user_backed_down) {
     return {
       stance: guardrailedStance,
       score: scoring.score,
@@ -300,7 +309,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   }
 
   // 4. Non-answer + count >= 1 → denied verdict
-  if (input.is_non_answer && disengagementCount >= 1) {
+  if (assessment.is_non_answer && disengagementCount >= 1) {
     return {
       stance: guardrailedStance,
       score: scoring.score,
@@ -320,7 +329,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   }
 
   // 5. Non-answer (first) → increment counter, warning
-  if (input.is_non_answer) {
+  if (assessment.is_non_answer) {
     return {
       stance: guardrailedStance,
       score: scoring.score,
@@ -338,7 +347,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   }
 
   // 6. No new information + count >= 4 → stagnation closure
-  if (!input.has_new_information && stagnationCount >= 3) {
+  if (!assessment.has_new_information && stagnationCount >= 3) {
     return {
       stance: guardrailedStance,
       score: scoring.score,
@@ -358,7 +367,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   }
 
   // 7. No new information (count < 4) → increment, escalating guidance
-  if (!input.has_new_information) {
+  if (!assessment.has_new_information) {
     const newStagnation = stagnationCount + 1;
 
     const stagnationGuidance: Record<number, string> = {
@@ -580,31 +589,18 @@ export const respond = internalAction({
         // --- A) Tool called (scoring turn) ---
         traceData.toolCalled = true;
 
-        // Parse tool arguments defensively
-        let toolArgs: ToolArguments;
+        // Parse tool arguments defensively — booleans are now inside assessment
+        let rawAssessment: Record<string, unknown>;
         try {
           const raw = JSON.parse(toolCall.function.arguments);
-          toolArgs = {
-            assessment: typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {},
-            is_non_answer: raw.is_non_answer === true,
-            has_new_information: raw.has_new_information !== false,
-            is_out_of_scope: raw.is_out_of_scope === true,
-            user_backed_down: raw.user_backed_down === true,
-          };
+          rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
         } catch {
-          // Malformed tool args → fall back to defaults
-          toolArgs = {
-            assessment: {},
-            is_non_answer: false,
-            has_new_information: true,
-            is_out_of_scope: false,
-            user_backed_down: false,
-          };
+          rawAssessment = {};
         }
-        traceData.toolArguments = JSON.stringify(toolArgs);
+        traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
 
         // Execute scoring
-        const stanceResult = executeGetStance(toolArgs, {
+        const stanceResult = executeGetStance(rawAssessment, {
           currentStance,
           disengagementCount,
           stagnationCount,
@@ -655,22 +651,18 @@ export const respond = internalAction({
         }
 
         // Capture trace data
-        const rawAssessment = sanitizeAssessment(
-          typeof toolArgs.assessment === "object" && toolArgs.assessment !== null
-            ? (toolArgs.assessment as Record<string, unknown>)
-            : {}
-        );
-        const coalescingDiff = assessmentCoalescingDiff(rawAssessment, stanceResult._coalescedAssessment);
+        const sanitizedForTrace = sanitizeAssessment(rawAssessment);
+        const coalescingDiff = assessmentCoalescingDiff(sanitizedForTrace, stanceResult._coalescedAssessment);
 
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
-          rawScores: JSON.stringify(rawAssessment),
+          rawScores: JSON.stringify(sanitizedForTrace),
           coalescingOverrides: coalescingDiff ? JSON.stringify(coalescingDiff) : undefined,
           sanitizedScores: JSON.stringify(stanceResult._mappedScores),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
-          parsedResponse: JSON.stringify({ response: responseText, toolArgs }),
+          parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
           decisionType: stanceResult._decisionType,
           newStance: stanceResult.stance,
           category: stanceResult._category,
@@ -698,7 +690,7 @@ export const respond = internalAction({
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
               item: stanceResult._item,
-              lastAssessment: JSON.stringify(stanceResult._coalescedAssessment),
+              lastAssessment: JSON.stringify(stripPerMessageFlags(stanceResult._coalescedAssessment)),
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }
@@ -715,7 +707,7 @@ export const respond = internalAction({
               category: stanceResult._category,
               estimatedPrice: stanceResult._estimatedPrice,
               item: stanceResult._item,
-              lastAssessment: JSON.stringify(stanceResult._coalescedAssessment),
+              lastAssessment: JSON.stringify(stripPerMessageFlags(stanceResult._coalescedAssessment)),
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._stagnationCount,
             }

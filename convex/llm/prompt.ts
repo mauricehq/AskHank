@@ -40,13 +40,7 @@ export function buildToolDefinition(): ToolDefinition {
         "Assess every user message. Always extract the item's price — if the user states a dollar amount, use it as estimated_price. For purchase arguments, fill in the assessment fully. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true. For user agreement/surrender (e.g. 'yeah you're right', 'I won't buy it'), set user_backed_down to true.",
       parameters: {
         type: "object",
-        required: [
-          "assessment",
-          "is_non_answer",
-          "has_new_information",
-          "is_out_of_scope",
-          "user_backed_down",
-        ],
+        required: ["assessment"],
         properties: {
           assessment: {
             type: "object",
@@ -69,6 +63,10 @@ export function buildToolDefinition(): ToolDefinition {
               "price_positioning",
               "estimated_price",
               "category",
+              "is_non_answer",
+              "has_new_information",
+              "is_out_of_scope",
+              "user_backed_down",
             ],
             properties: {
               item: {
@@ -190,27 +188,27 @@ export function buildToolDefinition(): ToolDefinition {
                 ],
                 description: "Classify the purchase category.",
               },
+              is_non_answer: {
+                type: "boolean",
+                description:
+                  'true if the user\'s message doesn\'t meaningfully engage. Examples: "lol", "whatever", "just tell me yes", "I don\'t care", "please", single emojis, or repeating "I want it" with no new information. NOT for agreement — use user_backed_down when the user agrees with your position.',
+              },
+              has_new_information: {
+                type: "boolean",
+                description:
+                  "true if the user introduced a new fact, argument, or angle not previously stated. false if they repeated previous claims or added no substance.",
+              },
+              is_out_of_scope: {
+                type: "boolean",
+                description:
+                  "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, business expenses. Note: gifts and purchases for family members are IN SCOPE — classify them using the beneficiary field instead.",
+              },
+              user_backed_down: {
+                type: "boolean",
+                description:
+                  "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'you convinced me'. NOT for disengagement or apathy — those use is_non_answer.",
+              },
             },
-          },
-          is_non_answer: {
-            type: "boolean",
-            description:
-              'true if the user\'s message doesn\'t meaningfully engage. Examples: "lol", "whatever", "just tell me yes", "I don\'t care", "please", single emojis, or repeating "I want it" with no new information. NOT for agreement — use user_backed_down when the user agrees with your position.',
-          },
-          has_new_information: {
-            type: "boolean",
-            description:
-              "true if the user introduced a new fact, argument, or angle not previously stated. false if they repeated previous claims or added no substance.",
-          },
-          is_out_of_scope: {
-            type: "boolean",
-            description:
-              "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, business expenses. Note: gifts and purchases for family members are IN SCOPE — classify them using the beneficiary field instead.",
-          },
-          user_backed_down: {
-            type: "boolean",
-            description:
-              "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'you convinced me'. NOT for disengagement or apathy — those use is_non_answer.",
           },
         },
       },

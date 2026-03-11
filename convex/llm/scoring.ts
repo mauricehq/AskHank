@@ -52,6 +52,11 @@ export interface Assessment {
   price_positioning: PricePositioning;
   estimated_price: number;    // 0 = unknown
   category: string;           // "other" = unknown
+  // Per-message boolean flags (do NOT coalesce across turns)
+  is_non_answer: boolean;
+  has_new_information: boolean;
+  is_out_of_scope: boolean;
+  user_backed_down: boolean;
 }
 
 // --- Deterministic mapping tables ---
