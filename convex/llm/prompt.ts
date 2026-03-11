@@ -158,7 +158,7 @@ export function buildToolDefinition(): ToolDefinition {
                 type: "string",
                 enum: ["first_turn", "building", "consistent", "contradicting"],
                 description:
-                  'Consistency across conversation. "first_turn" = first or second message. "building" = adding new supporting facts. "consistent" = repeating but not contradicting. "contradicting" = conflicts with earlier claims.',
+                  'How the user\'s position has shifted this turn. "first_turn" = first or second message. "building" = adding new supporting facts that strengthen their case. "consistent" = repeating similar arguments, no change in position. "contradicting" = user has walked back, weakened, or reversed a previous claim. USE "contradicting" when the user: admits they don\'t actually need it (need→want), confesses it\'s impulse not planned, downgrades who benefits (dependent→self), or otherwise concedes ground they previously held. An admission of weakness IS a contradiction of their earlier stronger claim.',
               },
               beneficiary: {
                 type: "string",
@@ -327,7 +327,15 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
       `PREVIOUS ASSESSMENT — your last evaluation of this purchase:
 ${JSON.stringify(config.previousAssessment, null, 2)}
 
-CONSISTENCY RULE: Only change a field when the user gives NEW information that justifies it. If nothing new was said about alternatives, keep alternatives_tried the same. If no price info changed, keep price_positioning the same. Regressions (exhausted→some, evidence→vague) require the user to have actively contradicted themselves.`
+CONSISTENCY RULE: Only change a field when the user gives NEW information that justifies it. If nothing new was said about a field, keep it the same as the previous assessment.
+
+CONTRADICTION DETECTION: Set consistency to "contradicting" when the user walks back or weakens a previous claim. Examples:
+- Previously said "need" but now admits "I just want it" → contradicting
+- Previously said "planned" but admits it was impulse → contradicting
+- Previously said it's for a dependent but now says it's for themselves → contradicting
+- Previously said current solution is broken but now says it works fine → contradicting
+These are concessions — the user is giving ground. That's a contradiction of their earlier stronger position.
+Do NOT use "contradicting" for normal clarification or adding detail that doesn't weaken their case.`
     );
   }
 
