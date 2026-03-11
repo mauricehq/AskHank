@@ -37,7 +37,7 @@ export function buildToolDefinition(): ToolDefinition {
     function: {
       name: "get_stance",
       description:
-        "Assess every user message. For purchase arguments, fill in the assessment fully. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true. For user agreement/surrender (e.g. 'yeah you're right', 'I won't buy it'), set user_backed_down to true.",
+        "Assess every user message. Always extract the item's price — if the user states a dollar amount, use it as estimated_price. For purchase arguments, fill in the assessment fully. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true. For user agreement/surrender (e.g. 'yeah you're right', 'I won't buy it'), set user_backed_down to true.",
       parameters: {
         type: "object",
         required: [
@@ -46,8 +46,6 @@ export function buildToolDefinition(): ToolDefinition {
           "has_new_information",
           "is_out_of_scope",
           "user_backed_down",
-          "category",
-          "estimated_price",
         ],
         properties: {
           assessment: {
@@ -69,6 +67,8 @@ export function buildToolDefinition(): ToolDefinition {
               "consistency",
               "beneficiary",
               "price_positioning",
+              "estimated_price",
+              "category",
             ],
             properties: {
               item: {
@@ -172,6 +172,24 @@ export function buildToolDefinition(): ToolDefinition {
                 description:
                   'Where this item sits in its market. "budget" = store-brand, clearance, refurbished. "standard" = name-brand at typical price (Nike, Samsung, IKEA). "premium" = high-end functional, paying for better specs/quality (MacBook Pro, Dyson, Herman Miller). "luxury" = true luxury where the brand is the point (Rolex, Hermès, Louis Vuitton, Bang & Olufsen). Rule of thumb: if a reasonable alternative exists at 1/3 the price with 90% of the function, it\'s luxury. Default to "standard" when unclear.',
               },
+              estimated_price: {
+                type: "number",
+                description:
+                  "The item's price in USD. If the user states a price, use that exact number. Otherwise estimate from the item and category. Must be greater than 0.",
+              },
+              category: {
+                type: "string",
+                enum: [
+                  "electronics",
+                  "cars",
+                  "fashion",
+                  "furniture",
+                  "essentials",
+                  "safety_health",
+                  "other",
+                ],
+                description: "Classify the purchase category.",
+              },
             },
           },
           is_non_answer: {
@@ -193,24 +211,6 @@ export function buildToolDefinition(): ToolDefinition {
             type: "boolean",
             description:
               "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'you convinced me'. NOT for disengagement or apathy — those use is_non_answer.",
-          },
-          category: {
-            type: "string",
-            enum: [
-              "electronics",
-              "cars",
-              "fashion",
-              "furniture",
-              "essentials",
-              "safety_health",
-              "other",
-            ],
-            description: "Classify the purchase category.",
-          },
-          estimated_price: {
-            type: "number",
-            description:
-              "The item's price in USD. If the user states a price, use that. Otherwise estimate from the item and category. Must be greater than 0.",
           },
         },
       },

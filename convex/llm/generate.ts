@@ -22,14 +22,6 @@ function toStance(value: string | undefined): Stance {
   return value && VALID_STANCES.has(value) ? (value as Stance) : "FIRM";
 }
 
-function coalescePrice(llmPrice: number, stored?: number): number | undefined {
-  return llmPrice > 0 ? llmPrice : (stored ?? undefined);
-}
-
-function coalesceCategory(llmCategory: string, stored?: string): string {
-  return llmCategory && llmCategory !== "other" ? llmCategory : (stored || llmCategory || "other");
-}
-
 function coalesceItem(llmItem: string | undefined, stored?: string): string | undefined {
   return llmItem && llmItem !== "unknown" ? llmItem : (stored ?? undefined);
 }
@@ -50,6 +42,8 @@ const BENEFICIARY_ORDER: Assessment["beneficiary"][] =
   ["gift_discretionary", "self", "shared", "dependent"];
 const PURCHASE_HISTORY_ORDER: Assessment["purchase_history"][] =
   ["unknown", "impulse_pattern", "planned"];
+const PRICE_POSITIONING_ORDER: Assessment["price_positioning"][] =
+  ["budget", "standard", "premium", "luxury"];
 function coalesceMonotonic<T>(newVal: T, prevVal: T, order: T[]): T {
   const prevIdx = order.indexOf(prevVal);
   const newIdx = order.indexOf(newVal);
@@ -99,13 +93,16 @@ function coalesceAssessment(current: Assessment, prev: Assessment | null): Asses
       ? current.intent
       : coalesceMonotonic(current.intent, prev.intent, INTENT_ORDER),
 
-    // Monotonic unless contradicting — beneficiary & purchase_history
+    // Monotonic unless contradicting — beneficiary, purchase_history, price_positioning
     beneficiary: contradicting
       ? current.beneficiary
       : coalesceMonotonic(current.beneficiary, prev.beneficiary, BENEFICIARY_ORDER),
     purchase_history: contradicting
       ? current.purchase_history
       : coalesceMonotonic(current.purchase_history, prev.purchase_history, PURCHASE_HISTORY_ORDER),
+    price_positioning: contradicting
+      ? current.price_positioning
+      : coalesceMonotonic(current.price_positioning, prev.price_positioning, PRICE_POSITIONING_ORDER),
 
     // Array union unless contradicting
     emotional_triggers: contradicting
@@ -116,6 +113,11 @@ function coalesceAssessment(current: Assessment, prev: Assessment | null): Asses
     alternatives_detail: current.alternatives_detail ?? prev.alternatives_detail,
     current_solution_detail: current.current_solution_detail ?? prev.current_solution_detail,
     urgency_detail: current.urgency_detail ?? prev.urgency_detail,
+
+    // Price: keep previous if current is 0 (unknown)
+    estimated_price: current.estimated_price > 0 ? current.estimated_price : prev.estimated_price,
+    // Category: keep previous if current is "other" (unknown)
+    category: current.category && current.category !== "other" ? current.category : prev.category,
   };
 }
 
@@ -135,6 +137,8 @@ const DEFAULT_ASSESSMENT: Assessment = {
   consistency: "first_turn",
   beneficiary: "self",
   price_positioning: "standard",
+  estimated_price: 0,
+  category: "other",
 };
 
 function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
@@ -176,6 +180,10 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
     price_positioning: (["budget", "standard", "premium", "luxury"] as const).includes(raw.price_positioning as any)
       ? (raw.price_positioning as Assessment["price_positioning"])
       : DEFAULT_ASSESSMENT.price_positioning,
+    estimated_price: typeof raw.estimated_price === "number" ? raw.estimated_price : 0,
+    category: (["electronics", "cars", "fashion", "furniture", "essentials", "safety_health", "other"] as const).includes(raw.category as any)
+      ? (raw.category as string)
+      : "other",
   };
 }
 
@@ -205,28 +213,24 @@ interface ToolArguments {
   has_new_information: boolean;
   is_out_of_scope: boolean;
   user_backed_down: boolean;
-  category: string;
-  estimated_price: number;
 }
 
 interface ConversationState {
   currentStance: Stance;
   disengagementCount: number;
   stagnationCount: number;
-  storedPrice?: number;
-  storedCategory?: string;
   storedItem?: string;
   turnCount: number;
   previousAssessment?: Assessment | null;
 }
 
 function executeGetStance(input: ToolArguments, state: ConversationState): GetStanceResult {
-  const { currentStance, disengagementCount, stagnationCount, storedPrice, storedCategory, storedItem, turnCount } = state;
+  const { currentStance, disengagementCount, stagnationCount, storedItem, turnCount } = state;
 
   const rawAssessment = sanitizeAssessment(input.assessment);
   const assessment = coalesceAssessment(rawAssessment, state.previousAssessment ?? null);
-  const estimatedPrice = coalescePrice(input.estimated_price, storedPrice);
-  const category = coalesceCategory(input.category, storedCategory);
+  const estimatedPrice = assessment.estimated_price > 0 ? assessment.estimated_price : undefined;
+  const category = assessment.category;
   const item = coalesceItem(assessment.item, storedItem);
 
   // 1. Out of scope → no scoring, deflect
@@ -251,7 +255,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
   // 2. Previous stance was CONCEDE → approval verdict
   if (currentStance === "CONCEDE") {
     const mappedScores = mapAssessmentToScores(assessment);
-    const scoring = computeScore(mappedScores, estimatedPrice, assessment.price_positioning);
+    const scoring = computeScore(mappedScores, assessment);
     return {
       stance: "CONCEDE",
       score: scoring.score,
@@ -272,7 +276,7 @@ function executeGetStance(input: ToolArguments, state: ConversationState): GetSt
 
   // 3-8: Score and apply guardrails. Never mutate scoring — keep raw for traces.
   const mappedScores = mapAssessmentToScores(assessment);
-  const scoring = computeScore(mappedScores, estimatedPrice, assessment.price_positioning);
+  const scoring = computeScore(mappedScores, assessment);
   const guardrailedStance = applyStanceGuardrails(scoring.stance, currentStance, turnCount);
 
   // 3. User backed down → denied verdict (Hank wins)
@@ -507,12 +511,14 @@ export const respond = internalAction({
       );
 
       // 2. Build prompt (v2 — no assessment guidelines, has tool instructions)
+      // Prefer previousAssessment (canonical source after move into assessment)
+      // with conversation fields as fallback for older conversations
       const systemPrompt = buildSystemPrompt({
         displayName: displayName ?? undefined,
         stance: currentStance,
         disengagementCount,
-        estimatedPrice: conversation.estimatedPrice,
-        category: conversation.category,
+        estimatedPrice: previousAssessment?.estimated_price ?? conversation.estimatedPrice,
+        category: previousAssessment?.category ?? conversation.category,
         stagnationCount,
         turnCount,
         previousAssessment: previousAssessment as Record<string, unknown> | null,
@@ -584,8 +590,6 @@ export const respond = internalAction({
             has_new_information: raw.has_new_information !== false,
             is_out_of_scope: raw.is_out_of_scope === true,
             user_backed_down: raw.user_backed_down === true,
-            category: typeof raw.category === "string" ? raw.category : "other",
-            estimated_price: typeof raw.estimated_price === "number" ? raw.estimated_price : 0,
           };
         } catch {
           // Malformed tool args → fall back to defaults
@@ -595,8 +599,6 @@ export const respond = internalAction({
             has_new_information: true,
             is_out_of_scope: false,
             user_backed_down: false,
-            category: "other",
-            estimated_price: 0,
           };
         }
         traceData.toolArguments = JSON.stringify(toolArgs);
@@ -606,8 +608,6 @@ export const respond = internalAction({
           currentStance,
           disengagementCount,
           stagnationCount,
-          storedPrice: conversation.estimatedPrice,
-          storedCategory: conversation.category,
           storedItem: conversation.item,
           turnCount,
           previousAssessment,

@@ -50,6 +50,8 @@ export interface Assessment {
   consistency: Consistency;
   beneficiary: Beneficiary;
   price_positioning: PricePositioning;
+  estimated_price: number;    // 0 = unknown
+  category: string;           // "other" = unknown
 }
 
 // --- Deterministic mapping tables ---
@@ -204,8 +206,7 @@ function determineStance(score: number, thresholdMultiplier: number): Stance {
 
 export function computeScore(
   scores: ExtractedScores,
-  estimatedPrice?: number,
-  pricePositioning?: PricePositioning
+  assessment: Assessment
 ): ScoringResult {
   // Heavy factors (0-10 each)
   const heavySum =
@@ -232,8 +233,8 @@ export function computeScore(
   const rawScore = weightedSum * specificity * consistency;
   const score = clamp(Math.round(rawScore), 0, 100);
 
-  const priceModifier = computePriceModifier(estimatedPrice);
-  const positioningModifier = POSITIONING_MAP[pricePositioning ?? "standard"] ?? 1.0;
+  const priceModifier = computePriceModifier(assessment.estimated_price > 0 ? assessment.estimated_price : undefined);
+  const positioningModifier = POSITIONING_MAP[assessment.price_positioning ?? "standard"] ?? 1.0;
   const thresholdMultiplier = priceModifier * positioningModifier;
 
   const stance = determineStance(score, thresholdMultiplier);
