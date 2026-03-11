@@ -601,22 +601,6 @@ export const respond = internalAction({
             user_backed_down: false,
           };
         }
-        // Deterministic non-answer override — LLMs unreliably classify short
-        // contentless messages like "lol" or "I want it". Catch obvious cases
-        // so the disengagement/stagnation counters don't reset by accident.
-        // Only override when LLM missed it (is_non_answer: false).
-        // Skip on turn 1 — the user's opening message is never a non-answer.
-        if (!toolArgs.is_non_answer && turnCount > 1) {
-          const lastUserMsg = messages
-            .filter((m) => m.role === "user")
-            .pop()?.content?.trim().toLowerCase() ?? "";
-          const NON_ANSWER_RE = /^(lol|lmao|rofl|haha|ok|okay|fine|whatever|please|no|yes|nah|yep|sure|i want it|i just want it|just tell me|i don't care|come on|bruh|bro|dude|man|ugh|meh|hmm|idk|k|nope)\.?!?$/;
-          if (NON_ANSWER_RE.test(lastUserMsg)) {
-            toolArgs.is_non_answer = true;
-            toolArgs.has_new_information = false;
-          }
-        }
-
         traceData.toolArguments = JSON.stringify(toolArgs);
 
         // Execute scoring
