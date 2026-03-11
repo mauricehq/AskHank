@@ -10,6 +10,7 @@ import { VerdictCard } from "./VerdictCard";
 import { ScrollToBottom } from "./ScrollToBottom";
 import { useConversation } from "@/hooks/useConversation";
 import { useUserAccess } from "@/hooks/useUserAccess";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { TraceSummary } from "@/types/chat";
 
@@ -22,6 +23,7 @@ interface ChatScreenProps {
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
   const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice } = useConversation();
   const { isAdmin } = useUserAccess();
+  const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
   const activeConversationId = hookConversationId ?? externalId;
   const traceSummaries = useQuery(
@@ -100,8 +102,19 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
           className="absolute inset-0 overflow-y-auto"
         >
           <div className="mx-auto max-w-[720px] px-4 py-4 md:px-6 md:py-6">
+            {isAdmin && messages.length > 0 && (
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDebug((prev) => !prev)}
+                  className="font-mono text-[0.6rem] text-zinc-600 hover:text-zinc-400 transition-colors"
+                >
+                  {showDebug ? "hide debug" : "show debug"}
+                </button>
+              </div>
+            )}
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} trace={traceByMessageId.get(msg.id)} />
+              <MessageBubble key={msg.id} message={msg} trace={showDebug ? traceByMessageId.get(msg.id) : undefined} />
             ))}
             {isThinking && <TypingIndicator />}
             {isError && (
