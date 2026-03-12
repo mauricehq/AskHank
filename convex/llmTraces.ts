@@ -59,7 +59,6 @@ export const debugDump = internalQuery({
         delta: scoring?.delta ?? null,
         thresholdMultiplier: scoring?.thresholdMultiplier ?? null,
         priceModifier: scoring?.priceModifier ?? null,
-        positioningModifier: scoring?.positioningModifier ?? null,
         estimatedPrice: t.estimatedPrice ?? null,
         category: t.category ?? null,
         assessment: assessment?.item ? {
@@ -67,7 +66,6 @@ export const debugDump = internalQuery({
           intent: assessment.intent,
           estimated_price: assessment.estimated_price,
           category: assessment.category,
-          price_positioning: assessment.price_positioning,
           challenge_addressed: assessment.challenge_addressed,
           evidence_provided: assessment.evidence_provided,
           new_angle: assessment.new_angle,

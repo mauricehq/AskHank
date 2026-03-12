@@ -63,8 +63,8 @@ npx convex run llm/testChat:testChat '{"conversationId": "<id>", "message": "I a
 ## What to look for in the trace
 
 - **stance**: Shows progression (e.g. `FIRM → SKEPTICAL`). Should only move one step at a time.
-- **score / rawScore**: Raw is before price/positioning modifiers. Compare to see modifier impact.
-- **priceModifier / positioningModifier**: Values < 1 make it harder to concede (expensive items).
+- **score**: Running score across turns.
+- **priceModifier**: Values > 1 make it harder to concede (expensive items).
 - **decisionType**: `normal`, `disengagement-*`, `stagnation-*`, `out-of-scope`, `casual`, or `error`.
 - **assessment**: The LLM's read on intent, urgency, specificity, etc.
 - **mappedScores**: How each assessment enum maps to a numeric score.

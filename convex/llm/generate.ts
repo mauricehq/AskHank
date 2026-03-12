@@ -17,13 +17,11 @@ import {
   determineStance,
   applyStanceGuardrails,
   computePriceModifier,
-  getPositioningModifier,
   type TurnAssessment,
   type TurnSummary,
   type Stance,
   type ScoringResult,
   type Intent,
-  type PricePositioning,
 } from "./scoring";
 
 const VALID_STANCES = new Set<string>(["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"]);
@@ -39,7 +37,6 @@ interface PersistedContext {
   estimated_price: number;
   category: string;
   intent: Intent;
-  price_positioning: PricePositioning;
   turnSummaries: TurnSummary[];
 }
 
@@ -48,7 +45,6 @@ const DEFAULT_PERSISTED: PersistedContext = {
   estimated_price: 0,
   category: "other",
   intent: "want",
-  price_positioning: "standard",
   turnSummaries: [],
 };
 
@@ -59,7 +55,6 @@ const DEFAULT_ASSESSMENT: TurnAssessment = {
   intent: "want",
   estimated_price: 0,
   category: "other",
-  price_positioning: "standard",
   challenge_addressed: false,
   evidence_provided: false,
   new_angle: true,       // defensive: assume new info
@@ -83,9 +78,6 @@ function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
     category: (["electronics", "cars", "fashion", "furniture", "essentials", "safety_health", "other"] as const).includes(raw.category as any)
       ? (raw.category as string)
       : "other",
-    price_positioning: (["budget", "standard", "premium", "luxury"] as const).includes(raw.price_positioning as any)
-      ? (raw.price_positioning as PricePositioning)
-      : "standard",
     challenge_addressed: raw.challenge_addressed === true,
     evidence_provided: raw.evidence_provided === true,
     new_angle: raw.new_angle !== false,  // default true
@@ -98,18 +90,17 @@ function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
   };
 }
 
-/** Simple context carry-forward. Only carry: item, price, category, intent, positioning. */
+/** Simple context carry-forward. Only carry: item, price, category, intent. */
 function coalesceTurnContext(
   assessment: TurnAssessment,
   prev: PersistedContext | null
-): { item: string; estimated_price: number; category: string; intent: Intent; price_positioning: PricePositioning } {
+): { item: string; estimated_price: number; category: string; intent: Intent } {
   if (!prev) {
     return {
       item: assessment.item,
       estimated_price: assessment.estimated_price,
       category: assessment.category,
       intent: assessment.intent,
-      price_positioning: assessment.price_positioning,
     };
   }
 
@@ -119,8 +110,6 @@ function coalesceTurnContext(
     category: assessment.category && assessment.category !== "other" ? assessment.category : prev.category,
     // Intent: keep from turn 1 unless user explicitly shifts
     intent: assessment.intent !== "want" ? assessment.intent : prev.intent,
-    // Positioning: keep previous unless LLM returns non-default
-    price_positioning: assessment.price_positioning !== "standard" ? assessment.price_positioning : prev.price_positioning,
   };
 }
 
@@ -162,10 +151,9 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   const category = coalesced.category;
   const item = coalesced.item && coalesced.item !== "unknown" ? coalesced.item : storedItem;
 
-  // Price + positioning modifiers
+  // Price modifier
   const priceModifier = computePriceModifier(estimatedPrice);
-  const positioningModifier = getPositioningModifier(coalesced.price_positioning);
-  const thresholdMultiplier = priceModifier * positioningModifier;
+  const thresholdMultiplier = priceModifier;
 
   // Build persisted context (will be updated with turnSummary below)
   const prevSummaries = state.previousContext?.turnSummaries ?? [];
@@ -174,7 +162,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // Helper to build scoring result
   function makeScoringResult(score: number, delta: number): ScoringResult {
-    return { runningScore: score, delta, stance: determineStance(score, thresholdMultiplier), thresholdMultiplier, priceModifier, positioningModifier };
+    return { runningScore: score, delta, stance: determineStance(score, thresholdMultiplier), thresholdMultiplier, priceModifier };
   }
 
   // 1. Out of scope → no scoring, deflect
@@ -478,9 +466,6 @@ export const respond = internalAction({
             intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(parsed.intent)
               ? parsed.intent
               : "want",
-            price_positioning: (["budget", "standard", "premium", "luxury"] as const).includes(parsed.price_positioning)
-              ? parsed.price_positioning
-              : "standard",
             turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
           };
         } catch {

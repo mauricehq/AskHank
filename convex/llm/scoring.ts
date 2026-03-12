@@ -2,15 +2,12 @@ export type Stance = "IMMOVABLE" | "FIRM" | "SKEPTICAL" | "RELUCTANT" | "CONCEDE
 
 export type Intent = "want" | "need" | "replace" | "upgrade" | "gift";
 
-export type PricePositioning = "budget" | "standard" | "premium" | "luxury";
-
 export interface TurnAssessment {
   // Context (every turn, can evolve)
   item: string;
   estimated_price: number;
   category: string;
   intent: Intent;
-  price_positioning: PricePositioning;
   // Debate quality (turn 2+, defaults on turn 1)
   challenge_addressed: boolean;
   evidence_provided: boolean;
@@ -38,7 +35,6 @@ export interface ScoringResult {
   stance: Stance;
   thresholdMultiplier: number;
   priceModifier: number;
-  positioningModifier: number;
 }
 
 // --- Intent starting bonus (turn 1 only) ---
@@ -130,15 +126,3 @@ export function computePriceModifier(price: number | undefined): number {
   return clamp(1.0 + 0.3 * Math.log(price / 100), 0.6, 1.5);
 }
 
-// --- Positioning modifier ---
-
-const POSITIONING_MAP: Record<PricePositioning, number> = {
-  budget: 0.85,
-  standard: 1.0,
-  premium: 1.15,
-  luxury: 1.3,
-};
-
-export function getPositioningModifier(positioning: PricePositioning | undefined): number {
-  return POSITIONING_MAP[positioning ?? "standard"] ?? 1.0;
-}

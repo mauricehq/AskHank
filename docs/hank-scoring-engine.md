@@ -43,7 +43,6 @@ User states what they want. The LLM extracts lightweight context:
 | `estimated_price` | number | User-stated or LLM-estimated price in USD |
 | `category` | enum | electronics, cars, fashion, furniture, essentials, safety_health, other |
 | `intent` | enum | want, need, replace, upgrade, gift |
-| `price_positioning` | enum | budget, standard, premium, luxury |
 
 No debate score yet — there's no pushback to counter. This sets difficulty and gives Hank his opening angle.
 
@@ -117,19 +116,8 @@ Running score accumulates across turns. Stance determined by score vs price-adju
 **Price adjusts thresholds** using a log curve:
 
 ```
-priceModifier = clamp(1.0 + 0.3 × ln(price / 100), 0.6, 1.5)
+thresholdMultiplier = clamp(1.0 + 0.3 × ln(price / 100), 0.6, 1.5)
 ```
-
-**Positioning multiplier** shifts thresholds further:
-
-| Positioning | Multiplier |
-|-------------|-----------|
-| budget | 0.85 |
-| standard | 1.0 |
-| premium | 1.15 |
-| luxury | 1.3 |
-
-**Final threshold multiplier** = `priceModifier × positioningModifier`
 
 No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can't explode.
 
@@ -140,8 +128,8 @@ No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can'
 - 2 strong turns (16+16=32) → concession
 - Feels like: quick, fun argument
 
-**$500 headphones (multiplier ~1.48):**
-- CONCEDE threshold: 43 × 1.48 ≈ 64
+**$350 headphones (multiplier ~1.37):**
+- CONCEDE threshold: 43 × 1.37 ≈ 59
 - 4 strong turns → concession
 - Feels like: real conversation, Hank makes you work
 
@@ -149,11 +137,6 @@ No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can'
 - CONCEDE threshold: 43 × 1.50 ≈ 65
 - 4-5 strong turns → concession
 - Feels like: serious debate, but winnable
-
-**$5,000 luxury item (multiplier ~1.50 × 1.30 = 1.95):**
-- CONCEDE threshold: 43 × 1.95 ≈ 84
-- 5-6 strong turns → concession
-- Requires sustained excellence
 
 ---
 
@@ -182,7 +165,7 @@ No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can'
 
 ## Context Carry-Forward
 
-Five context fields persist across turns (stored in `lastAssessment`):
+Four context fields persist across turns (stored in `lastAssessment`):
 
 | Field | Carry-forward rule |
 |-------|--------------------|
@@ -190,7 +173,6 @@ Five context fields persist across turns (stored in `lastAssessment`):
 | `estimated_price` | Update if LLM returns > 0 |
 | `category` | Update if LLM returns non-"other" value |
 | `intent` | Keep from turn 1 unless LLM returns non-"want" |
-| `price_positioning` | Keep previous unless LLM returns non-"standard" |
 
 Plus `turnSummaries[]` — a per-turn log of delta, topic, addressed, evidence. Fed back into Hank's system prompt as DEBATE PROGRESS so he attacks the weakest points.
 
@@ -239,8 +221,8 @@ Three distinct slots in each LLM trace:
 | Slot | Contains |
 |------|----------|
 | `rawScores` | Sanitized TurnAssessment (what the LLM classified this turn) |
-| `sanitizedScores` | Persisted context (item, price, intent, positioning, turnSummaries) |
-| `scoringResult` | ScoringResult (runningScore, delta, stance, thresholdMultiplier, priceModifier, positioningModifier) |
+| `sanitizedScores` | Persisted context (item, price, intent, turnSummaries) |
+| `scoringResult` | ScoringResult (runningScore, delta, stance, thresholdMultiplier, priceModifier) |
 
 Decision types: `normal`, `normal (stance capped)`, `casual`, `out-of-scope`, `directed-question`, `concede`, `user-backed-down`, `disengagement-increment`, `disengagement-denied`, `stagnation-denied`, `collapse-denied`, `error`.
 
@@ -250,7 +232,7 @@ Decision types: `normal`, `normal (stance capped)`, `casual`, `out-of-scope`, `d
 
 | File | Role |
 |------|------|
-| `convex/llm/scoring.ts` | Types (TurnAssessment, ScoringResult, Stance, Intent), delta calculation, stance determination, guardrails, price/positioning modifiers |
+| `convex/llm/scoring.ts` | Types (TurnAssessment, ScoringResult, Stance, Intent), delta calculation, stance determination, guardrails, price modifier |
 | `convex/llm/prompt.ts` | Tool definition (get_stance schema), system prompt builder, debate progress injection |
 | `convex/llm/generate.ts` | Orchestration: sanitization, context carry-forward, executeGetStance decision tree, two-call LLM pattern, trace capture |
 | `convex/llm/moves.ts` | Rhetorical move detection (prompt-only, doesn't affect scoring) |

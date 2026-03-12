@@ -53,7 +53,6 @@ export function buildToolDefinition(): ToolDefinition {
               "estimated_price",
               "category",
               "intent",
-              "price_positioning",
               "challenge_addressed",
               "evidence_provided",
               "new_angle",
@@ -92,12 +91,6 @@ export function buildToolDefinition(): ToolDefinition {
                 enum: ["want", "need", "replace", "upgrade", "gift"],
                 description:
                   'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying for someone else.',
-              },
-              price_positioning: {
-                type: "string",
-                enum: ["budget", "standard", "premium", "luxury"],
-                description:
-                  'Where this item sits in its market. "budget" = store-brand, clearance, refurbished. "standard" = name-brand at typical price (Nike, Samsung, IKEA). "premium" = high-end functional, paying for better specs/quality (MacBook Pro, Dyson, Herman Miller). "luxury" = true luxury where the brand is the point (Rolex, Hermès, Louis Vuitton). Default to "standard" when unclear.',
               },
               challenge_addressed: {
                 type: "boolean",

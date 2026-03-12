@@ -41,7 +41,6 @@ const ASSESSMENT_SKIP = new Set(["item"]);
 // Render assessment enum/boolean values with color hints
 const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
   intent: { want: "text-red-400", need: "text-green-400", replace: "text-green-400", upgrade: "text-blue-400", gift: "text-yellow-400" },
-  price_positioning: { budget: "text-green-400", standard: "text-zinc-400", premium: "text-amber-400", luxury: "text-red-400" },
   challenge_addressed: { true: "text-green-400", false: "text-red-400" },
   evidence_provided: { true: "text-green-400", false: "text-zinc-500" },
   new_angle: { true: "text-green-400", false: "text-zinc-500" },
