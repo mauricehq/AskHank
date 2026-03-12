@@ -77,6 +77,7 @@ export const debugDump = internalQuery({
           is_directed_question: assessment.is_directed_question ?? toolArgs?.assessment?.is_directed_question,
         } : null,
         persistedContext,
+        call2SystemPrompt: t.call2SystemPrompt ?? null,
         tokens: t.tokenUsage?.totalTokens ?? null,
         durationMs: t.durationMs,
       };
