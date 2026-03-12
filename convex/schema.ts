@@ -42,6 +42,8 @@ export default defineSchema({
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
+    excuse: v.optional(v.string()),
+    verdictTagline: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
   messages: defineTable({

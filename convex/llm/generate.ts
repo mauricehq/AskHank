@@ -5,7 +5,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
-import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt } from "./prompt";
+import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
 import { extractRecentMoves } from "./moves";
 
 // LLM temperature settings
@@ -693,16 +693,40 @@ export const respond = internalAction({
         ];
 
         // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
+        const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
+        const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
+
         const call2 = await chatCompletion({
           messages: call2Messages,
           modelId,
           temperature: TEMPERATURE_RESPONSE,
           maxTokens: 400,
+          ...(closingTool ? {
+            tools: [closingTool],
+            tool_choice: { type: "function", function: { name: "closing_response" } },
+          } : {}),
         });
 
         const durationMs = Date.now() - llmStart;
         const totalUsage = addUsage(call1Usage, call2.usage);
-        const responseText = call2.content;
+
+        let responseText: string;
+        let excuse: string | undefined;
+        let verdictTagline: string | undefined;
+
+        if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
+          try {
+            const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
+            responseText = typeof parsed.closing_line === "string" ? parsed.closing_line : "";
+            excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
+            verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
+          } catch {
+            responseText = call2.content ?? "";
+          }
+        } else {
+          responseText = call2.content ?? "";
+        }
+
         if (!responseText) {
           throw new Error("Call 2 returned empty content");
         }
@@ -751,6 +775,8 @@ export const respond = internalAction({
               lastAssessment: lastAssessmentJson,
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._zeroStreak,
+              excuse,
+              verdictTagline,
             }
           );
           traceData.messageId = messageId;

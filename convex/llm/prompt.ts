@@ -407,6 +407,35 @@ Rules:
 - No markdown. No emojis. No asterisk actions. No quotation marks around your response.
 - Do NOT ask a follow-up question. The conversation is over.
 - Follow the guidance from the tool result — it tells you what to reference.
+- Use the closing_response tool to deliver your response.
 
 ${verdictRules}`;
+}
+
+export function buildClosingToolDefinition(): ToolDefinition {
+  return {
+    type: "function",
+    function: {
+      name: "closing_response",
+      description: "Deliver your closing line with structured metadata for the verdict card.",
+      parameters: {
+        type: "object",
+        required: ["closing_line", "excuse", "verdict_tagline"],
+        properties: {
+          closing_line: {
+            type: "string",
+            description: "Your closing line. 1-2 sentences. The mic drop.",
+          },
+          excuse: {
+            type: "string",
+            description: "The user's core purchase argument distilled to under 10 words, as if they said it.",
+          },
+          verdict_tagline: {
+            type: "string",
+            description: "Your 2-4 word Hank-voice summary. Dry and punchy.",
+          },
+        },
+      },
+    },
+  };
 }
