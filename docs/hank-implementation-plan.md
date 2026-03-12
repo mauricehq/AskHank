@@ -211,11 +211,11 @@ Call 2 prompt selection:
 - [x] Verdict saved when conversation closes (approved/denied)
 - [x] On close: save card data (excuse + verdict tagline) — generated via forced `closing_response` tool call on Call 2 closing turns. Structured JSON extraction (closing_line, excuse, verdict_tagline) with fallback to plain content. Fields saved to conversation doc as `excuse` and `verdictTagline`.
 
-### 3b: Conversation History (mostly done)
+### 3b: Conversation History ✅
 - [x] Sidebar history list via `listForUser` — chronological, tap to revisit full conversation
 - [x] Loading skeleton + empty state
 - [x] Delete conversation
-- [ ] Enhance history entries: show item name, verdict badge (denied/approved), price — instead of generic title
+- [x] Enhance history entries: show item name, verdict badge (denied/approved), price — instead of generic title
 
 ### 3c: "Saved $X" Counter
 - [ ] Running total stored per user in Convex
@@ -503,7 +503,7 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a storage + card data done) | History UI, saved counter, memory |
+| 3: Persistence | Partial (3a + 3b done) | Saved counter, memory |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |

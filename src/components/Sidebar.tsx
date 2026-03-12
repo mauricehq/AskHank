@@ -99,6 +99,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
               key={item._id}
               name={item.title}
               verdict={item.verdict}
+              estimatedPrice={item.estimatedPrice}
               timeAgo={formatRelativeTime(item.createdAt)}
               isActive={activeConversationId === item._id}
               onClick={() => {

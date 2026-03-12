@@ -7,12 +7,13 @@ interface HistoryItemProps {
   name: string;
   verdict?: "denied" | "approved";
   timeAgo: string;
+  estimatedPrice?: number;
   isActive?: boolean;
   onClick?: () => void;
   onDelete?: () => void;
 }
 
-export function HistoryItem({ name, verdict, timeAgo, isActive, onClick, onDelete }: HistoryItemProps) {
+export function HistoryItem({ name, verdict, timeAgo, estimatedPrice, isActive, onClick, onDelete }: HistoryItemProps) {
   const isDenied = verdict === "denied";
   const isApproved = verdict === "approved";
   const [confirming, setConfirming] = useState(false);
@@ -68,7 +69,12 @@ export function HistoryItem({ name, verdict, timeAgo, isActive, onClick, onDelet
       {/* Name + time */}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[0.85rem] font-bold text-text">{name}</div>
-        <div className="text-[0.7rem] text-text-secondary">{timeAgo}</div>
+        <div className="text-[0.7rem] text-text-secondary">
+          {estimatedPrice && estimatedPrice > 0 && (
+            <><span className="font-semibold">${estimatedPrice.toLocaleString()}</span> · </>
+          )}
+          {timeAgo}
+        </div>
       </div>
 
       {/* Trash icon (shown on hover, replaces verdict badge) */}

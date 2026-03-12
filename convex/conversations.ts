@@ -91,6 +91,7 @@ export const listForUser = query({
           verdict: conv.verdict,
           status: conv.status,
           createdAt: conv.createdAt,
+          estimatedPrice: conv.estimatedPrice,
         };
       })
     );
