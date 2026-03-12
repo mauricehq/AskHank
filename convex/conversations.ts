@@ -340,14 +340,17 @@ export const saveResponseWithVerdict = internalMutation({
       verdictTagline: args.verdictTagline,
     });
 
-    // Increment user's savedTotal on denied verdicts with a known price
-    if (args.verdict === "denied" && args.estimatedPrice && args.estimatedPrice > 0) {
+    // Increment user's savedTotal and deniedCount on denied verdicts
+    if (args.verdict === "denied") {
       const conversation = await ctx.db.get(args.conversationId);
       if (conversation) {
         const user = await ctx.db.get(conversation.userId);
         if (user) {
           await ctx.db.patch(user._id, {
-            savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice,
+            deniedCount: (user.deniedCount ?? 0) + 1,
+            ...(args.estimatedPrice && args.estimatedPrice > 0
+              ? { savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice }
+              : {}),
           });
         }
       }

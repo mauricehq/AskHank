@@ -14,6 +14,7 @@ export default defineSchema({
       )
     ),
     savedTotal: v.optional(v.number()),
+    deniedCount: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_token", ["tokenIdentifier"]),
 

@@ -119,6 +119,37 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
         )}
       </div>
 
+      {/* Stats */}
+      {(() => {
+        const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
+        const savedTotal = user?.savedTotal ?? 0;
+        if (deniedCount === 0 && savedTotal === 0) return null;
+        return (
+          <div className="shrink-0 px-2 pb-3">
+            <div className="flex rounded-[10px] bg-bg-surface py-1">
+              {savedTotal > 0 && (
+                <div className="flex-1 py-3.5 text-center">
+                  <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
+                    ${savedTotal.toLocaleString()}
+                  </div>
+                  <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                    saved
+                  </div>
+                </div>
+              )}
+              <div className={`${savedTotal > 0 ? "border-l border-border" : ""} flex-1 py-3.5 text-center`}>
+                <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
+                  {deniedCount}
+                </div>
+                <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                  skipped
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Footer */}
       <div className="shrink-0 border-t border-border px-4 py-3">
         <div className="flex items-center gap-3">
