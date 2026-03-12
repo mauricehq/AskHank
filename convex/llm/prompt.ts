@@ -1,6 +1,7 @@
 "use node";
 
 import type { Stance } from "./scoring";
+import type { TurnSummary } from "./scoring";
 import type { ChatMessage, ToolDefinition } from "./openrouter";
 import { buildRecentMovesSection, type DetectedMove } from "./moves";
 
@@ -15,9 +16,9 @@ interface PromptConfig {
   disengagementCount?: number;
   estimatedPrice?: number;
   category?: string;
-  stagnationCount?: number;
+  zeroStreak?: number;
   turnCount?: number;
-  previousAssessment?: Record<string, unknown> | null;
+  turnSummaries?: TurnSummary[];
   recentMoves?: DetectedMove[];
 }
 
@@ -39,139 +40,34 @@ export function buildToolDefinition(): ToolDefinition {
     function: {
       name: "get_stance",
       description:
-        "Assess every user message. Always extract the item's price — if the user states a dollar amount, use it as estimated_price. For purchase arguments, fill in the assessment fully. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true. For user agreement/surrender (e.g. 'yeah you're right', 'I won't buy it'), set user_backed_down to true.",
+        "Assess every user message. Always extract the item's price — if the user states a dollar amount, use it as estimated_price. For purchase arguments, classify the debate quality fields. For casual chat or non-purchase messages, set is_out_of_scope to true. For disengagement (e.g. 'whatever', 'fine', 'I don't care'), set is_non_answer to true. For user agreement/surrender (e.g. 'yeah you're right', 'I won't buy it'), set user_backed_down to true.",
       parameters: {
         type: "object",
         required: ["assessment"],
         properties: {
           assessment: {
             type: "object",
-            description: "Classify based on what the user has DEMONSTRATED, not claimed.",
+            description: "Classify the user's argument quality this turn.",
             required: [
               "item",
-              "intent",
-              "current_solution",
-              "current_solution_detail",
-              "alternatives_tried",
-              "alternatives_detail",
-              "frequency",
-              "urgency",
-              "urgency_detail",
-              "purchase_history",
-              "emotional_triggers",
-              "specificity",
-              "consistency",
-              "beneficiary",
-              "price_positioning",
               "estimated_price",
               "category",
+              "intent",
+              "price_positioning",
+              "challenge_addressed",
+              "evidence_provided",
+              "new_angle",
+              "emotional_reasoning",
+              "challenge_topic",
               "is_non_answer",
-              "has_new_information",
-              "is_directed_question",
               "is_out_of_scope",
               "user_backed_down",
+              "is_directed_question",
             ],
             properties: {
               item: {
                 type: "string",
                 description: "The item they want to buy. Use a stable, concise label (e.g. 'streaming setup', 'iPad'). Only change it if the user's purchase intent has genuinely shifted.",
-              },
-              intent: {
-                type: "string",
-                enum: ["want", "need", "replace", "upgrade", "gift"],
-                description:
-                  'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying a discretionary gift for someone else (birthday, holiday, treat). For shared household needs or dependent needs, use "need" or "replace" with the appropriate beneficiary field.',
-              },
-              current_solution: {
-                type: "string",
-                enum: ["broken", "failing", "outdated", "working", "none", "unknown"],
-                description:
-                  'State of what they have now. "broken" = completely non-functional. "failing" = works but serious problems. "outdated" = works but significantly behind. "working" = works fine. "none" = they don\'t have one. "unknown" = hasn\'t been discussed.',
-              },
-              current_solution_detail: {
-                type: ["string", "null"],
-                description:
-                  'Brief evidence quote if they described their current situation (e.g. "screen cracked 2 weeks ago"). null if unknown.',
-              },
-              alternatives_tried: {
-                type: "string",
-                enum: ["exhausted", "some", "none", "unknown"],
-                description:
-                  'Have they explored other options? "exhausted" = tried multiple, none worked. "some" = tried a few. "none" = haven\'t tried anything else. "unknown" = hasn\'t been discussed.',
-              },
-              alternatives_detail: {
-                type: ["string", "null"],
-                description:
-                  'Brief evidence if they mentioned trying alternatives (e.g. "took it to repair shop, $300 quote"). null if unknown.',
-              },
-              frequency: {
-                type: "string",
-                enum: ["daily", "weekly", "monthly", "rarely", "unknown"],
-                description:
-                  'How often would they use this? "daily" = every day or nearly. "weekly" = a few times a week. "monthly" = a few times a month. "rarely" = occasional use. "unknown" = hasn\'t been discussed.',
-              },
-              urgency: {
-                type: "string",
-                enum: ["immediate", "soon", "none", "unknown"],
-                description:
-                  'Is there a real deadline or time pressure? "immediate" = needs it now, real consequence for waiting. "soon" = needs it in days/weeks. "none" = no time pressure. "unknown" = hasn\'t been discussed.',
-              },
-              urgency_detail: {
-                type: ["string", "null"],
-                description:
-                  'Brief evidence if they mentioned urgency (e.g. "moving next week"). null if unknown.',
-              },
-              purchase_history: {
-                type: "string",
-                enum: ["impulse_pattern", "planned", "unknown"],
-                description:
-                  'What patterns revealed? "impulse_pattern" = frequent impulse buying. "planned" = researching/saving, deliberate. "unknown" = no pattern revealed.',
-              },
-              emotional_triggers: {
-                type: "array",
-                items: {
-                  type: "string",
-                  enum: [
-                    "i_want_it",
-                    "i_deserve_it",
-                    "treat_myself",
-                    "makes_me_happy",
-                    "everyone_has_one",
-                    "fomo",
-                    "retail_therapy",
-                    "bored",
-                    "impulse",
-                    "family_obligation",
-                    "guilt",
-                    "keeping_up_with_other_families",
-                  ],
-                },
-                description:
-                  "Emotional reasoning detected — where feelings are the PRIMARY justification, not supported by evidence or functional need. Only tag when emotion is doing the heavy lifting, not when it's incidental language alongside rational arguments. Examples: 'I deserve it after a hard week' → i_deserve_it. 'I'm bored of Mario Kart because it's not intellectual enough' → NOT bored (that's a functional critique). 'I just want it' with no further justification → i_want_it. 'I want it and here's 20 hours of demo experience proving I'll use it' → NOT i_want_it. Empty array if reasoning is primarily rational.",
-              },
-              specificity: {
-                type: "string",
-                enum: ["vague", "moderate", "specific", "evidence"],
-                description:
-                  'How detailed are their arguments? "vague" = hand-waving. "moderate" = some details but gaps. "specific" = clear details. "evidence" = specific facts with evidence.',
-              },
-              consistency: {
-                type: "string",
-                enum: ["first_turn", "building", "consistent", "contradicting"],
-                description:
-                  'How the user\'s position has shifted this turn. "first_turn" = first or second message. "building" = adding new supporting facts that strengthen their case. "consistent" = repeating similar arguments, no change in position. "contradicting" = user has walked back, weakened, or reversed a previous claim. USE "contradicting" when the user: admits they don\'t actually need it (need→want), confesses it\'s impulse not planned, downgrades who benefits (dependent→self), or otherwise concedes ground they previously held. An admission of weakness IS a contradiction of their earlier stronger claim. DO NOT use "contradicting" when the user admits past mistakes but argues THIS purchase is different (e.g. "I used to impulse buy but I researched this one") — that\'s building, not contradicting.',
-              },
-              beneficiary: {
-                type: "string",
-                enum: ["self", "shared", "dependent", "gift_discretionary"],
-                description:
-                  'Who primarily benefits? "self" = the user alone. "shared" = household/family uses it together (e.g. Netflix, family car). "dependent" = someone who depends on the user needs it (child\'s school laptop, elderly parent\'s device). "gift_discretionary" = discretionary gift (birthday present, treat for a friend). Default to "self" when unclear.',
-              },
-              price_positioning: {
-                type: "string",
-                enum: ["budget", "standard", "premium", "luxury"],
-                description:
-                  'Where this item sits in its market. "budget" = store-brand, clearance, refurbished. "standard" = name-brand at typical price (Nike, Samsung, IKEA). "premium" = high-end functional, paying for better specs/quality (MacBook Pro, Dyson, Herman Miller). "luxury" = true luxury where the brand is the point (Rolex, Hermès, Louis Vuitton, Bang & Olufsen). Rule of thumb: if a reasonable alternative exists at 1/3 the price with 90% of the function, it\'s luxury. Default to "standard" when unclear.',
               },
               estimated_price: {
                 type: "number",
@@ -191,30 +87,62 @@ export function buildToolDefinition(): ToolDefinition {
                 ],
                 description: "Classify the purchase category.",
               },
+              intent: {
+                type: "string",
+                enum: ["want", "need", "replace", "upgrade", "gift"],
+                description:
+                  'Why do they want it? "want" = pure desire, no functional reason. "need" = filling a gap, they don\'t have one. "replace" = current one is broken/failing. "upgrade" = current one works but they want better. "gift" = buying for someone else.',
+              },
+              price_positioning: {
+                type: "string",
+                enum: ["budget", "standard", "premium", "luxury"],
+                description:
+                  'Where this item sits in its market. "budget" = store-brand, clearance, refurbished. "standard" = name-brand at typical price (Nike, Samsung, IKEA). "premium" = high-end functional, paying for better specs/quality (MacBook Pro, Dyson, Herman Miller). "luxury" = true luxury where the brand is the point (Rolex, Hermès, Louis Vuitton). Default to "standard" when unclear.',
+              },
+              challenge_addressed: {
+                type: "boolean",
+                description:
+                  'Did they respond to what you (Hank) specifically asked or challenged this turn? This is the most important field. Examples: You asked "How often would you use it?" → they said "Every day for work" = true. You asked "How often would you use it?" → they said "It\'s well reviewed on Amazon" = false (they dodged your question). You challenged their price → they justified with cost-per-use math = true. You challenged their price → they talked about features = false. On the first user message (turn 1), default to false — there was no challenge to address yet.',
+              },
+              evidence_provided: {
+                type: "boolean",
+                description:
+                  'Did they give specific facts, numbers, or concrete details this turn? "I have 400 hours in similar games" = true. "I\'d use it a lot" = false. "My current one broke 2 weeks ago" = true. "I need a new one" = false. Look for: specific numbers, named products, dates, measurable claims.',
+              },
+              new_angle: {
+                type: "boolean",
+                description:
+                  "Did they introduce something new that hasn't come up before in this conversation? A new fact, perspective, or argument that advances their case. Repeating the same point in different words = false. Bringing up a genuinely new reason = true. On turn 1, default to true — everything is new.",
+              },
+              emotional_reasoning: {
+                type: "boolean",
+                description:
+                  'Is emotion the PRIMARY justification this turn? "I deserve it after a hard week" = true. "I want it and here\'s 20 hours of demo experience" = false (wanting + evidence = rational). "I just want it" with nothing else = true. "It makes me happy" as the main argument = true. "I\'m excited about the features because..." = false (emotion incidental to rational argument).',
+              },
+              challenge_topic: {
+                type: "string",
+                description:
+                  'Brief label of what the user addressed or attempted to address this turn. Examples: "frequency of use", "price justification", "current solution", "alternatives", "why this brand", "genre expertise". Empty string if turn 1 or out of scope.',
+              },
               is_non_answer: {
                 type: "boolean",
                 description:
                   'true if the user\'s message doesn\'t meaningfully engage. Examples: "lol", "whatever", "just tell me yes", "I don\'t care", "please", single emojis, or repeating "I want it" with no new information. NOT for agreement — use user_backed_down when the user agrees with your position.',
               },
-              has_new_information: {
-                type: "boolean",
-                description:
-                  "true if the user introduced a new fact, argument, or angle not previously stated. false if they repeated previous claims or added no substance.",
-              },
-              is_directed_question: {
-                type: "boolean",
-                description:
-                  "true if the user is asking you (Hank) to explain, justify, or defend your reasoning rather than making a purchase argument. Examples: 'why do you say that?', 'explain yourself', 'answer my question', 'what do you mean?'. These are engagement, not repetition — the user is challenging YOU, not restating their case. false for purchase arguments, even if phrased as questions like 'don't you think I need it?'.",
-              },
               is_out_of_scope: {
                 type: "boolean",
                 description:
-                  "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, business expenses. Note: gifts and purchases for family members are IN SCOPE — classify them using the beneficiary field instead.",
+                  "true if the topic falls under out-of-scope categories: investment advice, medical purchases, insurance, business expenses. Note: gifts and purchases for family members are IN SCOPE.",
               },
               user_backed_down: {
                 type: "boolean",
                 description:
-                  "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'you convinced me'. NOT for disengagement or apathy — those use is_non_answer.",
+                  "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it'. NOT for disengagement — those use is_non_answer.",
+              },
+              is_directed_question: {
+                type: "boolean",
+                description:
+                  "true if the user is asking you (Hank) to explain, justify, or defend your reasoning rather than making a purchase argument. Examples: 'why do you say that?', 'explain yourself', 'answer my question'. false for purchase arguments, even if phrased as questions.",
               },
             },
           },
@@ -231,7 +159,7 @@ export function buildSystemPrompt(config: PromptConfig = {}): string {
     disengagementCount = 0,
     estimatedPrice,
     category,
-    stagnationCount = 0,
+    zeroStreak = 0,
     turnCount = 1,
   } = config;
   const userName = displayName || "this person";
@@ -272,7 +200,7 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - For casual chat, greetings, or non-purchase topics: set is_out_of_scope to true.
 - For non-answers or disengagement ("whatever", "fine", "lol"): set is_non_answer to true.
 - For user agreement/surrender ("yeah you're right", "I won't buy it"): set user_backed_down to true.
-- For purchase arguments: fill the assessment based on evidence.
+- For purchase arguments: classify the debate quality fields based on THIS turn only.
 - Follow the guidance the tool returns.
 - Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
 
@@ -337,24 +265,17 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
     }`,
   ];
 
-  // Previous assessment context (shows LLM its last evaluation for consistency)
-  if (config.previousAssessment) {
+  // Debate progress context (replaces previousAssessment JSON dump)
+  if (config.turnSummaries && config.turnSummaries.length > 0) {
+    const summaryLines = config.turnSummaries.map((s) => {
+      const qualifiers: string[] = [];
+      if (s.addressed) qualifiers.push(s.evidence ? "strong counter" : "addressed without hard evidence");
+      else qualifiers.push("didn't address challenge");
+      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")} on '${s.topic}'`;
+    });
+
     sections.push(
-      `PREVIOUS ASSESSMENT — your last evaluation of this purchase:
-${JSON.stringify(config.previousAssessment, null, 2)}
-
-CONSISTENCY RULE: Only change a field when the user gives NEW information that justifies it. If nothing new was said about a field, keep it the same as the previous assessment.
-
-CONTRADICTION DETECTION: Set consistency to "contradicting" when the user walks back or weakens a previous claim. Examples:
-- Previously said "need" but now admits "I just want it" → contradicting
-- Previously said "planned" but admits it was impulse → contradicting
-- Previously said it's for a dependent but now says it's for themselves → contradicting
-- Previously said current solution is broken but now says it works fine → contradicting
-These are concessions — the user is giving ground. That's a contradiction of their earlier stronger position.
-NOT contradicting — these are building:
-- User admits past impulse buying but says "this time I did my research" → building (showing growth, distinguishing this purchase from past patterns)
-- User acknowledges they have other options but explains why those don't work → building (addressing your pushback with specifics)
-Do NOT use "contradicting" for normal clarification, adding detail that doesn't weaken their case, or admitting past bad habits while arguing this purchase is different.`
+      `DEBATE PROGRESS:\n${summaryLines.join("\n")}\nAttack the weakest point they haven't addressed well.`
     );
   }
 
@@ -365,10 +286,10 @@ Do NOT use "contradicting" for normal clarification, adding detail that doesn't 
     );
   }
 
-  // Stagnation context (only when > 0) — factual only, guidance comes from tool result
-  if (stagnationCount >= 1) {
+  // Zero streak context (only when > 0) — factual only, guidance comes from tool result
+  if (zeroStreak >= 1) {
     sections.push(
-      `STAGNATION CONTEXT: ${stagnationCount} consecutive repeat${stagnationCount > 1 ? "s" : ""} without new information.`
+      `STAGNATION CONTEXT: ${zeroStreak} consecutive turn${zeroStreak > 1 ? "s" : ""} with no score progress.`
     );
   }
 

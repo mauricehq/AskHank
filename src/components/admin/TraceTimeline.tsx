@@ -8,11 +8,18 @@ import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
 import { TraceDetail } from "./TraceDetail";
 
 const DECISION_COLORS: Record<string, string> = {
-  opening: "bg-accent/15 text-accent",
-  response: "bg-blue-500/15 text-blue-400",
-  concession: "bg-approved/15 text-approved",
-  rejection: "bg-denied/15 text-denied",
-  disengage: "bg-yellow-500/15 text-yellow-400",
+  normal: "bg-blue-500/15 text-blue-400",
+  "normal (stance capped)": "bg-blue-500/15 text-blue-400",
+  casual: "bg-bg-surface text-text-secondary",
+  "out-of-scope": "bg-bg-surface text-text-secondary",
+  "directed-question": "bg-cyan-500/15 text-cyan-400",
+  concede: "bg-approved/15 text-approved",
+  "user-backed-down": "bg-approved/15 text-approved",
+  "disengagement-increment": "bg-yellow-500/15 text-yellow-400",
+  "disengagement-denied": "bg-denied/15 text-denied",
+  "stagnation-denied": "bg-denied/15 text-denied",
+  "collapse-denied": "bg-denied/15 text-denied",
+  error: "bg-denied/15 text-denied",
 };
 
 interface TraceTimelineProps {

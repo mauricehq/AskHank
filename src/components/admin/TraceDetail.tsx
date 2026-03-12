@@ -126,8 +126,8 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
         </CollapsibleSection>
       )}
 
-      {/* Scores Breakdown */}
-      <CollapsibleSection title="Scores Breakdown" defaultOpen>
+      {/* Scoring */}
+      <CollapsibleSection title="Scoring" defaultOpen>
         {toolCalled === false ? (
           <div className="text-xs text-text-secondary py-2">
             No scoring (casual turn)
@@ -136,21 +136,21 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
         <div className="space-y-2">
           <div>
             <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-              Assessment
+              Turn Assessment
             </div>
             <JsonBlock data={rawScores} />
-          </div>
-          <div>
-            <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-              Mapped Scores
-            </div>
-            <JsonBlock data={sanitizedScores} />
           </div>
           <div>
             <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
               Scoring Result
             </div>
             <JsonBlock data={scoringResult} />
+          </div>
+          <div>
+            <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
+              Persisted Context
+            </div>
+            <JsonBlock data={sanitizedScores} />
           </div>
         </div>
         )}

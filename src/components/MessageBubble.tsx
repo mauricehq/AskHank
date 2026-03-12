@@ -10,21 +10,26 @@ interface MessageBubbleProps {
 
 const DECISION_COLORS: Record<string, string> = {
   normal: "bg-blue-500/20 text-blue-300",
-  "normal (stance floored)": "bg-blue-500/20 text-blue-300",
+  "normal (stance capped)": "bg-blue-500/20 text-blue-300",
   casual: "bg-zinc-500/20 text-zinc-300",
   "out-of-scope": "bg-zinc-500/20 text-zinc-300",
+  "directed-question": "bg-cyan-500/20 text-cyan-300",
   concede: "bg-green-500/20 text-green-300",
+  "user-backed-down": "bg-green-500/20 text-green-300",
   "disengagement-increment": "bg-yellow-500/20 text-yellow-300",
   "disengagement-denied": "bg-red-500/20 text-red-300",
-  "stagnation-increment": "bg-yellow-500/20 text-yellow-300",
   "stagnation-denied": "bg-red-500/20 text-red-300",
+  "collapse-denied": "bg-red-500/20 text-red-300",
   error: "bg-red-500/20 text-red-300",
 };
 
-function parseScore(scoringResult: string): number | null {
+function parseScoreAndDelta(scoringResult: string): { score: number; delta: number } | null {
   try {
     const parsed = JSON.parse(scoringResult);
-    return typeof parsed.score === "number" ? parsed.score : null;
+    const score = typeof parsed.runningScore === "number" ? parsed.runningScore : null;
+    if (score === null) return null;
+    const delta = typeof parsed.delta === "number" ? parsed.delta : 0;
+    return { score, delta };
   } catch {
     return null;
   }
@@ -33,13 +38,14 @@ function parseScore(scoringResult: string): number | null {
 // Fields to skip in assessment display (shown elsewhere or internal)
 const ASSESSMENT_SKIP = new Set(["item"]);
 
-// Render assessment enum values with color hints
+// Render assessment enum/boolean values with color hints
 const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
   intent: { want: "text-red-400", need: "text-green-400", replace: "text-green-400", upgrade: "text-blue-400", gift: "text-yellow-400" },
-  current_solution: { broken: "text-green-400", failing: "text-green-400", outdated: "text-yellow-400", working: "text-red-400", none: "text-green-400" },
-  urgency: { immediate: "text-green-400", soon: "text-yellow-400", none: "text-red-400" },
-  beneficiary: { dependent: "text-green-400", shared: "text-blue-400", self: "text-zinc-400", gift_discretionary: "text-yellow-400" },
   price_positioning: { budget: "text-green-400", standard: "text-zinc-400", premium: "text-amber-400", luxury: "text-red-400" },
+  challenge_addressed: { true: "text-green-400", false: "text-red-400" },
+  evidence_provided: { true: "text-green-400", false: "text-zinc-500" },
+  new_angle: { true: "text-green-400", false: "text-zinc-500" },
+  emotional_reasoning: { true: "text-red-400", false: "text-zinc-500" },
 };
 
 function AssessmentValue({ field, value }: { field: string; value: unknown }) {
@@ -56,16 +62,16 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
   const [expanded, setExpanded] = useState(false);
 
   let assessment: Record<string, unknown> | null = null;
-  let parsedScores: Record<string, number> | null = null;
+  let parsedScoring: Record<string, unknown> | null = null;
   if (trace.rawScores) {
     try {
       const raw = JSON.parse(trace.rawScores);
       if (typeof raw === "object" && raw !== null && raw.intent) assessment = raw;
     } catch { /* ignore */ }
   }
-  if (trace.sanitizedScores) {
+  if (trace.scoringResult) {
     try {
-      parsedScores = JSON.parse(trace.sanitizedScores);
+      parsedScoring = JSON.parse(trace.scoringResult);
     } catch { /* ignore */ }
   }
 
@@ -80,7 +86,7 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
   const decisionColor =
     DECISION_COLORS[trace.decisionType] ?? "bg-white/10 text-zinc-400";
 
-  const score = parseScore(trace.scoringResult);
+  const scoring = parseScoreAndDelta(trace.scoringResult);
 
   return (
     <div className="border-t border-border mt-2 pt-2">
@@ -95,8 +101,10 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         <span className={`rounded px-1.5 py-0.5 ${decisionColor}`}>
           {trace.decisionType}
         </span>
-        {score !== null && (
-          <span className="text-zinc-400 font-semibold">{score}</span>
+        {scoring !== null && (
+          <span className="text-zinc-400 font-semibold">
+            {scoring.score}{scoring.delta !== 0 && <span className={scoring.delta > 0 ? "text-green-400" : "text-red-400"}> ({scoring.delta > 0 ? "+" : ""}{scoring.delta})</span>}
+          </span>
         )}
         {itemLabel && (
           <span className="text-zinc-500">{itemLabel}{trace.estimatedPrice ? ` $${trace.estimatedPrice.toLocaleString()}` : ""}</span>
@@ -121,13 +129,13 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         </div>
       )}
 
-      {expanded && parsedScores && (
+      {expanded && parsedScoring && (
         <div className="mt-2 space-y-0.5 font-mono text-[0.6rem] text-zinc-500">
-          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Mapped Scores</div>
-          {Object.entries(parsedScores).map(([key, value]) => (
+          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Scoring</div>
+          {Object.entries(parsedScoring).map(([key, value]) => (
             <div key={key} className="flex justify-between">
               <span>{key}</span>
-              <span className="text-zinc-400">{value}</span>
+              <span className="text-zinc-400">{typeof value === "number" ? (Number.isInteger(value) ? value : (value as number).toFixed(2)) : String(value)}</span>
             </div>
           ))}
         </div>

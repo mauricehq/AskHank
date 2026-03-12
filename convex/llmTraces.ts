@@ -30,8 +30,7 @@ export const debugDump = internalQuery({
 
     return traces.map((t, i) => {
       const assessment = safeJsonParse(t.rawScores);
-      const coalescingOverrides = safeJsonParse(t.coalescingOverrides);
-      const scores = safeJsonParse(t.sanitizedScores);
+      const persistedContext = safeJsonParse(t.sanitizedScores);
       const scoring = safeJsonParse(t.scoringResult);
       const toolArgs = safeJsonParse(t.toolArguments);
 
@@ -56,35 +55,30 @@ export const debugDump = internalQuery({
         hankResponse,
         stance: `${t.previousStance} → ${t.newStance}`,
         decisionType: t.decisionType,
-        score: scoring?.score ?? null,
-        rawScore: scoring?.rawScore ?? null,
+        runningScore: scoring?.runningScore ?? null,
+        delta: scoring?.delta ?? null,
         thresholdMultiplier: scoring?.thresholdMultiplier ?? null,
         priceModifier: scoring?.priceModifier ?? null,
         positioningModifier: scoring?.positioningModifier ?? null,
         estimatedPrice: t.estimatedPrice ?? null,
         category: t.category ?? null,
-        assessment: assessment?.intent ? {
+        assessment: assessment?.item ? {
           item: assessment.item,
           intent: assessment.intent,
-          current_solution: assessment.current_solution,
-          alternatives_tried: assessment.alternatives_tried,
-          frequency: assessment.frequency,
-          urgency: assessment.urgency,
-          purchase_history: assessment.purchase_history,
-          specificity: assessment.specificity,
-          consistency: assessment.consistency,
-          beneficiary: assessment.beneficiary,
-          price_positioning: assessment.price_positioning,
-          emotional_triggers: assessment.emotional_triggers,
           estimated_price: assessment.estimated_price,
           category: assessment.category,
-          is_non_answer: assessment.is_non_answer ?? toolArgs?.is_non_answer,
-          has_new_information: assessment.has_new_information ?? toolArgs?.has_new_information,
-          is_out_of_scope: assessment.is_out_of_scope ?? toolArgs?.is_out_of_scope,
-          user_backed_down: assessment.user_backed_down ?? toolArgs?.user_backed_down,
+          price_positioning: assessment.price_positioning,
+          challenge_addressed: assessment.challenge_addressed,
+          evidence_provided: assessment.evidence_provided,
+          new_angle: assessment.new_angle,
+          emotional_reasoning: assessment.emotional_reasoning,
+          challenge_topic: assessment.challenge_topic,
+          is_non_answer: assessment.is_non_answer ?? toolArgs?.assessment?.is_non_answer,
+          is_out_of_scope: assessment.is_out_of_scope ?? toolArgs?.assessment?.is_out_of_scope,
+          user_backed_down: assessment.user_backed_down ?? toolArgs?.assessment?.user_backed_down,
+          is_directed_question: assessment.is_directed_question ?? toolArgs?.assessment?.is_directed_question,
         } : null,
-        coalescingOverrides,
-        mappedScores: scores,
+        persistedContext,
         tokens: t.tokenUsage?.totalTokens ?? null,
         durationMs: t.durationMs,
       };
