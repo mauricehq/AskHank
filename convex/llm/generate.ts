@@ -717,7 +717,9 @@ export const respond = internalAction({
         if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
           try {
             const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
-            responseText = typeof parsed.closing_line === "string" ? parsed.closing_line : "";
+            responseText = typeof parsed.closing_line === "string" && parsed.closing_line
+              ? parsed.closing_line
+              : (call2.content ?? "");
             excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
             verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
           } catch {
