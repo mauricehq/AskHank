@@ -123,15 +123,36 @@ Broken into 5 increments. See `docs/chat-ui-spec.md` for full chat UI specificat
 - Admin panel controls model selection + app settings
 
 ### 2b: Scoring Engine ✅
-- [x] Pure scoring function (`convex/llm/scoring.ts`): weighted factors, price/category modifiers, stance thresholds
-- [x] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
-- [x] Dynamic stance fed into each LLM call: "Your current stance is X. [stance-specific instructions]"
-- [x] One LLM call per turn — returns both response + scores as JSON (halves cost vs two-call approach)
-- [x] Disengagement detection: two consecutive non-answers → case closure (denied)
-- [x] Verdict system: conversations close with "approved" (CONCEDE stance) or "denied" (disengagement)
-- [x] VerdictCard wired to real data (was mocked in 2c)
 
-**Key design:** Stance comes from the PREVIOUS turn's scoring. First turn defaults to FIRM. The one-turn delay is invisible — first response is always pushback.
+**v3 debate-based scoring** (`convex/llm/scoring.ts`, `convex/llm/generate.ts`).
+
+**Architecture — 2-call per turn:**
+```
+Call 1: [full system prompt] + messages + tool → assessment (tool_choice: required)
+Call 2: [selected prompt]   + messages + tool call + tool result → Hank's response
+```
+Call 1 forces the LLM to call `get_stance` with structured assessment fields. The scoring engine (`executeGetStance`) processes the assessment server-side and returns stance + guidance as the tool result. Call 2 generates Hank's response using that guidance.
+
+**Scoring mechanics:**
+- [x] Turn delta system: each turn computes a score delta based on assessment booleans (challenge_addressed, evidence_provided, new_angle, emotional_reasoning)
+- [x] Running score accumulates across turns; stance is derived from score thresholds
+- [x] Price modifier scales thresholds (expensive items are harder to justify)
+- [x] Stance guardrails prevent jumping more than one level per turn
+- [x] Intent-based starting scores: "replace" starts higher than "want"
+- [x] Stance enum: IMMOVABLE / FIRM / SKEPTICAL / RELUCTANT / CONCEDE
+
+**Closing conditions:**
+- [x] Disengagement: 2 consecutive non-answers → denied
+- [x] Stagnation: 3 consecutive zero-delta turns → denied
+- [x] Collapse: score drops below -5 after turn 3 → denied
+- [x] User backed down: user agrees they shouldn't buy → denied
+- [x] Concede: score crosses threshold → approved
+
+**Closing brief system** (`buildClosingBrief`): extracts winning argument and weakest moment from turn summaries, enriches the tool result guidance so closing lines reference specific conversation details.
+
+**Persisted context:** Each turn saves a `PersistedContext` (item, price, category, intent, turn summaries) as JSON in `lastAssessment`. Context coalescing carries forward stable fields across turns.
+
+**Key design:** Stance comes from the scoring engine, not the LLM. The LLM classifies the argument quality; the engine decides the stance. The LLM follows the stance it's given.
 
 ### 2d: Voice Tuning ✅
 - [x] Test 20-30 real conversations with different purchase scenarios
@@ -141,50 +162,42 @@ Broken into 5 increments. See `docs/chat-ui-spec.md` for full chat UI specificat
 - [x] Test concession flow (genuinely justified purchases)
 - [x] Adjust weights if concession rate is outside 10-15% target
 
-### 2e: Anti-Patterns + Signature Move Tracking
+### 2e: Anti-Patterns + Signature Move Tracking ✅
 
-**Borrowed from Hopshelf's Tyler system.** Tyler has a 690-line style guide, explicit anti-patterns, and signature move frequency control that prevents repetitive responses. Hank needs the same guardrails.
+#### Anti-Patterns ✅
+- [x] `NEVER sound like this` section in `buildSystemPrompt()` with 13 anti-examples covering: too formal, too aggressive, too soft, sympathetic enabler, defeatist, lecturer, buddy enabler, commiserator, life coach
 
-#### Anti-Patterns (add to system prompt)
+#### Signature Move Types ✅
+- [x] Six move types defined in `convex/llm/moves.ts`: The Math, The Callback, The Deflation, The Pattern Call, The Reframe, The Contradiction
+- [x] `extractRecentMoves()` — regex scan of last 2 Hank messages to detect which move types were used
+- [x] `buildRecentMovesSection()` injects `RECENT MOVES` into system prompt when moves are detected, tells LLM to vary approach
 
-Explicit "NEVER sound like this" examples that prevent LLM drift into generic AI territory:
-- [ ] Add anti-pattern section to `convex/llm/prompt.ts`
-- "Let's think about this purchase holistically..." (self-help bot)
-- "I understand how you feel..." (sympathetic enabler)
-- "You're an adult, your choice" (defeatist — violates Rule 2)
-- "Based on my analysis of consumer spending patterns..." (data nerd)
-- "That's nice but maybe not right now?" (soft no)
-- "You should really think about your financial habits..." (lecturer)
-- "Okay but like, that IS a pretty cool thing though..." (buddy enabler)
+### 2f: Dedicated Opener & Closer Prompts ✅
 
-**Reference:** `Hopshelf/docs/advisor/BARTENDER_STYLE_GUIDE.md` — Tyler's anti-patterns section. Same pattern, different character.
+The v1 approach (injecting OPENING LINE / CLOSING LINES sections into the shared system prompt) didn't work — the LLM ignores focused guidance competing with 2500+ tokens of generic instructions.
 
-#### Signature Move Types
+**Fix:** Dedicated system prompts for Call 2 on turn 1 (opener) and closing turns (closer). Same 2-call architecture, zero additional latency.
 
-Define Hank's recurring move types so we can track and rotate them:
+```
+Call 2 prompt selection:
+  closing turn with verdict  → buildCloserPrompt()  (~500 tokens, verdict-specific rules)
+  turn 1, normal scoring     → buildOpenerPrompt()   (~400 tokens, item-specific opener)
+  all other turns            → buildSystemPrompt()    (full prompt, unchanged)
+```
 
-| Move | What | Example |
-|------|------|---------|
-| **The Math** | Puts a number on it | "That's rent money in some cities." |
-| **The Callback** | References what they own | "You already own three of these." |
-| **The Deflation** | Punctures the want | "You just want the aesthetic." |
-| **The Pattern Call** | Notes repetition | "That's the third time you've said 'I want it'." |
-| **The Reframe** | Renames the purchase | "You're paying for a badge, not a car." |
-| **The Contradiction** | Uses their words against them | "You said you needed to save. Two impulse purchases ago." |
+- [x] `buildOpenerPrompt()` — focused prompt with good/bad opener examples, forces item-specific observation over generic probes
+- [x] `buildCloserPrompt()` — verdict-branched prompt (concession rules vs denial rules), forces mic-drop closings that reference specific arguments
+- [x] Prompt selection guards: closer always takes priority; opener only fires for normal scoring turns (not out-of-scope, non-answer, or directed-question on turn 1)
+- [x] All examples unquoted across all prompts to prevent quote-wrapping cascade through conversation history
 
-#### Frequency Control
+### 2g: LLM Trace Infrastructure ✅
 
-- [ ] Add `extractRecentMoves()` — regex scan of last 2 Hank messages to detect which move types were used
-- [ ] Inject `RECENT MOVES (vary your approach): Turn 2: the math. Turn 4: the callback. Try a different pattern or none at all.` into system prompt
-- [ ] Not every message needs a signature move — sometimes Hank just says no
-
-**Reference:** `Hopshelf/lib/advisor/prompts.ts` — Tyler's `extractRecentMoves()` and RECENT MOVES injection pattern. Same mechanism, different move types.
-
-**Day 30 Test (from Hopshelf):** Every Hank line must feel good on the 30th read. Signature moves at 1-in-3 frequency max. No gimmicks that age poorly.
+- [x] `llmTraces` table: full request/response capture per turn (system prompt, messages, tool args, tool result, scoring, stance transitions, token usage, duration)
+- [x] `debugDump` internal query: human-readable turn-by-turn trace with assessment, scoring, user/hank messages, persisted context
+- [x] `call2SystemPrompt` field: captures which prompt Call 2 used (opener/closer/null for full prompt) for debugging prompt swaps
+- [x] Trace viewer via `/trace` slash command for conversation-level inspection
 
 **This phase is where you spend the most time.** Not on code — on the prompt. The system prompt IS the product. Iterate until Hank sounds right.
-
-**Time:** 3-5 days (mostly prompt tuning, not code).
 
 ---
 
@@ -196,7 +209,7 @@ Define Hank's recurring move types so we can track and rotate them:
 - [x] Convex schema: conversations table (userId, status, stance, score, category, estimatedPrice, disengagementCount, verdict, createdAt)
 - [x] Separate messages table (conversationId, role, content, createdAt) — messages stored in real-time
 - [x] Verdict saved when conversation closes (approved/denied)
-- [ ] On close: generate one-line summary (pre-computed, not on-the-fly) — item, price, verdict, strongest claim, key quote
+- [ ] On close: save card data (excuse + verdict tagline) — generated by closer prompt alongside closing line. See 5b for card format.
 
 ### 3b: Conversation History
 - [ ] History screen — chronological list of past conversations
@@ -264,10 +277,42 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 **Borrowed from Hopshelf's shareable card system.** Hopshelf generates OG images via Puppeteer with public token-based URLs, two-step download (generate → save), and `navigator.share()` with clipboard fallback. Same infrastructure, adapted for conversation moments.
 
 #### Verdict Card (primary — build first)
+
+Adapted from Hopshelf's card layout. Dark card, punchy content, screenshot-ready.
+
+```
+AskHank                        DENIED
+
+FRIDGE
+$1,000 • Furniture
+
+───
+
+   "My wife doesn't like it"
+
+   Expensive avoidance.
+
+askhank.app                  Hank says no
+```
+
+**Card fields:**
+| Field | Source |
+|-------|--------|
+| DENIED/APPROVED | `verdict` — orange badge for approved, muted for denied |
+| Item name (big) | `item` from closing context |
+| Price + category | `estimatedPrice`, `category` |
+| Excuse | User's core argument — punchy, under 10 words, in quotes |
+| Verdict tagline | Hank-voice 2-4 word summary (e.g. "Expensive avoidance") |
+
+**Excuse + verdict tagline generation:** Both are short enough to add to the closer prompt — one extra instruction in the tool result guidance. No additional LLM call needed. Generated alongside the closing line in Call 2.
+
+Hank's closing line (e.g. "the cheapest therapy session you'll ever have") can optionally replace or sit alongside the verdict tagline, depending on which hits harder.
+
+**Implementation:**
 - [ ] Add `shareToken` field to conversations table (generated on verdict)
-- [ ] Public route: `/verdict/[token]` — displays verdict with OG metadata
+- [ ] Add `excuse` and `verdictTagline` fields — generated by closer prompt, saved with verdict
+- [ ] Public route: `/verdict/[token]` — displays card with OG metadata
 - [ ] OG image generation (1200x630 for social unfurl, 1080x1350 for download)
-- [ ] Card content: item, price, verdict (DENIED/APPROVED), Hank's closing quote, stance progression
 - [ ] Share modal: copy link (desktop) / native share (mobile) + download PNG
 
 #### Roast Card (secondary — highest virality potential)
@@ -456,7 +501,7 @@ Only if web proves traction. Not before.
 |-------|--------|------|
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
-| 2: Hank's Voice | ✅ 2c/2a/2b/2d done, 2e remaining | Chat UI, LLM, scoring, voice tuned, anti-patterns + signature moves remaining |
+| 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
 | 3: Persistence | Partial (3a storage done) | History UI, saved counter, memory |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
@@ -467,7 +512,7 @@ Only if web proves traction. Not before.
 
 Phase 2 is where you should spend the most time. The voice is the product. Everything else is a container.
 
-The path to bangers: **2e** (signature moves) → **5b** (shareable cards) → **7** (dossier) → **8** (banger system). Each phase builds on the last. Signature moves teach Hank variety. Cards make moments shareable. The dossier gives Hank memory. Bangers engineer the moments worth sharing.
+The path to bangers: ~~**2e** (signature moves)~~ ✅ → **5b** (shareable cards) → **7** (dossier) → **8** (banger system). Signature moves are live. Cards make moments shareable. The dossier gives Hank memory. Bangers engineer the moments worth sharing.
 
 ---
 
