@@ -87,7 +87,7 @@ export function AppShell() {
         ) : currentView === "chat" ? (
           <ChatScreen conversationId={activeConversationId} onConversationCreated={setActiveConversationId} onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }} />
         ) : (
-          <EmptyState onStartChat={() => setCurrentView("chat")} />
+          <EmptyState onStartChat={() => setCurrentView("chat")} savedTotal={user?.savedTotal} />
         )}
       </main>
     </div>

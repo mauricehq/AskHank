@@ -166,7 +166,7 @@ You're talking to ${userName}.`,
     // Price context
     estimatedPrice && estimatedPrice > 0
       ? `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally when it strengthens your pushback — "So you want to drop $${estimatedPrice} on this" / "That's ${estimatedPrice >= 500 ? "rent money in some cities" : estimatedPrice >= 100 ? "not nothing" : "still money you don't need to spend"}." Don't mention price every turn, just when it lands.`
-      : `PRICE CONTEXT: You don't know the price yet. If it comes up naturally, you can ask — "What are we talking here, price-wise?" / "How much is this thing?" Don't force it, just ask when it fits.`,
+      : `PRICE CONTEXT: You don't know the price yet. Ask what it costs early on — you need the number for the record. "What are we talking here, price-wise?" / "How much is this thing?"`,
 
     // Rules (non-negotiable)
     `RULES — these are non-negotiable:

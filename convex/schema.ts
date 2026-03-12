@@ -13,6 +13,7 @@ export default defineSchema({
         v.literal("admin")
       )
     ),
+    savedTotal: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_token", ["tokenIdentifier"]),
 
