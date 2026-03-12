@@ -55,6 +55,7 @@ export interface Assessment {
   // Per-message boolean flags (do NOT coalesce across turns)
   is_non_answer: boolean;
   has_new_information: boolean;
+  is_directed_question: boolean;
   is_out_of_scope: boolean;
   user_backed_down: boolean;
 }

@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
 import { buildSystemPrompt, buildMessages, buildToolDefinition } from "./prompt";
+import { extractRecentMoves } from "./moves";
 import {
   computeScore,
   mapAssessmentToScores,
@@ -141,6 +142,7 @@ const DEFAULT_ASSESSMENT: Assessment = {
   category: "other",
   is_non_answer: false,
   has_new_information: true,   // defensive: assume new info unless LLM says otherwise
+  is_directed_question: false,  // defensive: assume not a question unless LLM says so
   is_out_of_scope: false,
   user_backed_down: false,
 };
@@ -190,6 +192,7 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
       : "other",
     is_non_answer: raw.is_non_answer === true,
     has_new_information: raw.has_new_information !== false,  // default true
+    is_directed_question: raw.is_directed_question === true,
     is_out_of_scope: raw.is_out_of_scope === true,
     user_backed_down: raw.user_backed_down === true,
   };
@@ -200,7 +203,7 @@ function sanitizeAssessment(raw: Record<string, unknown>): Assessment {
  *  ASSESSMENT shown to the LLM, causing the CONSISTENCY RULE to persist
  *  stale values across turns. */
 function stripPerMessageFlags(a: Assessment): Record<string, unknown> {
-  const { is_non_answer, has_new_information, is_out_of_scope, user_backed_down, ...rest } = a;
+  const { is_non_answer, has_new_information, is_directed_question, is_out_of_scope, user_backed_down, ...rest } = a;
   return rest;
 }
 
@@ -340,6 +343,24 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       _estimatedPrice: estimatedPrice,
       _item: item,
       _decisionType: "disengagement-increment",
+      _mappedScores: mappedScores,
+      _scoringResult: scoring,
+      _coalescedAssessment: assessment,
+    };
+  }
+
+  // 5.5. Directed question (no new purchase info) → preserve stagnation counter
+  if (assessment.is_directed_question && !assessment.has_new_information) {
+    return {
+      stance: guardrailedStance,
+      score: scoring.score,
+      guidance: "They're asking you to explain yourself. Answer their question directly, then push for something new about their purchase case.",
+      _disengagementCount: 0,
+      _stagnationCount: stagnationCount,  // PRESERVE — don't increment, don't reset
+      _category: category,
+      _estimatedPrice: estimatedPrice,
+      _item: item,
+      _decisionType: "directed-question",
       _mappedScores: mappedScores,
       _scoringResult: scoring,
       _coalescedAssessment: assessment,
@@ -520,6 +541,11 @@ export const respond = internalAction({
       );
 
       // 2. Build prompt (v2 — no assessment guidelines, has tool instructions)
+      // Detect recent rhetorical moves for variety nudging
+      const recentMoves = extractRecentMoves(
+        messages.map((m) => ({ role: m.role, content: m.content }))
+      );
+
       // Prefer previousAssessment (canonical source after move into assessment)
       // with conversation fields as fallback for older conversations
       const systemPrompt = buildSystemPrompt({
@@ -531,6 +557,7 @@ export const respond = internalAction({
         stagnationCount,
         turnCount,
         previousAssessment: previousAssessment as Record<string, unknown> | null,
+        recentMoves,
       });
 
       const llmMessages = buildMessages(

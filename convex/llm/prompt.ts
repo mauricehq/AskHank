@@ -2,6 +2,7 @@
 
 import type { Stance } from "./scoring";
 import type { ChatMessage, ToolDefinition } from "./openrouter";
+import { buildRecentMovesSection, type DetectedMove } from "./moves";
 
 interface ConversationMessage {
   role: "user" | "hank";
@@ -17,6 +18,7 @@ interface PromptConfig {
   stagnationCount?: number;
   turnCount?: number;
   previousAssessment?: Record<string, unknown> | null;
+  recentMoves?: DetectedMove[];
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -65,6 +67,7 @@ export function buildToolDefinition(): ToolDefinition {
               "category",
               "is_non_answer",
               "has_new_information",
+              "is_directed_question",
               "is_out_of_scope",
               "user_backed_down",
             ],
@@ -156,7 +159,7 @@ export function buildToolDefinition(): ToolDefinition {
                 type: "string",
                 enum: ["first_turn", "building", "consistent", "contradicting"],
                 description:
-                  'How the user\'s position has shifted this turn. "first_turn" = first or second message. "building" = adding new supporting facts that strengthen their case. "consistent" = repeating similar arguments, no change in position. "contradicting" = user has walked back, weakened, or reversed a previous claim. USE "contradicting" when the user: admits they don\'t actually need it (need→want), confesses it\'s impulse not planned, downgrades who benefits (dependent→self), or otherwise concedes ground they previously held. An admission of weakness IS a contradiction of their earlier stronger claim.',
+                  'How the user\'s position has shifted this turn. "first_turn" = first or second message. "building" = adding new supporting facts that strengthen their case. "consistent" = repeating similar arguments, no change in position. "contradicting" = user has walked back, weakened, or reversed a previous claim. USE "contradicting" when the user: admits they don\'t actually need it (need→want), confesses it\'s impulse not planned, downgrades who benefits (dependent→self), or otherwise concedes ground they previously held. An admission of weakness IS a contradiction of their earlier stronger claim. DO NOT use "contradicting" when the user admits past mistakes but argues THIS purchase is different (e.g. "I used to impulse buy but I researched this one") — that\'s building, not contradicting.',
               },
               beneficiary: {
                 type: "string",
@@ -197,6 +200,11 @@ export function buildToolDefinition(): ToolDefinition {
                 type: "boolean",
                 description:
                   "true if the user introduced a new fact, argument, or angle not previously stated. false if they repeated previous claims or added no substance.",
+              },
+              is_directed_question: {
+                type: "boolean",
+                description:
+                  "true if the user is asking you (Hank) to explain, justify, or defend your reasoning rather than making a purchase argument. Examples: 'why do you say that?', 'explain yourself', 'answer my question', 'what do you mean?'. These are engagement, not repetition — the user is challenging YOU, not restating their case. false for purchase arguments, even if phrased as questions like 'don't you think I need it?'.",
               },
               is_out_of_scope: {
                 type: "boolean",
@@ -285,7 +293,17 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - "Let me help you create a savings plan..." (too helpful/soft)
 - "YOU CAN'T AFFORD THIS" (too aggressive)
 - "That's a great choice actually!" (never validate a want)
-- "I understand how you feel..." (never be sympathetic about impulse buying)`,
+- "I understand how you feel..." (never be sympathetic about impulse buying)
+- "Let's think about this purchase holistically..." (therapist)
+- "You're an adult, your choice" (defeatist — reinforces Rule 2)
+- "That's nice but maybe not right now?" (soft no — Hank doesn't hedge)
+- "You should really think about your financial habits..." (lecturer)
+- "Okay but like, that IS a pretty cool thing though..." (buddy enabler)
+- "Look, I get it, we all want nice things..." (commiserator)
+- "Have you considered whether this aligns with your values?" (life coach)`,
+
+    // Recent moves (conditional — null when no moves detected)
+    buildRecentMovesSection(config.recentMoves),
 
     // Format rules
     `FORMAT RULES:
@@ -333,7 +351,10 @@ CONTRADICTION DETECTION: Set consistency to "contradicting" when the user walks 
 - Previously said it's for a dependent but now says it's for themselves → contradicting
 - Previously said current solution is broken but now says it works fine → contradicting
 These are concessions — the user is giving ground. That's a contradiction of their earlier stronger position.
-Do NOT use "contradicting" for normal clarification or adding detail that doesn't weaken their case.`
+NOT contradicting — these are building:
+- User admits past impulse buying but says "this time I did my research" → building (showing growth, distinguishing this purchase from past patterns)
+- User acknowledges they have other options but explains why those don't work → building (addressing your pushback with specifics)
+Do NOT use "contradicting" for normal clarification, adding detail that doesn't weaken their case, or admitting past bad habits while arguing this purchase is different.`
     );
   }
 
@@ -351,7 +372,7 @@ Do NOT use "contradicting" for normal clarification or adding detail that doesn'
     );
   }
 
-  return sections.join("\n\n");
+  return sections.filter((s): s is string => s !== null).join("\n\n");
 }
 
 export function buildMessages(
