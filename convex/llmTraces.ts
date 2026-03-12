@@ -111,6 +111,7 @@ export const saveTrace = internalMutation({
       totalTokens: v.number(),
     }),
     durationMs: v.number(),
+    call2SystemPrompt: v.optional(v.string()),
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),

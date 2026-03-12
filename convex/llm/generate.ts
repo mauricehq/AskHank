@@ -5,7 +5,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
-import { buildSystemPrompt, buildMessages, buildToolDefinition } from "./prompt";
+import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt } from "./prompt";
 import { extractRecentMoves } from "./moves";
 
 // LLM temperature settings
@@ -142,6 +142,45 @@ interface ConversationState {
   previousContext?: PersistedContext | null;
 }
 
+// --- Closing brief for enriched closing guidance ---
+
+interface ClosingBrief {
+  winningArgument?: string;
+  weakestMoment?: string;
+  itemContext: string;
+}
+
+function buildClosingBrief(
+  turnSummaries: TurnSummary[],
+  item?: string,
+  estimatedPrice?: number,
+): ClosingBrief {
+  const itemContext = item && item !== "unknown"
+    ? estimatedPrice && estimatedPrice > 0
+      ? `${item} ($${estimatedPrice})`
+      : item
+    : "their item";
+
+  let winningArgument: string | undefined;
+  let weakestMoment: string | undefined;
+
+  if (turnSummaries.length > 0) {
+    // Find highest-delta topic (winning argument)
+    const best = turnSummaries.reduce((a, b) => (b.delta > a.delta ? b : a));
+    if (best.delta > 0 && best.topic) {
+      winningArgument = best.topic;
+    }
+
+    // Find lowest/most-negative-delta topic (weakest moment)
+    const worst = turnSummaries.reduce((a, b) => (b.delta < a.delta ? b : a));
+    if (worst.topic) {
+      weakestMoment = worst.topic;
+    }
+  }
+
+  return { winningArgument, weakestMoment, itemContext };
+}
+
 function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: ConversationState): GetStanceResult {
   const { currentStance, disengagementCount, zeroStreak, runningScore, storedItem, turnCount } = state;
 
@@ -184,10 +223,12 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // 2. Previous stance was CONCEDE → approval verdict
   if (currentStance === "CONCEDE") {
+    const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
+    const winRef = brief.winningArgument ? ` Reference what convinced you: their argument about '${brief.winningArgument}'.` : "";
     return {
       stance: "CONCEDE",
       score: runningScore,
-      guidance: "You already conceded. Give a grudging approval with a final warning about spending.",
+      guidance: `You already conceded. Reiterate briefly — grudging approval + a specific warning about ${brief.itemContext}.${winRef} Don't re-argue. 1 sentence.`,
       verdict: "approved",
       closing: true,
       _disengagementCount: disengagementCount,
@@ -203,11 +244,13 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // 3. User backed down → denied verdict (Hank wins)
   if (assessment.user_backed_down) {
+    const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
+    const winRef = brief.winningArgument ? ` They almost had you with '${brief.winningArgument}' — acknowledge that.` : "";
     const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: runningScore,
-      guidance: "Victory. The user backed down. Give a brief, dry, memorable closing line. Don't pile on — they made the right call and you both know it.",
+      guidance: `Victory. The user backed down.${winRef} Dry victory line — don't pile on. 1 sentence, mic drop.`,
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
@@ -224,11 +267,12 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 4. Non-answer + count >= 1 → denied verdict
   if (assessment.is_non_answer && disengagementCount >= 1) {
     const nonAnswerScore = runningScore - 5;
+    const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
     const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: nonAnswerScore,
-      guidance: "The user has disengaged. Deliver a memorable closing denial. Make it punchy and final.",
+      guidance: `They checked out. They wasted both your time on ${brief.itemContext}. Punchy and final — 1 sentence.`,
       verdict: "denied",
       closing: true,
       _disengagementCount: disengagementCount + 1,
@@ -292,11 +336,14 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 7a. Collapse: score < -5 AND turnCount > 3 → denied
   if (newRunningScore < -5 && turnCount > 3) {
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: [...prevSummaries, newSummary] };
+    const allSummaries = [...prevSummaries, newSummary];
+    const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
+    const weakRef = brief.weakestMoment ? ` Their weakest moment was '${brief.weakestMoment}' — reference it.` : "";
+    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
-      guidance: "The user's case has collapsed. Deliver a final denial. They've been arguing with emotion and no substance.",
+      guidance: `Their case collapsed.${weakRef} Final denial — emotion without substance. 1-2 sentences, make it sting.`,
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
@@ -315,11 +362,13 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   if (newZeroStreak >= 3) {
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: [...prevSummaries, newSummary] };
+    const allSummaries = [...prevSummaries, newSummary];
+    const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
+    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
-      guidance: `The user has stalled — ${newZeroStreak} turns without making progress. Deliver a final denial. "You've had ${newZeroStreak} chances to make your case and haven't moved the needle. We're done."`,
+      guidance: `${newZeroStreak} turns going nowhere on ${brief.itemContext}. Call out the repetition. 1 sentence, mic drop.`,
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
@@ -349,19 +398,27 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
   const persistedContext: PersistedContext = { ...coalesced, turnSummaries: [...prevSummaries, newSummary] };
 
-  // Stance guidance
-  const stanceGuidance: Record<Stance, string> = {
-    IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
-    FIRM: "Weak case. Don't concede unless overwhelming evidence.",
-    SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak.",
-    RELUCTANT: "Strong case but not fully convinced. Push for final proof.",
-    CONCEDE: "They've made a genuinely strong case. Concede reluctantly with a final warning.",
-  };
+  // Stance guidance — enriched for CONCEDE
+  let guidance: string;
+  if (guardrailedStance === "CONCEDE") {
+    const brief = buildClosingBrief([...prevSummaries, newSummary], item, estimatedPrice);
+    const winRef = brief.winningArgument ? ` Reference what convinced you: their argument about '${brief.winningArgument}'.` : "";
+    guidance = `They earned it. Concede like it costs you something.${winRef} Don't say "you thought this through" — be specific to THIS conversation. 1-2 sentences. Grudging approval + specific warning about ${brief.itemContext}.`;
+  } else {
+    const stanceGuidance: Record<Stance, string> = {
+      IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
+      FIRM: "Weak case. Don't concede unless overwhelming evidence.",
+      SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak.",
+      RELUCTANT: "Strong case but not fully convinced. Push for final proof.",
+      CONCEDE: "", // handled above
+    };
+    guidance = stanceGuidance[guardrailedStance] + stagnationWarning;
+  }
 
   return {
     stance: guardrailedStance,
     score: newRunningScore,
-    guidance: stanceGuidance[guardrailedStance] + stagnationWarning,
+    guidance,
     verdict: guardrailedStance === "CONCEDE" ? "approved" : undefined,
     closing: guardrailedStance === "CONCEDE" ? true : undefined,
     _disengagementCount: 0,
@@ -400,6 +457,7 @@ type TraceData = Partial<{
   tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
   durationMs: number;
   error: string;
+  call2SystemPrompt: string;
   toolCalled: boolean;
   toolArguments: string;
   toolResult: string;
@@ -590,9 +648,38 @@ export const respond = internalAction({
         const toolResultStr = JSON.stringify(toolResultForLLM);
         traceData.toolResult = toolResultStr;
 
-        // Build messages for call 2: original messages + assistant tool call + tool result
+        // Select focused prompt for Call 2 when it matters
+        // Closer always takes priority; opener only for normal scoring turns on turn 1
+        let call2SystemPrompt: string;
+        if (stanceResult.closing && stanceResult.verdict) {
+          call2SystemPrompt = buildCloserPrompt({
+            displayName: displayName ?? undefined,
+            estimatedPrice: stanceResult._estimatedPrice,
+            category: stanceResult._category,
+            verdict: stanceResult.verdict,
+          });
+        } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+          call2SystemPrompt = buildOpenerPrompt({
+            displayName: displayName ?? undefined,
+            estimatedPrice: stanceResult._estimatedPrice,
+            category: stanceResult._category,
+          });
+        } else {
+          call2SystemPrompt = systemPrompt;
+        }
+
+        // Capture Call 2 prompt in trace when it differs from Call 1
+        if (call2SystemPrompt !== systemPrompt) {
+          traceData.call2SystemPrompt = call2SystemPrompt;
+        }
+
+        // Build messages for call 2: selected system prompt + conversation + tool call + tool result
+        const conversationMsgs = buildConversationMessages(
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
         const call2Messages: ChatMessage[] = [
-          ...llmMessages,
+          { role: "system", content: call2SystemPrompt },
+          ...conversationMsgs,
           {
             role: "assistant",
             content: null,

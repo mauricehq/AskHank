@@ -91,6 +91,9 @@ export default defineSchema({
     }),
     durationMs: v.number(),
 
+    // Call 2 prompt swap (opener/closer)
+    call2SystemPrompt: v.optional(v.string()),
+
     // Tool calling (v2)
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
