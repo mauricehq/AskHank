@@ -147,7 +147,7 @@ export function buildToolDefinition(): ToolDefinition {
                   ],
                 },
                 description:
-                  "Emotional language detected. Pick ALL that apply. Includes self-oriented impulses AND relational rationalizations (family_obligation, guilt, keeping_up_with_other_families). Empty array if none.",
+                  "Emotional reasoning detected — where feelings are the PRIMARY justification, not supported by evidence or functional need. Only tag when emotion is doing the heavy lifting, not when it's incidental language alongside rational arguments. Examples: 'I deserve it after a hard week' → i_deserve_it. 'I'm bored of Mario Kart because it's not intellectual enough' → NOT bored (that's a functional critique). 'I just want it' with no further justification → i_want_it. 'I want it and here's 20 hours of demo experience proving I'll use it' → NOT i_want_it. Empty array if reasoning is primarily rational.",
               },
               specificity: {
                 type: "string",

@@ -66,7 +66,7 @@ const FUNCTIONAL_GAP_MAP: Record<Intent, Record<CurrentSolution, number>> = {
   replace: { broken: 9, failing: 7, outdated: 5, none: 6, working: 2, unknown: 6 },
   need:    { broken: 8, failing: 7, outdated: 6, none: 8, working: 4, unknown: 6 },
   upgrade: { broken: 2, failing: 2, outdated: 2, none: 2, working: 2, unknown: 2 },
-  want:    { broken: 0, failing: 0, outdated: 0, none: 0, working: 0, unknown: 0 },
+  want:    { broken: 4, failing: 3, outdated: 3, none: 2, working: 2, unknown: 0 },
   gift:    { broken: 3, failing: 3, outdated: 3, none: 3, working: 3, unknown: 3 },
 };
 
@@ -104,12 +104,27 @@ const PURCHASE_HISTORY_MAP: Record<PurchaseHistory, number> = {
   impulse_pattern: 1, planned: 7, unknown: 3,
 };
 
+const TRIGGER_WEIGHTS: Record<string, number> = {
+  // Strong — genuine emotional reasoning
+  retail_therapy: -4,
+  i_deserve_it: -3,
+  treat_myself: -3,
+  impulse: -3,
+  fomo: -2,
+  everyone_has_one: -2,
+  guilt: -2,
+  keeping_up_with_other_families: -2,
+  family_obligation: -1,
+  // Mild — often normal preference language
+  i_want_it: -1,
+  bored: -1,
+  makes_me_happy: -1,
+};
+
 function emotionalScore(triggers: string[]): number {
-  const count = triggers.length;
-  if (count === 0) return 0;
-  if (count === 1) return -3;
-  if (count === 2) return -5;
-  return -8;
+  if (triggers.length === 0) return 0;
+  const sum = triggers.reduce((acc, t) => acc + (TRIGGER_WEIGHTS[t] ?? -1), 0);
+  return Math.max(sum, -10);
 }
 
 const SPECIFICITY_MAP: Record<Specificity, number> = {
@@ -175,10 +190,10 @@ export function applyStanceGuardrails(
 }
 
 // Weights
-const HEAVY = 3.0;
-const MEDIUM = 1.5;
+const HEAVY = 2.0;
+const MEDIUM = 2.0;
 const NEGATIVE = 2.0;
-const MAX_OFFSET = 12;
+const MAX_OFFSET = 8;
 
 // Base stance thresholds (upper bound for each stance)
 const STANCE_THRESHOLDS: [number, Stance][] = [
@@ -194,7 +209,7 @@ function clamp(value: number, min: number, max: number): number {
 
 function computePriceModifier(price: number | undefined): number {
   if (price == null || price <= 0) return 1.0;
-  return clamp(1.0 + 0.1 * Math.log(price / 100), 0.6, 1.5);
+  return clamp(1.0 + 0.3 * Math.log(price / 100), 0.6, 1.5);
 }
 
 function determineStance(score: number, thresholdMultiplier: number): Stance {
