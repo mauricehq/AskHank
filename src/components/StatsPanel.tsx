@@ -171,7 +171,7 @@ function CategoryBar({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-text capitalize">{name}</span>
+        <span className="text-sm text-text capitalize">{name.replace(/_/g, " ")}</span>
         <span className="text-xs text-text-secondary">${amount.toLocaleString()}</span>
       </div>
       <div className="h-2 rounded-full bg-bg">
