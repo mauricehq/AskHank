@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { STARTER_CREDITS } from "./lib/credits";
 
 export const store = mutation({
   args: {},
@@ -27,12 +28,22 @@ export const store = mutation({
     }
 
     // Create new user
-    return await ctx.db.insert("users", {
+    const userId = await ctx.db.insert("users", {
       tokenIdentifier,
       email: identity.email!,
       role: "normal",
       updatedAt: Date.now(),
     });
+
+    // Initialize starter credits (atomic — same transaction)
+    await ctx.db.insert("credits", {
+      userId,
+      balance: STARTER_CREDITS,
+      totalPurchased: 0,
+      totalUsed: 0,
+    });
+
+    return userId;
   },
 });
 
@@ -79,6 +90,22 @@ export const deleteAccount = mutation({
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    // Delete credits row
+    const credits = await ctx.db
+      .query("credits")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (credits) await ctx.db.delete(credits._id);
+
+    // Delete purchase records
+    const purchases = await ctx.db
+      .query("purchases")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const p of purchases) {
+      await ctx.db.delete(p._id);
     }
 
     await ctx.db.delete(user._id);

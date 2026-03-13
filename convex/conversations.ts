@@ -3,6 +3,7 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { internal } from "./_generated/api";
 import { requireUser } from "./lib/auth";
 import { DEFAULTS } from "./appSettings";
+import { MESSAGE_COST } from "./lib/credits";
 
 // --- Public API ---
 
@@ -13,6 +14,15 @@ export const send = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+
+    // Credit check
+    const creditsRow = await ctx.db
+      .query("credits")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (!creditsRow || creditsRow.balance < MESSAGE_COST) {
+      throw new Error("INSUFFICIENT_CREDITS");
+    }
 
     const content = args.content.trim();
     if (content.length === 0 || content.length > 2000) {
@@ -44,6 +54,12 @@ export const send = mutation({
       }
       await ctx.db.patch(conversationId, { status: "thinking" });
     }
+
+    // Deduct credit (OCC handles race conditions)
+    await ctx.db.patch(creditsRow._id, {
+      balance: creditsRow.balance - MESSAGE_COST,
+      totalUsed: creditsRow.totalUsed + MESSAGE_COST,
+    });
 
     // Insert user message
     await ctx.db.insert("messages", {

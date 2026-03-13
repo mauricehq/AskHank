@@ -55,6 +55,24 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
 
+  credits: defineTable({
+    userId: v.id("users"),
+    balance: v.number(),
+    totalPurchased: v.number(),
+    totalUsed: v.number(),
+  }).index("by_user", ["userId"]),
+
+  purchases: defineTable({
+    userId: v.id("users"),
+    stripeSessionId: v.string(),
+    packId: v.string(),
+    credits: v.number(),
+    amountCents: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_stripe_session", ["stripeSessionId"]),
+
   llmTraces: defineTable({
     // Links
     conversationId: v.id("conversations"),
@@ -103,6 +121,9 @@ export default defineSchema({
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),
     coalescingOverrides: v.optional(v.string()),
+
+    // Cost tracking
+    estimatedCostUsd: v.optional(v.number()),
 
     // Error
     error: v.optional(v.string()),

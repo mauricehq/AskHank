@@ -8,6 +8,7 @@ import type { Message, Verdict, VerdictType } from "@/types/chat";
 
 export function useConversation() {
   const [conversationId, setConversationId] = useState<Id<"conversations"> | null>(null);
+  const [outOfCredits, setOutOfCredits] = useState(false);
 
   const conversation = useQuery(
     api.conversations.getConversation,
@@ -47,12 +48,22 @@ export function useConversation() {
   const send = useCallback(
     async (content: string) => {
       if (conversation?.status === "closed") return;
-      const id = await sendMutation({
-        conversationId: conversationId ?? undefined,
-        content,
-      });
-      if (!conversationId) {
-        setConversationId(id);
+      try {
+        setOutOfCredits(false);
+        const id = await sendMutation({
+          conversationId: conversationId ?? undefined,
+          content,
+        });
+        if (!conversationId) {
+          setConversationId(id);
+        }
+      } catch (error: any) {
+        const msg = String(error?.message ?? error?.data ?? "");
+        if (msg.includes("INSUFFICIENT_CREDITS")) {
+          setOutOfCredits(true);
+        } else {
+          throw error;
+        }
       }
     },
     [sendMutation, conversationId, conversation?.status]
@@ -60,11 +71,12 @@ export function useConversation() {
 
   const reset = useCallback(() => {
     setConversationId(null);
+    setOutOfCredits(false);
   }, []);
 
   const loadConversation = useCallback((id: Id<"conversations">) => {
     setConversationId(id);
   }, []);
 
-  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice };
+  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice, outOfCredits };
 }

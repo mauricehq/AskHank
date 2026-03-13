@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Plus, Settings, Shield, X } from "lucide-react";
+import { ChevronLeft, Coins, Plus, Settings, Shield, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -36,12 +36,14 @@ interface SidebarProps {
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
   onDeleteConversation?: (id: Id<"conversations">) => void;
+  onOpenCredits?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onDeleteConversation }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onDeleteConversation, onOpenCredits }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const history = useQuery(api.conversations.listForUser);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
+  const credits = useQuery(api.credits.getBalance);
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -119,13 +121,37 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
         )}
       </div>
 
-      {/* Stats */}
-      {(() => {
-        const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
-        const savedTotal = user?.savedTotal ?? 0;
-        if (deniedCount === 0 && savedTotal === 0) return null;
-        return (
-          <div className="shrink-0 px-2 pb-3">
+      {/* Credits + Stats */}
+      <div className="shrink-0 px-2 pb-3 space-y-2">
+        {/* Credit balance */}
+        {credits !== undefined && (
+          <button
+            onClick={() => {
+              if (!isDesktop) onClose();
+              onOpenCredits?.();
+            }}
+            className="flex w-full items-center gap-2.5 rounded-[10px] bg-bg-surface px-3.5 py-3 text-left hover:bg-bg-surface/80 transition-colors"
+          >
+            <Coins size={16} className={credits.balance === 0 ? "text-red-400" : "text-accent"} />
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-bold tracking-tight ${credits.balance === 0 ? "text-red-400" : "text-text"}`}>
+                {credits.balance} credits
+              </div>
+              {credits.balance === 0 && (
+                <div className="text-[10px] text-red-400/80 mt-0.5">
+                  Tap to buy more
+                </div>
+              )}
+            </div>
+          </button>
+        )}
+
+        {/* Saved + Skipped stats */}
+        {(() => {
+          const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
+          const savedTotal = user?.savedTotal ?? 0;
+          if (deniedCount === 0 && savedTotal === 0) return null;
+          return (
             <div className="flex rounded-[10px] bg-bg-surface py-1">
               {savedTotal > 0 && (
                 <div className="flex-1 py-3.5 text-center">
@@ -146,9 +172,9 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </div>
 
       {/* Footer */}
       <div className="shrink-0 border-t border-border px-4 py-3">

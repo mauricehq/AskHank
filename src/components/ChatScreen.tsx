@@ -18,10 +18,11 @@ interface ChatScreenProps {
   conversationId?: Id<"conversations"> | null;
   onConversationCreated?: (id: Id<"conversations">) => void;
   onNewConversation: () => void;
+  onOpenCredits?: () => void;
 }
 
-export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
-  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice } = useConversation();
+export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation, onOpenCredits }: ChatScreenProps) {
+  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, outOfCredits } = useConversation();
   const { isAdmin } = useUserAccess();
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
@@ -117,9 +118,25 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
               <MessageBubble key={msg.id} message={msg} trace={showDebug ? traceByMessageId.get(msg.id) : undefined} />
             ))}
             {isThinking && <TypingIndicator />}
-            {isError && (
+            {isError && !outOfCredits && (
               <div className="my-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
                 Something went wrong. Send another message to retry.
+              </div>
+            )}
+            {outOfCredits && (
+              <div className="my-4 rounded-2xl border border-accent/30 bg-accent/5 px-5 py-4 text-center">
+                <p className="text-sm font-semibold text-text">
+                  You&apos;re out of credits
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Buy more to keep talking to Hank.
+                </p>
+                <button
+                  onClick={onOpenCredits}
+                  className="mt-3 rounded-[10px] bg-accent px-5 py-2 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
+                >
+                  Get credits
+                </button>
               </div>
             )}
             {verdict && (
@@ -135,6 +152,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
           onSend={handleSend}
           hasMessages={messages.length > 0}
           disabled={isThinking}
+          outOfCredits={outOfCredits}
         />
       )}
     </div>

@@ -217,10 +217,10 @@ Call 2 prompt selection:
 - [x] Delete conversation
 - [x] Enhance history entries: show item name, verdict badge (denied/approved), price — instead of generic title
 
-### 3c: "Saved $X" Counter
-- [ ] Running total stored per user in Convex
-- [ ] Incremented when a conversation closes as denied and user provided an estimated price
-- [ ] Displayed prominently on main screen
+### 3c: "Saved $X" Counter ✅
+- [x] Running total stored per user in Convex (`savedTotal` on users table)
+- [x] Incremented when a conversation closes as denied and user provided an estimated price
+- [x] Displayed prominently in sidebar stats card
 - [ ] Hank asks for estimated price if user doesn't provide it
 
 ### 3d: Hank's Memory (Conversation Summaries)
@@ -245,23 +245,27 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 
 **See `docs/monetization.md` for full credit system design, cost analysis, and margin calculations.**
 
-### 4a: Credit System
-- [ ] Convex schema: credits table (userId, balance, totalPurchased, totalUsed)
-- [ ] 1 credit = 1 user message (3 credits for photo messages)
-- [ ] New users receive 30 free messages (starter pack, no daily reset)
-- [ ] Credit check on message send, not conversation start
-- [ ] "Out of credits" state with purchase CTA (mid-conversation friendly)
+### 4a: Credit System ✅
+- [x] Convex schema: `credits` table (userId indexed, balance, totalPurchased, totalUsed) + `purchases` table (userId indexed, stripeSessionId indexed, packId, credits, amountCents, createdAt)
+- [x] 1 credit = 1 user message (PHOTO_MESSAGE_COST=3 defined, not yet wired)
+- [x] New users receive 30 free messages (starter pack, atomic insert in `users.store`)
+- [x] One-time migration (`credits.migrateExistingUsers`) to grant 30 starter credits to pre-Phase 4 users
+- [x] Credit check on message send (`conversations.send`), throws `INSUFFICIENT_CREDITS`
+- [x] "Out of credits" state: `useConversation` catches error, ChatInput disabled, CTA banner in ChatScreen
+- [x] Credit balance displayed in Sidebar (clickable, opens credits modal, red warning at 0)
+- [x] Credits modal with current balance + 3 pack options (wired to Stripe checkout)
+- [x] Account deletion cleans up credits + purchase records
 
-### 4b: Stripe Integration
-- [ ] Stripe Checkout for credit pack purchases
-- [ ] Credit packs: 50 for $1.99, 150 for $4.99, 400 for $9.99
-- [ ] Convex HTTP action as Stripe webhook handler
-- [ ] Webhook receives payment confirmation → adds credits to balance
-- [ ] Credits screen/modal showing balance + purchase options
+### 4b: Stripe Integration ✅
+- [x] Stripe Checkout for credit pack purchases (`convex/stripe.ts` — public action)
+- [x] Credit packs: 25 for $2.99, 75 for $6.99, 200 for $14.99 (defined in `convex/lib/credits.ts`)
+- [x] Convex HTTP router (`convex/http.ts`) with POST `/stripe-webhook` endpoint
+- [x] Webhook processor (`convex/stripeWebhook.ts`) — verifies Stripe signature, handles `checkout.session.completed`, calls `addCredits` (idempotent on stripeSessionId)
+- [x] Credits modal purchase buttons → Stripe Checkout redirect → return URL handling (`?credits=success/cancelled` toast in AppShell)
 
-### 4c: Cost Controls
-- [ ] Sliding context window after turn 8 (first message + last 6 messages) to cap per-message LLM cost
-- [ ] Per-message cost tracking for analytics (actual tokens used per call)
+### 4c: Cost Controls ✅
+- [x] Sliding context window for turns 9+ (first user message + last 6 messages) in `convex/llm/generate.ts`
+- [x] Per-message cost tracking: `estimatedCostUsd` calculated from token usage, stored in `llmTraces`
 
 **Time:** 2-3 days.
 
@@ -509,8 +513,8 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a + 3b done) | Saved counter, memory |
-| 4: Credits + Stripe | Not started | Credit system, payments |
+| 3: Persistence | Partial (3a-3c done) | Memory still pending |
+| 4: Credits + Stripe | ✅ Done (4a-4c) | Credit system, Stripe payments, cost controls |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
 | 7: User Dossier | Not started | v1.5 — post-launch, needs user data first |

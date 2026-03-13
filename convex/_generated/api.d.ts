@@ -11,7 +11,10 @@
 import type * as admin from "../admin.js";
 import type * as appSettings from "../appSettings.js";
 import type * as conversations from "../conversations.js";
+import type * as credits from "../credits.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_credits from "../lib/credits.js";
 import type * as lib_roleConstants from "../lib/roleConstants.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as llmTraces from "../llmTraces.js";
@@ -21,6 +24,8 @@ import type * as llm_openrouter from "../llm/openrouter.js";
 import type * as llm_prompt from "../llm/prompt.js";
 import type * as llm_scoring from "../llm/scoring.js";
 import type * as llm_testChat from "../llm/testChat.js";
+import type * as stripe from "../stripe.js";
+import type * as stripeWebhook from "../stripeWebhook.js";
 import type * as users from "../users.js";
 
 import type {
@@ -33,7 +38,10 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   appSettings: typeof appSettings;
   conversations: typeof conversations;
+  credits: typeof credits;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/credits": typeof lib_credits;
   "lib/roleConstants": typeof lib_roleConstants;
   "lib/roles": typeof lib_roles;
   llmTraces: typeof llmTraces;
@@ -43,6 +51,8 @@ declare const fullApi: ApiFromModules<{
   "llm/prompt": typeof llm_prompt;
   "llm/scoring": typeof llm_scoring;
   "llm/testChat": typeof llm_testChat;
+  stripe: typeof stripe;
+  stripeWebhook: typeof stripeWebhook;
   users: typeof users;
 }>;
 

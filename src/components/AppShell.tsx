@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -16,6 +16,7 @@ import { ChatScreen } from "./ChatScreen";
 import { OnboardingPrompt } from "./OnboardingPrompt";
 import { AdminPanel } from "./admin/AdminPanel";
 import { SettingsPanel } from "./SettingsPanel";
+import { CreditsModal } from "./CreditsModal";
 import { useUserAccess } from "@/hooks/useUserAccess";
 
 export function AppShell() {
@@ -27,6 +28,23 @@ export function AppShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings">("empty");
   const [activeConversationId, setActiveConversationId] = useState<Id<"conversations"> | null>(null);
+  const [creditsModalOpen, setCreditsModalOpen] = useState(false);
+
+  // Handle Stripe return URL
+  const [creditToast, setCreditToast] = useState<"success" | "cancelled" | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const creditsParam = params.get("credits");
+    if (creditsParam === "success" || creditsParam === "cancelled") {
+      setCreditToast(creditsParam);
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("credits");
+      window.history.replaceState({}, "", url.pathname + url.search);
+      // Auto-dismiss toast
+      setTimeout(() => setCreditToast(null), 4000);
+    }
+  }, []);
 
   if (isLoading || user === undefined) return null;
 
@@ -56,6 +74,7 @@ export function AppShell() {
             setCurrentView("empty");
           }
         }}
+        onOpenCredits={() => setCreditsModalOpen(true)}
       />
 
       {/* Main content */}
@@ -85,11 +104,29 @@ export function AppShell() {
         ) : currentView === "admin" && canAccessAdminPanel ? (
           <AdminPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "chat" ? (
-          <ChatScreen conversationId={activeConversationId} onConversationCreated={setActiveConversationId} onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }} />
+          <ChatScreen conversationId={activeConversationId} onConversationCreated={setActiveConversationId} onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }} onOpenCredits={() => setCreditsModalOpen(true)} />
         ) : (
           <EmptyState onStartChat={() => setCurrentView("chat")} />
         )}
       </main>
+
+      {/* Credits modal */}
+      <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} />
+
+      {/* Credit purchase toast */}
+      {creditToast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className={`rounded-xl px-5 py-3 text-sm font-medium shadow-lg ${
+            creditToast === "success"
+              ? "bg-green-600 text-white"
+              : "bg-bg-card border border-border text-text"
+          }`}>
+            {creditToast === "success"
+              ? "Credits added!"
+              : "Purchase cancelled"}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

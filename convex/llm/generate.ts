@@ -503,7 +503,18 @@ type TraceData = Partial<{
   toolArguments: string;
   toolResult: string;
   coalescingOverrides: string;
+  estimatedCostUsd: number;
 }>;
+
+// Cost estimation per 1M tokens (approximate rates for cheap models)
+const COST_PER_MILLION_INPUT = 0.25;  // $0.25/M input tokens (Haiku-class)
+const COST_PER_MILLION_OUTPUT = 1.25; // $1.25/M output tokens
+
+function estimateCost(usage: { promptTokens: number; completionTokens: number }): number {
+  const inputCost = (usage.promptTokens / 1_000_000) * COST_PER_MILLION_INPUT;
+  const outputCost = (usage.completionTokens / 1_000_000) * COST_PER_MILLION_OUTPUT;
+  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // 6 decimal places
+}
 
 function addUsage(
   a: { promptTokens: number; completionTokens: number; totalTokens: number },
@@ -553,6 +564,20 @@ export const respond = internalAction({
       const runningScore = conversation.score ?? 0;
       const turnCount = messages.filter((m) => m.role === "user").length;
 
+      // Sliding context window: for turns 9+, keep first user message + last 6 messages
+      // The lastAssessment JSON carries forward context, so the LLM doesn't lose info
+      let windowedMessages = messages;
+      if (turnCount >= 9 && messages.length > 7) {
+        const firstUserMsg = messages.find((m) => m.role === "user");
+        const tail = messages.slice(-6);
+        // Avoid duplicating the first user message if it's already in the tail
+        if (firstUserMsg && !tail.some((m) => m._id === firstUserMsg._id)) {
+          windowedMessages = [firstUserMsg, ...tail];
+        } else {
+          windowedMessages = tail;
+        }
+      }
+
       // Parse previous context (v3 shape)
       let previousContext: PersistedContext | null = null;
       if (conversation.lastAssessment) {
@@ -601,7 +626,7 @@ export const respond = internalAction({
 
       const llmMessages = buildMessages(
         systemPrompt,
-        messages.map((m) => ({ role: m.role, content: m.content }))
+        windowedMessages.map((m) => ({ role: m.role, content: m.content }))
       );
 
       // 3. Build tool definition
@@ -716,7 +741,7 @@ export const respond = internalAction({
 
         // Build messages for call 2: selected system prompt + conversation + tool call + tool result
         const conversationMsgs = buildConversationMessages(
-          messages.map((m) => ({ role: m.role, content: m.content }))
+          windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
         const call2Messages: ChatMessage[] = [
           { role: "system", content: call2SystemPrompt },
@@ -781,6 +806,7 @@ export const respond = internalAction({
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
+          estimatedCostUsd: estimateCost(totalUsage),
           rawScores: JSON.stringify(sanitizedForTrace),
           sanitizedScores: JSON.stringify(stanceResult._persistedContext),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
@@ -855,6 +881,7 @@ export const respond = internalAction({
           durationMs,
           rawResponse: responseText,
           tokenUsage: call1Usage,
+          estimatedCostUsd: estimateCost(call1Usage),
           rawScores: "{}",
           sanitizedScores: "{}",
           scoringResult: "{}",

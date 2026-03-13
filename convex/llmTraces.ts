@@ -117,6 +117,7 @@ export const saveTrace = internalMutation({
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),
     coalescingOverrides: v.optional(v.string()),
+    estimatedCostUsd: v.optional(v.number()),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
