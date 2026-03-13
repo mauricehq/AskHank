@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as appSettings from "../appSettings.js";
 import type * as conversations from "../conversations.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_dates from "../lib/dates.js";
 import type * as lib_roleConstants from "../lib/roleConstants.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as llmTraces from "../llmTraces.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   appSettings: typeof appSettings;
   conversations: typeof conversations;
   "lib/auth": typeof lib_auth;
+  "lib/dates": typeof lib_dates;
   "lib/roleConstants": typeof lib_roleConstants;
   "lib/roles": typeof lib_roles;
   llmTraces: typeof llmTraces;

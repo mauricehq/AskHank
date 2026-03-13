@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 export const store = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { timezone: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Called store without authentication");
@@ -16,10 +16,14 @@ export const store = mutation({
       .unique();
 
     if (user !== null) {
-      // Update existing user if profile changed
-      if (user.email !== identity.email) {
+      // Update existing user if profile or timezone changed
+      const needsPatch =
+        user.email !== identity.email ||
+        (args.timezone && user.timezone !== args.timezone);
+      if (needsPatch) {
         await ctx.db.patch(user._id, {
-          email: identity.email!,
+          ...(user.email !== identity.email ? { email: identity.email! } : {}),
+          ...(args.timezone && user.timezone !== args.timezone ? { timezone: args.timezone } : {}),
           updatedAt: Date.now(),
         });
       }
@@ -31,6 +35,7 @@ export const store = mutation({
       tokenIdentifier,
       email: identity.email!,
       role: "normal",
+      ...(args.timezone ? { timezone: args.timezone } : {}),
       updatedAt: Date.now(),
     });
   },

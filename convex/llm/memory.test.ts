@@ -100,6 +100,15 @@ describe("selectMemoryNudge", () => {
     expect(result).toBeNull();
   });
 
+  it("accepts optional timezone parameter without breaking", () => {
+    const conv = makeConversation({ item: "Laptop", category: "electronics", daysAgo: 2 });
+    const result = selectMemoryNudge([conv], "electronics", "America/New_York");
+    expect(result).not.toBeNull();
+    expect(result!.item).toBe("Laptop");
+    // dateLabel should be a relative string, not a raw date
+    expect(["today", "yesterday", "a few days ago"]).toContain(result!.dateLabel);
+  });
+
   it("treats undefined memoryReferenceCount as 0", () => {
     const noCount = makeConversation({
       _id: "no-count",
@@ -125,7 +134,7 @@ describe("formatNudgePrompt", () => {
     item: "headphones",
     estimatedPrice: 550,
     excuse: "I listen to music all day",
-    dateLabel: "Mar 5",
+    dateLabel: "a few days ago",
   };
 
   it("outputs structured YAML-like data with all fields", () => {
@@ -133,7 +142,7 @@ describe("formatNudgePrompt", () => {
     expect(result).toContain("MEMORY:");
     expect(result).toContain('previous_item: "headphones"');
     expect(result).toContain("price: $550");
-    expect(result).toContain('date: "Mar 5"');
+    expect(result).toContain('date: "a few days ago"');
     expect(result).not.toContain("user:");
   });
 
@@ -166,7 +175,7 @@ describe("formatNudgePrompt", () => {
       item: 'He said "buy it"',
       estimatedPrice: 100,
       excuse: 'She said "you need this"',
-      dateLabel: "Mar 8",
+      dateLabel: "a few days ago",
     };
     const result = formatNudgePrompt(nudge);
     expect(result).toContain("He said 'buy it'");

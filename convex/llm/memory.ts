@@ -1,5 +1,7 @@
 "use node";
 
+import { formatRelativeDate } from "../lib/dates";
+
 export interface PastConversation {
   _id: string;
   item?: string;
@@ -18,16 +20,6 @@ export interface MemoryNudge {
   dateLabel: string;
 }
 
-const SHORT_MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-export function formatShortDate(timestamp: number): string {
-  const d = new Date(timestamp);
-  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
-}
-
 export function sanitizeForYaml(value: string): string {
   return value.replace(/"/g, "'");
 }
@@ -40,7 +32,8 @@ export function sanitizeForYaml(value: string): string {
  */
 export function selectMemoryNudge(
   conversations: PastConversation[],
-  currentCategory: string
+  currentCategory: string,
+  timezone?: string
 ): MemoryNudge | null {
   if (!currentCategory || currentCategory === "other") return null;
 
@@ -69,7 +62,7 @@ export function selectMemoryNudge(
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
     excuse: pick.excuse,
-    dateLabel: formatShortDate(pick.createdAt),
+    dateLabel: formatRelativeDate(pick.createdAt, Date.now(), timezone),
   };
 }
 

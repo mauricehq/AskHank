@@ -189,11 +189,14 @@ export const internalGetSetting = internalQuery({
   },
 });
 
-export const internalGetUserName = internalQuery({
+export const internalGetUserInfo = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    return user?.displayName ?? null;
+    return {
+      displayName: user?.displayName ?? null,
+      timezone: user?.timezone ?? null,
+    };
   },
 });
 

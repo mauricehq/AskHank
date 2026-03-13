@@ -592,10 +592,12 @@ export const respond = internalAction({
           }
         }
   
-        const displayName = await ctx.runQuery(
-          internal.conversations.internalGetUserName,
+        const userInfo = await ctx.runQuery(
+          internal.conversations.internalGetUserInfo,
           { userId: args.userId }
         );
+        const displayName = userInfo.displayName;
+        const userTimezone = userInfo.timezone ?? undefined;
   
         // Fetch past conversations (needed for memory nudge on stance softening)
         const pastConversations = await ctx.runQuery(
@@ -724,7 +726,7 @@ export const respond = internalAction({
           !stanceResult._persistedContext.memoryNudgeText &&
           !stanceResult.closing
         ) {
-          const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
+          const nudge = selectMemoryNudge(pastConversations, stanceResult._category, userTimezone);
           if (nudge) {
             memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
             stanceResult._persistedContext.memoryNudgeText = formatNudgePrompt(nudge);
