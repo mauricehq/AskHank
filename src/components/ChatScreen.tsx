@@ -21,7 +21,7 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
-  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice } = useConversation();
+  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, thinkingSince } = useConversation();
   const { isAdmin } = useUserAccess();
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
@@ -61,6 +61,23 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
       onConversationCreated?.(hookConversationId);
     }
   }, [hookConversationId, onConversationCreated]);
+  const [showSlowWarning, setShowSlowWarning] = useState(false);
+
+  useEffect(() => {
+    if (!isThinking || !thinkingSince) {
+      setShowSlowWarning(false);
+      return;
+    }
+    const elapsed = Date.now() - thinkingSince;
+    const remaining = 15_000 - elapsed;
+    if (remaining <= 0) {
+      setShowSlowWarning(true);
+      return;
+    }
+    const timer = setTimeout(() => setShowSlowWarning(true), remaining);
+    return () => clearTimeout(timer);
+  }, [isThinking, thinkingSince]);
+
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -117,6 +134,11 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
               <MessageBubble key={msg.id} message={msg} trace={showDebug ? traceByMessageId.get(msg.id) : undefined} />
             ))}
             {isThinking && <TypingIndicator />}
+            {isThinking && showSlowWarning && (
+              <div className="my-2 text-center text-xs text-text-secondary animate-fade-in">
+                Taking longer than expected...
+              </div>
+            )}
             {isError && (
               <div className="my-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
                 Something went wrong. Send another message to retry.

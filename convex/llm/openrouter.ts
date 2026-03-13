@@ -31,6 +31,7 @@ interface ChatCompletionOptions {
   responseFormat?: { type: "json_object" };
   tools?: ToolDefinition[];
   tool_choice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
+  timeoutMs?: number;
 }
 
 interface ChatCompletionResult {
@@ -58,6 +59,7 @@ export async function chatCompletion({
   responseFormat,
   tools,
   tool_choice,
+  timeoutMs = 30_000,
 }: ChatCompletionOptions): Promise<ChatCompletionResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -79,16 +81,30 @@ export async function chatCompletion({
     body.response_format = responseFormat;
   }
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://askhank.com",
-      "X-Title": "AskHank",
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://askhank.com",
+        "X-Title": "AskHank",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`OpenRouter request timed out after ${timeoutMs / 1000}s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const text = await response.text();

@@ -532,128 +532,118 @@ export const respond = internalAction({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const traceData: TraceData = {
-      conversationId: args.conversationId,
-    };
+    const primaryModel = (await ctx.runQuery(
+      internal.conversations.internalGetSetting,
+      { key: "hank_model" }
+    )) as string;
+    const fallbackModel = (await ctx.runQuery(
+      internal.conversations.internalGetSetting,
+      { key: "hank_fallback_model" }
+    )) as string | null;
 
-    async function saveTraceQuietly() {
-      try {
-        await ctx.runMutation(internal.llmTraces.saveTrace, traceData as any);
-      } catch (traceError) {
-        console.error("Failed to save trace (non-fatal):", traceError);
-      }
-    }
+    async function executeRespond(modelId: string) {
+      const traceData: TraceData = {
+        conversationId: args.conversationId,
+      };
 
-    try {
-      // 1. Fetch context
-      const messages = await ctx.runQuery(
-        internal.conversations.internalGetMessages,
-        { conversationId: args.conversationId }
-      );
-
-      const conversation = await ctx.runQuery(
-        internal.conversations.internalGetConversation,
-        { conversationId: args.conversationId }
-      );
-      if (!conversation) throw new Error("Conversation not found");
-
-      const currentStance = toStance(conversation.stance);
-      const disengagementCount = conversation.disengagementCount ?? 0;
-      const patience = conversation.stagnationCount ?? 0;  // patience meter (reuses DB field)
-      const runningScore = conversation.score ?? 0;
-      const turnCount = messages.filter((m) => m.role === "user").length;
-
-      // Parse previous context (v3 shape)
-      let previousContext: PersistedContext | null = null;
-      if (conversation.lastAssessment) {
+      async function saveTraceQuietly() {
         try {
-          const parsed = JSON.parse(conversation.lastAssessment);
-          previousContext = {
-            item: typeof parsed.item === "string" ? parsed.item : "unknown",
-            estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
-            category: typeof parsed.category === "string" ? parsed.category : "other",
-            intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(parsed.intent)
-              ? parsed.intent
-              : "want",
-            turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
-            memoryNudgeUsed: parsed.memoryNudgeUsed === true,
-          };
-        } catch {
-          previousContext = null;
+          await ctx.runMutation(internal.llmTraces.saveTrace, traceData as any);
+        } catch (traceError) {
+          console.error("Failed to save trace (non-fatal):", traceError);
         }
       }
 
-      const modelId = (await ctx.runQuery(
-        internal.conversations.internalGetSetting,
-        { key: "hank_model" }
-      )) as string;
-
-      const displayName = await ctx.runQuery(
-        internal.conversations.internalGetUserName,
-        { userId: args.userId }
-      );
-
-      // Fetch past conversations (needed for memory nudge on stance softening)
-      const pastConversations = await ctx.runQuery(
-        internal.conversations.internalGetPastConversations,
-        { userId: args.userId, excludeConversationId: args.conversationId }
-      );
-
-      // 2. Build prompt
-      const recentMoves = extractRecentMoves(
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      );
-
-      const systemPrompt = buildSystemPrompt({
-        displayName: displayName ?? undefined,
-        stance: currentStance,
-        disengagementCount,
-        estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
-        category: previousContext?.category ?? conversation.category,
-        patience,
-        turnCount,
-        turnSummaries: previousContext?.turnSummaries,
-        recentMoves,
-      });
-
-      const llmMessages = buildMessages(
-        systemPrompt,
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      );
-
-      // 3. Build tool definition
-      const toolDef = buildToolDefinition();
-
-      // Capture input context for trace
-      Object.assign(traceData, {
-        previousStance: currentStance,
-        systemPrompt,
-        messagesArray: JSON.stringify(llmMessages),
-        modelId,
-        temperature: TEMPERATURE_ASSESSMENT,
-        maxTokens: 300,
-        disengagementCount,
-        stagnationCount: patience,
-      });
-
-      // 4. CALL 1: LLM with tool available (low temp for consistent classification)
-      const llmStart = Date.now();
-      const call1 = await chatCompletion({
-        messages: llmMessages,
-        modelId,
-        temperature: TEMPERATURE_ASSESSMENT,
-        maxTokens: 300,
-        tools: [toolDef],
-        tool_choice: { type: "function", function: { name: "get_stance" } },
-      });
-
-      let toolCall = call1.toolCalls?.[0];
-      let call1Usage = call1.usage;
-
-      // Retry once if tool call missing (model occasionally skips despite tool_choice)
-      if (!toolCall || toolCall.function.name !== "get_stance") {
-        console.warn("LLM skipped tool — retrying (attempt 2)");
-        const retry = await chatCompletion({
+      try {
+        // 1. Fetch context
+        const messages = await ctx.runQuery(
+          internal.conversations.internalGetMessages,
+          { conversationId: args.conversationId }
+        );
+  
+        const conversation = await ctx.runQuery(
+          internal.conversations.internalGetConversation,
+          { conversationId: args.conversationId }
+        );
+        if (!conversation) throw new Error("Conversation not found");
+  
+        const currentStance = toStance(conversation.stance);
+        const disengagementCount = conversation.disengagementCount ?? 0;
+        const patience = conversation.stagnationCount ?? 0;  // patience meter (reuses DB field)
+        const runningScore = conversation.score ?? 0;
+        const turnCount = messages.filter((m) => m.role === "user").length;
+  
+        // Parse previous context (v3 shape)
+        let previousContext: PersistedContext | null = null;
+        if (conversation.lastAssessment) {
+          try {
+            const parsed = JSON.parse(conversation.lastAssessment);
+            previousContext = {
+              item: typeof parsed.item === "string" ? parsed.item : "unknown",
+              estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
+              category: typeof parsed.category === "string" ? parsed.category : "other",
+              intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(parsed.intent)
+                ? parsed.intent
+                : "want",
+              turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
+              memoryNudgeUsed: parsed.memoryNudgeUsed === true,
+            };
+          } catch {
+            previousContext = null;
+          }
+        }
+  
+        const displayName = await ctx.runQuery(
+          internal.conversations.internalGetUserName,
+          { userId: args.userId }
+        );
+  
+        // Fetch past conversations (needed for memory nudge on stance softening)
+        const pastConversations = await ctx.runQuery(
+          internal.conversations.internalGetPastConversations,
+          { userId: args.userId, excludeConversationId: args.conversationId }
+        );
+  
+        // 2. Build prompt
+        const recentMoves = extractRecentMoves(
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
+  
+        const systemPrompt = buildSystemPrompt({
+          displayName: displayName ?? undefined,
+          stance: currentStance,
+          disengagementCount,
+          estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
+          category: previousContext?.category ?? conversation.category,
+          patience,
+          turnCount,
+          turnSummaries: previousContext?.turnSummaries,
+          recentMoves,
+        });
+  
+        const llmMessages = buildMessages(
+          systemPrompt,
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
+  
+        // 3. Build tool definition
+        const toolDef = buildToolDefinition();
+  
+        // Capture input context for trace
+        Object.assign(traceData, {
+          previousStance: currentStance,
+          systemPrompt,
+          messagesArray: JSON.stringify(llmMessages),
+          modelId,
+          temperature: TEMPERATURE_ASSESSMENT,
+          maxTokens: 300,
+          disengagementCount,
+          stagnationCount: patience,
+        });
+  
+        // 4. CALL 1: LLM with tool available (low temp for consistent classification)
+        const llmStart = Date.now();
+        const call1 = await chatCompletion({
           messages: llmMessages,
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
@@ -661,267 +651,299 @@ export const respond = internalAction({
           tools: [toolDef],
           tool_choice: { type: "function", function: { name: "get_stance" } },
         });
-        call1Usage = addUsage(call1.usage, retry.usage);
-        const retryToolCall = retry.toolCalls?.[0];
-        if (retryToolCall && retryToolCall.function.name === "get_stance") {
-          toolCall = retryToolCall;
+  
+        let toolCall = call1.toolCalls?.[0];
+        let call1Usage = call1.usage;
+  
+        // Retry once if tool call missing (model occasionally skips despite tool_choice)
+        if (!toolCall || toolCall.function.name !== "get_stance") {
+          console.warn("LLM skipped tool — retrying (attempt 2)");
+          const retry = await chatCompletion({
+            messages: llmMessages,
+            modelId,
+            temperature: TEMPERATURE_ASSESSMENT,
+            maxTokens: 300,
+            tools: [toolDef],
+            tool_choice: { type: "function", function: { name: "get_stance" } },
+          });
+          call1Usage = addUsage(call1.usage, retry.usage);
+          const retryToolCall = retry.toolCalls?.[0];
+          if (retryToolCall && retryToolCall.function.name === "get_stance") {
+            toolCall = retryToolCall;
+          }
         }
-      }
-
-      // 5. Extract assessment — tool call or conservative fallback
-      let rawAssessment: Record<string, unknown>;
-      let usedFallback = false;
-
-      if (toolCall && toolCall.function.name === "get_stance") {
-        traceData.toolCalled = true;
-        // Parse tool arguments defensively
-        try {
-          const raw = JSON.parse(toolCall.function.arguments);
-          rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
-        } catch {
-          rawAssessment = {};
+  
+        // 5. Extract assessment — tool call or conservative fallback
+        let rawAssessment: Record<string, unknown>;
+        let usedFallback = false;
+  
+        if (toolCall && toolCall.function.name === "get_stance") {
+          traceData.toolCalled = true;
+          // Parse tool arguments defensively
+          try {
+            const raw = JSON.parse(toolCall.function.arguments);
+            rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
+          } catch {
+            rawAssessment = {};
+          }
+          traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
+        } else {
+          console.warn("LLM skipped tool call — using fallback assessment");
+          rawAssessment = FALLBACK_ASSESSMENT;
+          usedFallback = true;
+          traceData.toolCalled = false;
         }
-        traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
-      } else {
-        console.warn("LLM skipped tool call — using fallback assessment");
-        rawAssessment = FALLBACK_ASSESSMENT;
-        usedFallback = true;
-        traceData.toolCalled = false;
-      }
-
-      // Execute scoring (always — fallback produces delta = 0)
-      const stanceResult = executeGetStance(rawAssessment, {
-        currentStance,
-        disengagementCount,
-        patience,
-        runningScore,
-        storedItem: conversation.item,
-        turnCount,
-        previousContext,
-      });
-
-      // Build tool result for LLM (only public fields)
-      const toolResultForLLM: Record<string, unknown> = {
-        stance: stanceResult.stance,
-        score: stanceResult.score,
-        guidance: stanceResult.guidance,
-      };
-      if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
-      if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
-
-      const toolResultStr = JSON.stringify(toolResultForLLM);
-      traceData.toolResult = toolResultStr;
-
-      // Select memory nudge on first stance softening (FIRM→SKEPTICAL, SKEPTICAL→RELUCTANT, etc.)
-      let memoryNudge: string | null = null;
-      let memoryNudgeConversationId: Id<"conversations"> | null = null;
-
-      if (
-        turnCount > 1 &&
-        stanceResult._decisionType.startsWith("normal") &&
-        !stanceResult.closing &&
-        !stanceResult._persistedContext.memoryNudgeUsed &&
-        STANCE_ORDER.indexOf(stanceResult.stance) > STANCE_ORDER.indexOf(currentStance)
-      ) {
-        const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
-        if (nudge) {
-          memoryNudge = formatNudgePrompt(nudge);
-          memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
-          stanceResult._persistedContext.memoryNudgeUsed = true;
-        }
-      }
-
-      // Select focused prompt for Call 2 when it matters
-      // Closer always takes priority; opener only for normal scoring turns on turn 1
-      let call2SystemPrompt: string;
-      if (stanceResult.closing && stanceResult.verdict) {
-        call2SystemPrompt = buildCloserPrompt({
-          displayName: displayName ?? undefined,
-          estimatedPrice: stanceResult._estimatedPrice,
-          category: stanceResult._category,
-          verdict: stanceResult.verdict,
+  
+        // Execute scoring (always — fallback produces delta = 0)
+        const stanceResult = executeGetStance(rawAssessment, {
+          currentStance,
+          disengagementCount,
+          patience,
+          runningScore,
+          storedItem: conversation.item,
+          turnCount,
+          previousContext,
         });
-      } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
-        call2SystemPrompt = buildOpenerPrompt({
-          displayName: displayName ?? undefined,
-          estimatedPrice: stanceResult._estimatedPrice,
-          category: stanceResult._category,
+  
+        // Build tool result for LLM (only public fields)
+        const toolResultForLLM: Record<string, unknown> = {
+          stance: stanceResult.stance,
+          score: stanceResult.score,
+          guidance: stanceResult.guidance,
+        };
+        if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
+        if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
+  
+        const toolResultStr = JSON.stringify(toolResultForLLM);
+        traceData.toolResult = toolResultStr;
+  
+        // Select memory nudge on first stance softening (FIRM→SKEPTICAL, SKEPTICAL→RELUCTANT, etc.)
+        let memoryNudge: string | null = null;
+        let memoryNudgeConversationId: Id<"conversations"> | null = null;
+  
+        if (
+          turnCount > 1 &&
+          stanceResult._decisionType.startsWith("normal") &&
+          !stanceResult.closing &&
+          !stanceResult._persistedContext.memoryNudgeUsed &&
+          STANCE_ORDER.indexOf(stanceResult.stance) > STANCE_ORDER.indexOf(currentStance)
+        ) {
+          const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
+          if (nudge) {
+            memoryNudge = formatNudgePrompt(nudge);
+            memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
+            stanceResult._persistedContext.memoryNudgeUsed = true;
+          }
+        }
+  
+        // Select focused prompt for Call 2 when it matters
+        // Closer always takes priority; opener only for normal scoring turns on turn 1
+        let call2SystemPrompt: string;
+        if (stanceResult.closing && stanceResult.verdict) {
+          call2SystemPrompt = buildCloserPrompt({
+            displayName: displayName ?? undefined,
+            estimatedPrice: stanceResult._estimatedPrice,
+            category: stanceResult._category,
+            verdict: stanceResult.verdict,
+          });
+        } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+          call2SystemPrompt = buildOpenerPrompt({
+            displayName: displayName ?? undefined,
+            estimatedPrice: stanceResult._estimatedPrice,
+            category: stanceResult._category,
+          });
+        } else {
+          call2SystemPrompt = memoryNudge
+            ? systemPrompt + "\n\n" + memoryNudge
+            : systemPrompt;
+        }
+  
+        // Capture Call 2 prompt in trace when it differs from Call 1
+        if (call2SystemPrompt !== systemPrompt) {
+          traceData.call2SystemPrompt = call2SystemPrompt;
+        }
+  
+        // Build messages for call 2
+        const conversationMsgs = buildConversationMessages(
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
+        let call2Messages: ChatMessage[];
+        if (usedFallback) {
+          // No tool call to include — append guidance to system prompt
+          call2Messages = [
+            { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
+            ...conversationMsgs,
+          ];
+        } else {
+          call2Messages = [
+            { role: "system", content: call2SystemPrompt },
+            ...conversationMsgs,
+            {
+              role: "assistant",
+              content: null,
+              tool_calls: [toolCall!],
+            },
+            {
+              role: "tool",
+              tool_call_id: toolCall!.id,
+              content: toolResultStr,
+            },
+          ];
+        }
+  
+        // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
+        const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
+        const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
+  
+        const call2 = await chatCompletion({
+          messages: call2Messages,
+          modelId,
+          temperature: TEMPERATURE_RESPONSE,
+          maxTokens: 400,
+          ...(closingTool ? {
+            tools: [closingTool],
+            tool_choice: { type: "function", function: { name: "closing_response" } },
+          } : {}),
         });
-      } else {
-        call2SystemPrompt = memoryNudge
-          ? systemPrompt + "\n\n" + memoryNudge
-          : systemPrompt;
-      }
-
-      // Capture Call 2 prompt in trace when it differs from Call 1
-      if (call2SystemPrompt !== systemPrompt) {
-        traceData.call2SystemPrompt = call2SystemPrompt;
-      }
-
-      // Build messages for call 2
-      const conversationMsgs = buildConversationMessages(
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      );
-      let call2Messages: ChatMessage[];
-      if (usedFallback) {
-        // No tool call to include — append guidance to system prompt
-        call2Messages = [
-          { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
-          ...conversationMsgs,
-        ];
-      } else {
-        call2Messages = [
-          { role: "system", content: call2SystemPrompt },
-          ...conversationMsgs,
-          {
-            role: "assistant",
-            content: null,
-            tool_calls: [toolCall!],
-          },
-          {
-            role: "tool",
-            tool_call_id: toolCall!.id,
-            content: toolResultStr,
-          },
-        ];
-      }
-
-      // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
-      const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
-      const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
-
-      const call2 = await chatCompletion({
-        messages: call2Messages,
-        modelId,
-        temperature: TEMPERATURE_RESPONSE,
-        maxTokens: 400,
-        ...(closingTool ? {
-          tools: [closingTool],
-          tool_choice: { type: "function", function: { name: "closing_response" } },
-        } : {}),
-      });
-
-      const durationMs = Date.now() - llmStart;
-      const totalUsage = addUsage(call1Usage, call2.usage);
-
-      let responseText: string;
-      let excuse: string | undefined;
-      let verdictTagline: string | undefined;
-
-      if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
-        try {
-          const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
-          responseText = typeof parsed.closing_line === "string" && parsed.closing_line
-            ? parsed.closing_line
-            : (call2.content ?? "");
-          excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
-          verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
-        } catch {
+  
+        const durationMs = Date.now() - llmStart;
+        const totalUsage = addUsage(call1Usage, call2.usage);
+  
+        let responseText: string;
+        let excuse: string | undefined;
+        let verdictTagline: string | undefined;
+  
+        if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
+          try {
+            const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
+            responseText = typeof parsed.closing_line === "string" && parsed.closing_line
+              ? parsed.closing_line
+              : (call2.content ?? "");
+            excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
+            verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
+          } catch {
+            responseText = call2.content ?? "";
+          }
+        } else {
           responseText = call2.content ?? "";
         }
-      } else {
-        responseText = call2.content ?? "";
-      }
-
-      if (!responseText) {
-        throw new Error("Call 2 returned empty content");
-      }
-
-      // Capture trace data
-      const sanitizedForTrace = sanitizeAssessment(rawAssessment);
-
-      Object.assign(traceData, {
-        durationMs,
-        rawResponse: responseText,
-        tokenUsage: totalUsage,
-        rawScores: JSON.stringify(sanitizedForTrace),
-        sanitizedScores: JSON.stringify(stanceResult._persistedContext),
-        scoringResult: JSON.stringify(stanceResult._scoringResult),
-        parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
-        decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
-        newStance: stanceResult.stance,
-        category: stanceResult._category,
-        estimatedPrice: stanceResult._estimatedPrice,
-        disengagementCount: stanceResult._disengagementCount,
-        stagnationCount: stanceResult._patience,
-      });
-
-      // Persist context as lastAssessment JSON
-      const lastAssessmentJson = JSON.stringify(stanceResult._persistedContext);
-
-      // Save based on decision type
-      if (stanceResult._decisionType === "out-of-scope") {
-        const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
-          conversationId: args.conversationId,
-          content: responseText,
-        });
-        traceData.messageId = messageId;
-      } else if (stanceResult.closing && stanceResult.verdict) {
-        const messageId = await ctx.runMutation(
-          internal.conversations.saveResponseWithVerdict,
-          {
-            conversationId: args.conversationId,
-            content: responseText,
-            verdict: stanceResult.verdict,
-            score: stanceResult.score,
-            stance: stanceResult.stance,
-            category: stanceResult._category,
-            estimatedPrice: stanceResult._estimatedPrice,
-            item: stanceResult._item,
-            lastAssessment: lastAssessmentJson,
-            disengagementCount: stanceResult._disengagementCount,
-            stagnationCount: stanceResult._patience,
-            excuse,
-            verdictTagline,
-          }
-        );
-        traceData.messageId = messageId;
-      } else {
-        const messageId = await ctx.runMutation(
-          internal.conversations.saveResponseWithScoring,
-          {
-            conversationId: args.conversationId,
-            content: responseText,
-            score: stanceResult.score,
-            stance: stanceResult.stance,
-            category: stanceResult._category,
-            estimatedPrice: stanceResult._estimatedPrice,
-            item: stanceResult._item,
-            lastAssessment: lastAssessmentJson,
-            disengagementCount: stanceResult._disengagementCount,
-            stagnationCount: stanceResult._patience,
-          }
-        );
-        traceData.messageId = messageId;
-      }
-
-      // Increment memory reference count (only when nudge was used)
-      if (memoryNudgeConversationId) {
-        await ctx.runMutation(
-          internal.conversations.internalIncrementMemoryRef,
-          { conversationId: memoryNudgeConversationId }
-        );
-      }
-
-      await saveTraceQuietly();
-    } catch (error) {
-      console.error("LLM generation failed:", error);
-      if (traceData.rawResponse || traceData.toolCalled !== undefined) {
+  
+        if (!responseText) {
+          throw new Error("Call 2 returned empty content");
+        }
+  
+        // Capture trace data
+        const sanitizedForTrace = sanitizeAssessment(rawAssessment);
+  
         Object.assign(traceData, {
-          decisionType: "error",
-          error: String(error),
-          newStance: traceData.previousStance ?? "FIRM",
-          rawResponse: traceData.rawResponse ?? "",
-          parsedResponse: traceData.parsedResponse ?? "{}",
-          sanitizedScores: traceData.sanitizedScores ?? "{}",
-          rawScores: traceData.rawScores ?? "{}",
-          scoringResult: traceData.scoringResult ?? "{}",
-          disengagementCount: traceData.disengagementCount ?? 0,
-          stagnationCount: traceData.stagnationCount ?? 0,
-          tokenUsage: traceData.tokenUsage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          durationMs: traceData.durationMs ?? 0,
+          durationMs,
+          rawResponse: responseText,
+          tokenUsage: totalUsage,
+          rawScores: JSON.stringify(sanitizedForTrace),
+          sanitizedScores: JSON.stringify(stanceResult._persistedContext),
+          scoringResult: JSON.stringify(stanceResult._scoringResult),
+          parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
+          decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
+          newStance: stanceResult.stance,
+          category: stanceResult._category,
+          estimatedPrice: stanceResult._estimatedPrice,
+          disengagementCount: stanceResult._disengagementCount,
+          stagnationCount: stanceResult._patience,
         });
+  
+        // Persist context as lastAssessment JSON
+        const lastAssessmentJson = JSON.stringify(stanceResult._persistedContext);
+  
+        // Save based on decision type
+        if (stanceResult._decisionType === "out-of-scope") {
+          const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
+            conversationId: args.conversationId,
+            content: responseText,
+          });
+          traceData.messageId = messageId;
+        } else if (stanceResult.closing && stanceResult.verdict) {
+          const messageId = await ctx.runMutation(
+            internal.conversations.saveResponseWithVerdict,
+            {
+              conversationId: args.conversationId,
+              content: responseText,
+              verdict: stanceResult.verdict,
+              score: stanceResult.score,
+              stance: stanceResult.stance,
+              category: stanceResult._category,
+              estimatedPrice: stanceResult._estimatedPrice,
+              item: stanceResult._item,
+              lastAssessment: lastAssessmentJson,
+              disengagementCount: stanceResult._disengagementCount,
+              stagnationCount: stanceResult._patience,
+              excuse,
+              verdictTagline,
+            }
+          );
+          traceData.messageId = messageId;
+        } else {
+          const messageId = await ctx.runMutation(
+            internal.conversations.saveResponseWithScoring,
+            {
+              conversationId: args.conversationId,
+              content: responseText,
+              score: stanceResult.score,
+              stance: stanceResult.stance,
+              category: stanceResult._category,
+              estimatedPrice: stanceResult._estimatedPrice,
+              item: stanceResult._item,
+              lastAssessment: lastAssessmentJson,
+              disengagementCount: stanceResult._disengagementCount,
+              stagnationCount: stanceResult._patience,
+            }
+          );
+          traceData.messageId = messageId;
+        }
+  
+        // Increment memory reference count (only when nudge was used)
+        if (memoryNudgeConversationId) {
+          await ctx.runMutation(
+            internal.conversations.internalIncrementMemoryRef,
+            { conversationId: memoryNudgeConversationId }
+          );
+        }
+  
         await saveTraceQuietly();
+      } catch (error) {
+        console.error("LLM generation failed:", error);
+        if (traceData.rawResponse || traceData.toolCalled !== undefined) {
+          Object.assign(traceData, {
+            decisionType: "error",
+            error: String(error),
+            newStance: traceData.previousStance ?? "FIRM",
+            rawResponse: traceData.rawResponse ?? "",
+            parsedResponse: traceData.parsedResponse ?? "{}",
+            sanitizedScores: traceData.sanitizedScores ?? "{}",
+            rawScores: traceData.rawScores ?? "{}",
+            scoringResult: traceData.scoringResult ?? "{}",
+            disengagementCount: traceData.disengagementCount ?? 0,
+            stagnationCount: traceData.stagnationCount ?? 0,
+            tokenUsage: traceData.tokenUsage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+            durationMs: traceData.durationMs ?? 0,
+          });
+          await saveTraceQuietly();
+        }
+        throw error;
+      }
+    }
+
+    try {
+      await executeRespond(primaryModel);
+    } catch (primaryError) {
+      console.error(`Primary model (${primaryModel}) failed:`, primaryError);
+      if (fallbackModel && fallbackModel !== primaryModel) {
+        console.warn(`Retrying with fallback: ${fallbackModel}`);
+        try {
+          await executeRespond(fallbackModel);
+          return;
+        } catch (fallbackError) {
+          console.error(`Fallback (${fallbackModel}) also failed:`, fallbackError);
+        }
       }
       await ctx.runMutation(internal.conversations.setError, {
         conversationId: args.conversationId,

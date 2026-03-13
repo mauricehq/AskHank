@@ -66,5 +66,5 @@ export function useConversation() {
     setConversationId(id);
   }, []);
 
-  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice };
+  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice, thinkingSince: conversation?.thinkingSince ?? null };
 }

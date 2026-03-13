@@ -47,6 +47,7 @@ export default defineSchema({
     excuse: v.optional(v.string()),
     verdictTagline: v.optional(v.string()),
     memoryReferenceCount: v.optional(v.number()),
+    thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   messages: defineTable({
