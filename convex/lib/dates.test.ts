@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatRelativeDate, toCalendarDate, calendarDaysBetween } from "./dates";
+import { formatRelativeDate, toCalendarDate, calendarDaysBetween, daysToWindowLabel, formatWindowLabel } from "./dates";
 
 // EDT (Eastern Daylight Time) = UTC-4, active in March 2026 (DST starts March 8).
 // To get a UTC timestamp for a given ET wall-clock time: add 4 hours.
@@ -51,6 +51,47 @@ describe("calendarDaysBetween", () => {
     expect(calendarDaysBetween(late, early, "America/New_York")).toBe(1);
     // In UTC: both March 14 = 0 days
     expect(calendarDaysBetween(late, early, "UTC")).toBe(0);
+  });
+});
+
+describe("daysToWindowLabel", () => {
+  it("returns 'a few days' for 0-6 days", () => {
+    expect(daysToWindowLabel(0)).toBe("a few days");
+    expect(daysToWindowLabel(3)).toBe("a few days");
+    expect(daysToWindowLabel(6)).toBe("a few days");
+  });
+
+  it("returns 'a couple weeks' for 7-29 days", () => {
+    expect(daysToWindowLabel(7)).toBe("a couple weeks");
+    expect(daysToWindowLabel(14)).toBe("a couple weeks");
+    expect(daysToWindowLabel(29)).toBe("a couple weeks");
+  });
+
+  it("returns 'a couple months' for 30-89 days", () => {
+    expect(daysToWindowLabel(30)).toBe("a couple months");
+    expect(daysToWindowLabel(60)).toBe("a couple months");
+    expect(daysToWindowLabel(89)).toBe("a couple months");
+  });
+
+  it("returns 'a few months' for 90+ days", () => {
+    expect(daysToWindowLabel(90)).toBe("a few months");
+    expect(daysToWindowLabel(180)).toBe("a few months");
+  });
+});
+
+describe("formatWindowLabel", () => {
+  const now = Date.UTC(2026, 2, 13, 12, 0);
+
+  it("returns window label using elapsed-time fallback", () => {
+    expect(formatWindowLabel(now - 3 * 86400_000, now)).toBe("a few days");
+    expect(formatWindowLabel(now - 20 * 86400_000, now)).toBe("a couple weeks");
+    expect(formatWindowLabel(now - 60 * 86400_000, now)).toBe("a couple months");
+  });
+
+  it("returns window label using timezone-aware path", () => {
+    const threeDaysAgo = etToUtc(2026, 3, 10, 12, 0);
+    const nowEt = etToUtc(2026, 3, 13, 12, 0);
+    expect(formatWindowLabel(threeDaysAgo, nowEt, "America/New_York")).toBe("a few days");
   });
 });
 

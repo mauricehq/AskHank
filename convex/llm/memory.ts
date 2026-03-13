@@ -1,6 +1,6 @@
 "use node";
 
-import { formatRelativeDate } from "../lib/dates";
+import { formatRelativeDate, formatWindowLabel } from "../lib/dates";
 
 export interface PastConversation {
   _id: string;
@@ -18,6 +18,11 @@ export interface MemoryNudge {
   estimatedPrice?: number;
   excuse?: string;
   dateLabel: string;
+  categoryHistory?: {
+    count: number;
+    category: string;
+    window: string;
+  };
 }
 
 export function sanitizeForYaml(value: string): string {
@@ -33,7 +38,8 @@ export function sanitizeForYaml(value: string): string {
 export function selectMemoryNudge(
   conversations: PastConversation[],
   currentCategory: string,
-  timezone?: string
+  timezone?: string,
+  now: number = Date.now()
 ): MemoryNudge | null {
   if (!currentCategory || currentCategory === "other") return null;
 
@@ -57,12 +63,31 @@ export function selectMemoryNudge(
   });
 
   const pick = candidates[0];
+
+  // Compute category history from candidates within 90 days
+  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+  const recentCandidates = candidates.filter(
+    (c) => now - c.createdAt <= ninetyDaysMs
+  );
+  let categoryHistory: MemoryNudge["categoryHistory"];
+  if (recentCandidates.length > 1) {
+    const oldest = recentCandidates.reduce((o, c) =>
+      c.createdAt < o.createdAt ? c : o
+    );
+    categoryHistory = {
+      count: recentCandidates.length,
+      category: currentCategory,
+      window: formatWindowLabel(oldest.createdAt, now, timezone),
+    };
+  }
+
   return {
     conversationId: pick._id,
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
     excuse: pick.excuse,
-    dateLabel: formatRelativeDate(pick.createdAt, Date.now(), timezone),
+    dateLabel: formatRelativeDate(pick.createdAt, now, timezone),
+    categoryHistory,
   };
 }
 
@@ -80,6 +105,12 @@ export function formatNudgePrompt(nudge: MemoryNudge): string {
   lines.push(`  date: "${nudge.dateLabel}"`);
   if (nudge.excuse) {
     lines.push(`  their_claim: "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}"`);
+  }
+  if (nudge.categoryHistory) {
+    lines.push("  category_history:");
+    lines.push(`    count: ${nudge.categoryHistory.count}`);
+    lines.push(`    category: "${sanitizeForYaml(nudge.categoryHistory.category)}"`);
+    lines.push(`    window: "${nudge.categoryHistory.window}"`);
   }
   lines.push("Weave one dry callback into your response. Don't parrot these fields — narrate them in your voice.");
   lines.push('Examples: "Wasn\'t it a $550 pair of headphones last time. Same energy, different gadget." / "You were here two weeks ago for an espresso machine. Starting to see a pattern."');

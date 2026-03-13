@@ -223,16 +223,66 @@ Call 2 prompt selection:
 - [x] Displayed prominently on main screen (two-stat card in sidebar: `$saved` + `skipped`)
 - [x] Hank asks for estimated price if user doesn't provide it (system prompt instructs LLM to ask early)
 
-### 3d: Hank's Memory (Conversation Summaries)
-- [ ] Query last 20-30 conversation summaries for the user before each new conversation
-- [ ] Inject as structured YAML into system prompt (not JSON — YAML parses cleaner for LLM context, lesson from Hopshelf)
-- [ ] ~30-40 tokens per summary, ~1,000 tokens total for 30 conversations. Cheap.
-- [ ] Summary format per conversation: date, item, price, verdict, claim, key quote, context
-- [ ] LLM does the connecting — spots patterns, references past quotes, calls out repeat behavior
-- [ ] Category tracking: how many times user asked about similar items
-- [ ] Quote tracking: Hank throws the user's own words back at them
+### 3d: Hank's Memory ✅
 
-### ~~3e: User Dossier~~ → Deferred to v1.5
+**Original plan called for injecting 20-30 conversation summaries. Actual implementation is a targeted memory nudge system — lighter, cheaper, and more effective because Hank references ONE specific past conversation instead of drowning in context.**
+
+#### Memory Nudge System ✅
+- [x] Query past conversations for the user (`internalGetPastConversations`)
+- [x] `selectMemoryNudge()` picks ONE past conversation to reference — filters to same category, valid item, not "other"; sorts by lowest reference count then most recent
+- [x] `formatNudgePrompt()` injects structured YAML into system prompt (previous_item, price, date, their_claim)
+- [x] Nudge fires on turn 2+ during stance softening, persists across all subsequent turns
+- [x] `memoryReferenceCount` tracking — rotates which past conversation gets referenced so Hank doesn't repeat
+- [x] Timezone-aware relative dates ("a few days ago", "last week") using calendar-day boundaries in user's local time
+
+#### Category History ✅
+- [x] Count same-category conversations within 90-day window (additive to nudge — doesn't change which conversation is picked)
+- [x] `categoryHistory` on `MemoryNudge`: count, category, window label ("a couple weeks", "a couple months")
+- [x] Only included when count > 1 — no noise for first-time category visitors
+- [x] `formatNudgePrompt()` appends `category_history` YAML block when present
+- [x] Window labels use `daysToWindowLabel()` / `formatWindowLabel()` — distinct from point-in-time "ago" labels
+
+#### Not built (deferred to dossier in Phase 7)
+- [ ] Quote tracking: Hank throws the user's own words back at them — needs richer per-conversation data than what memory nudges store
+
+### 3e: Work-Hours Reframe
+
+**The insight:** Telling someone a standing desk costs $350 is abstract. Telling them it costs 12.5 hours of their labor is visceral. Price-to-hours conversion is one of the most effective impulse killers — validated by Reddit users who built entire apps around this single mechanic.
+
+**How it works:**
+- [ ] Optional salary/hourly rate input (settings or onboarding — "What do you make per hour?" or "What's your annual salary?")
+- [ ] Stored on user record in Convex (never shared, never displayed publicly)
+- [ ] After-tax estimation: apply rough tax bracket to convert gross → net hourly rate
+- [ ] When Hank knows the price and the user's rate, inject work-hours context into the system prompt
+- [ ] Hank weaves it into the conversation naturally: "That's 12.5 hours of your life for a standing desk you'll use as a shelf."
+- [ ] Works as a scoring amplifier — the reframe makes Hank's arguments land harder, not just as a standalone line
+
+**Prompt injection format:**
+```yaml
+work_hours:
+  hourly_rate_net: 28.00
+  item_cost: 350.00
+  hours_equivalent: 12.5
+  context: "This purchase costs 12.5 hours of work after taxes."
+```
+
+**Rules for Hank:**
+- Use it once per conversation max — repetition kills the impact
+- Don't lead with it. Build the case first, then drop the hours reframe as the gut punch
+- If user hasn't set their rate, don't ask mid-conversation. Skip it.
+- Never say the user's actual salary/rate out loud — only the hours equivalent
+
+**No rate set? Still works (partially):**
+- Hank can still use relative framing without exact hours: "How many hours do you work for $350?"
+- The question itself forces the mental math, even without a stored rate
+
+**Why this belongs in Phase 3 (not later):**
+- Zero dependency on dossier or banger system
+- Small implementation surface — one user field, one prompt section, one calculation
+- High impact on the core product loop (makes conversations more effective at preventing purchases)
+- Directly validated by real users — not speculative
+
+### ~~3f: User Dossier~~ → Deferred to v1.5
 Retention feature, not a launch feature. At launch there are zero conversations to build a dossier from. It gets valuable after 10-15 conversations per user — that's weeks of usage. Build it when early users have enough history for it to matter. See hank-scoring-engine.md for full dossier design.
 
 **Time:** 2-3 days.
@@ -509,7 +559,7 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a + 3b + 3c done) | Memory |
+| 3: Persistence | Partial (3a-3d done) | Work-hours reframe |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
@@ -628,4 +678,4 @@ Tyler's prompt structure in `lib/advisor/prompts.ts` maps directly to Hank:
 2. ~~**Photo input in web v1?**~~ **Yes — proven.** Already built camera-based scanning for Hopshelf (Google Gemini Flash). Same approach for Hank.
 3. ~~**System prompt**~~ — Done. Lives in `convex/llm/prompt.ts`. Dynamic stance, JSON output, scoring guidelines.
 4. ~~**Credit reset timezone**~~ — No longer relevant. Starter pack model has no daily reset.
-5. **Conversation memory scope** — how many past conversations to inject as context? All of them gets expensive. Last 10? Last 30 days?
+5. ~~**Conversation memory scope**~~ — Resolved: memory nudge system picks ONE past conversation per session (same category, rotated by reference count). Category history counts same-category conversations within 90 days. Full conversation summaries deferred to dossier (Phase 7).
