@@ -66,6 +66,9 @@ const DEFAULT_ASSESSMENT: TurnAssessment = {
   is_directed_question: false,
 };
 
+/** Fallback when LLM skips tool call: new_angle:false → sanitizeAssessment fills safe defaults, delta = 0 */
+const FALLBACK_ASSESSMENT: Record<string, unknown> = { new_angle: false };
+
 function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
   return {
     item: typeof raw.item === "string" ? raw.item : DEFAULT_ASSESSMENT.item,
@@ -651,13 +654,13 @@ export const respond = internalAction({
         }
       }
 
-      // 5. BRANCH — only handle get_stance; other tool names treated as casual
-      if (toolCall && toolCall.function.name === "get_stance") {
-        // --- A) Tool called (scoring turn) ---
-        traceData.toolCalled = true;
+      // 5. Extract assessment — tool call or conservative fallback
+      let rawAssessment: Record<string, unknown>;
+      let usedFallback = false;
 
+      if (toolCall && toolCall.function.name === "get_stance") {
+        traceData.toolCalled = true;
         // Parse tool arguments defensively
-        let rawAssessment: Record<string, unknown>;
         try {
           const raw = JSON.parse(toolCall.function.arguments);
           rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
@@ -665,216 +668,199 @@ export const respond = internalAction({
           rawAssessment = {};
         }
         traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
+      } else {
+        console.warn("LLM skipped tool call — using fallback assessment");
+        rawAssessment = FALLBACK_ASSESSMENT;
+        usedFallback = true;
+        traceData.toolCalled = false;
+      }
 
-        // Execute scoring
-        const stanceResult = executeGetStance(rawAssessment, {
-          currentStance,
-          disengagementCount,
-          patience,
-          runningScore,
-          storedItem: conversation.item,
-          turnCount,
-          previousContext,
+      // Execute scoring (always — fallback produces delta = 0)
+      const stanceResult = executeGetStance(rawAssessment, {
+        currentStance,
+        disengagementCount,
+        patience,
+        runningScore,
+        storedItem: conversation.item,
+        turnCount,
+        previousContext,
+      });
+
+      // Build tool result for LLM (only public fields)
+      const toolResultForLLM: Record<string, unknown> = {
+        stance: stanceResult.stance,
+        score: stanceResult.score,
+        guidance: stanceResult.guidance,
+      };
+      if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
+      if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
+
+      const toolResultStr = JSON.stringify(toolResultForLLM);
+      traceData.toolResult = toolResultStr;
+
+      // Select focused prompt for Call 2 when it matters
+      // Closer always takes priority; opener only for normal scoring turns on turn 1
+      let call2SystemPrompt: string;
+      if (stanceResult.closing && stanceResult.verdict) {
+        call2SystemPrompt = buildCloserPrompt({
+          displayName: displayName ?? undefined,
+          estimatedPrice: stanceResult._estimatedPrice,
+          category: stanceResult._category,
+          verdict: stanceResult.verdict,
         });
+      } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+        call2SystemPrompt = buildOpenerPrompt({
+          displayName: displayName ?? undefined,
+          estimatedPrice: stanceResult._estimatedPrice,
+          category: stanceResult._category,
+        });
+      } else {
+        call2SystemPrompt = systemPrompt;
+      }
 
-        // Build tool result for LLM (only public fields)
-        const toolResultForLLM: Record<string, unknown> = {
-          stance: stanceResult.stance,
-          score: stanceResult.score,
-          guidance: stanceResult.guidance,
-        };
-        if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
-        if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
+      // Capture Call 2 prompt in trace when it differs from Call 1
+      if (call2SystemPrompt !== systemPrompt) {
+        traceData.call2SystemPrompt = call2SystemPrompt;
+      }
 
-        const toolResultStr = JSON.stringify(toolResultForLLM);
-        traceData.toolResult = toolResultStr;
-
-        // Select focused prompt for Call 2 when it matters
-        // Closer always takes priority; opener only for normal scoring turns on turn 1
-        let call2SystemPrompt: string;
-        if (stanceResult.closing && stanceResult.verdict) {
-          call2SystemPrompt = buildCloserPrompt({
-            displayName: displayName ?? undefined,
-            estimatedPrice: stanceResult._estimatedPrice,
-            category: stanceResult._category,
-            verdict: stanceResult.verdict,
-          });
-        } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
-          call2SystemPrompt = buildOpenerPrompt({
-            displayName: displayName ?? undefined,
-            estimatedPrice: stanceResult._estimatedPrice,
-            category: stanceResult._category,
-          });
-        } else {
-          call2SystemPrompt = systemPrompt;
-        }
-
-        // Capture Call 2 prompt in trace when it differs from Call 1
-        if (call2SystemPrompt !== systemPrompt) {
-          traceData.call2SystemPrompt = call2SystemPrompt;
-        }
-
-        // Build messages for call 2: selected system prompt + conversation + tool call + tool result
-        const conversationMsgs = buildConversationMessages(
-          messages.map((m) => ({ role: m.role, content: m.content }))
-        );
-        const call2Messages: ChatMessage[] = [
+      // Build messages for call 2
+      const conversationMsgs = buildConversationMessages(
+        messages.map((m) => ({ role: m.role, content: m.content }))
+      );
+      let call2Messages: ChatMessage[];
+      if (usedFallback) {
+        // No tool call to include — append guidance to system prompt
+        call2Messages = [
+          { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
+          ...conversationMsgs,
+        ];
+      } else {
+        call2Messages = [
           { role: "system", content: call2SystemPrompt },
           ...conversationMsgs,
           {
             role: "assistant",
             content: null,
-            tool_calls: [toolCall],
+            tool_calls: [toolCall!],
           },
           {
             role: "tool",
-            tool_call_id: toolCall.id,
+            tool_call_id: toolCall!.id,
             content: toolResultStr,
           },
         ];
+      }
 
-        // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
-        const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
-        const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
+      // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
+      const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
+      const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
 
-        const call2 = await chatCompletion({
-          messages: call2Messages,
-          modelId,
-          temperature: TEMPERATURE_RESPONSE,
-          maxTokens: 400,
-          ...(closingTool ? {
-            tools: [closingTool],
-            tool_choice: { type: "function", function: { name: "closing_response" } },
-          } : {}),
-        });
+      const call2 = await chatCompletion({
+        messages: call2Messages,
+        modelId,
+        temperature: TEMPERATURE_RESPONSE,
+        maxTokens: 400,
+        ...(closingTool ? {
+          tools: [closingTool],
+          tool_choice: { type: "function", function: { name: "closing_response" } },
+        } : {}),
+      });
 
-        const durationMs = Date.now() - llmStart;
-        const totalUsage = addUsage(call1Usage, call2.usage);
+      const durationMs = Date.now() - llmStart;
+      const totalUsage = addUsage(call1Usage, call2.usage);
 
-        let responseText: string;
-        let excuse: string | undefined;
-        let verdictTagline: string | undefined;
+      let responseText: string;
+      let excuse: string | undefined;
+      let verdictTagline: string | undefined;
 
-        if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
-          try {
-            const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
-            responseText = typeof parsed.closing_line === "string" && parsed.closing_line
-              ? parsed.closing_line
-              : (call2.content ?? "");
-            excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
-            verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
-          } catch {
-            responseText = call2.content ?? "";
-          }
-        } else {
+      if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
+        try {
+          const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
+          responseText = typeof parsed.closing_line === "string" && parsed.closing_line
+            ? parsed.closing_line
+            : (call2.content ?? "");
+          excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
+          verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
+        } catch {
           responseText = call2.content ?? "";
         }
-
-        if (!responseText) {
-          throw new Error("Call 2 returned empty content");
-        }
-
-        // Capture trace data
-        const sanitizedForTrace = sanitizeAssessment(rawAssessment);
-
-        Object.assign(traceData, {
-          durationMs,
-          rawResponse: responseText,
-          tokenUsage: totalUsage,
-          rawScores: JSON.stringify(sanitizedForTrace),
-          sanitizedScores: JSON.stringify(stanceResult._persistedContext),
-          scoringResult: JSON.stringify(stanceResult._scoringResult),
-          parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
-          decisionType: stanceResult._decisionType,
-          newStance: stanceResult.stance,
-          category: stanceResult._category,
-          estimatedPrice: stanceResult._estimatedPrice,
-          disengagementCount: stanceResult._disengagementCount,
-          stagnationCount: stanceResult._patience,
-        });
-
-        // Persist context as lastAssessment JSON
-        const lastAssessmentJson = JSON.stringify(stanceResult._persistedContext);
-
-        // Save based on decision type
-        if (stanceResult._decisionType === "out-of-scope") {
-          const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
-            conversationId: args.conversationId,
-            content: responseText,
-          });
-          traceData.messageId = messageId;
-        } else if (stanceResult.closing && stanceResult.verdict) {
-          const messageId = await ctx.runMutation(
-            internal.conversations.saveResponseWithVerdict,
-            {
-              conversationId: args.conversationId,
-              content: responseText,
-              verdict: stanceResult.verdict,
-              score: stanceResult.score,
-              stance: stanceResult.stance,
-              category: stanceResult._category,
-              estimatedPrice: stanceResult._estimatedPrice,
-              item: stanceResult._item,
-              lastAssessment: lastAssessmentJson,
-              disengagementCount: stanceResult._disengagementCount,
-              stagnationCount: stanceResult._patience,
-              excuse,
-              verdictTagline,
-            }
-          );
-          traceData.messageId = messageId;
-        } else {
-          const messageId = await ctx.runMutation(
-            internal.conversations.saveResponseWithScoring,
-            {
-              conversationId: args.conversationId,
-              content: responseText,
-              score: stanceResult.score,
-              stance: stanceResult.stance,
-              category: stanceResult._category,
-              estimatedPrice: stanceResult._estimatedPrice,
-              item: stanceResult._item,
-              lastAssessment: lastAssessmentJson,
-              disengagementCount: stanceResult._disengagementCount,
-              stagnationCount: stanceResult._patience,
-            }
-          );
-          traceData.messageId = messageId;
-        }
-
-        await saveTraceQuietly();
       } else {
-        // --- B) No tool call (casual turn) — safety net, should not fire with tool_choice: required ---
-        console.warn("LLM skipped tool despite tool_choice: required — falling back to casual path");
-        const durationMs = Date.now() - llmStart;
-        const responseText = call1.content ?? "";
+        responseText = call2.content ?? "";
+      }
 
-        traceData.toolCalled = false;
+      if (!responseText) {
+        throw new Error("Call 2 returned empty content");
+      }
 
-        Object.assign(traceData, {
-          durationMs,
-          rawResponse: responseText,
-          tokenUsage: call1Usage,
-          rawScores: "{}",
-          sanitizedScores: "{}",
-          scoringResult: "{}",
-          parsedResponse: JSON.stringify({ response: responseText }),
-          decisionType: "casual",
-          newStance: currentStance,
-          category: conversation.category ?? "other",
-          estimatedPrice: conversation.estimatedPrice,
-          disengagementCount,
-          stagnationCount: patience,
-        });
+      // Capture trace data
+      const sanitizedForTrace = sanitizeAssessment(rawAssessment);
 
+      Object.assign(traceData, {
+        durationMs,
+        rawResponse: responseText,
+        tokenUsage: totalUsage,
+        rawScores: JSON.stringify(sanitizedForTrace),
+        sanitizedScores: JSON.stringify(stanceResult._persistedContext),
+        scoringResult: JSON.stringify(stanceResult._scoringResult),
+        parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
+        decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
+        newStance: stanceResult.stance,
+        category: stanceResult._category,
+        estimatedPrice: stanceResult._estimatedPrice,
+        disengagementCount: stanceResult._disengagementCount,
+        stagnationCount: stanceResult._patience,
+      });
+
+      // Persist context as lastAssessment JSON
+      const lastAssessmentJson = JSON.stringify(stanceResult._persistedContext);
+
+      // Save based on decision type
+      if (stanceResult._decisionType === "out-of-scope") {
         const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
           conversationId: args.conversationId,
           content: responseText,
         });
         traceData.messageId = messageId;
-
-        await saveTraceQuietly();
+      } else if (stanceResult.closing && stanceResult.verdict) {
+        const messageId = await ctx.runMutation(
+          internal.conversations.saveResponseWithVerdict,
+          {
+            conversationId: args.conversationId,
+            content: responseText,
+            verdict: stanceResult.verdict,
+            score: stanceResult.score,
+            stance: stanceResult.stance,
+            category: stanceResult._category,
+            estimatedPrice: stanceResult._estimatedPrice,
+            item: stanceResult._item,
+            lastAssessment: lastAssessmentJson,
+            disengagementCount: stanceResult._disengagementCount,
+            stagnationCount: stanceResult._patience,
+            excuse,
+            verdictTagline,
+          }
+        );
+        traceData.messageId = messageId;
+      } else {
+        const messageId = await ctx.runMutation(
+          internal.conversations.saveResponseWithScoring,
+          {
+            conversationId: args.conversationId,
+            content: responseText,
+            score: stanceResult.score,
+            stance: stanceResult.stance,
+            category: stanceResult._category,
+            estimatedPrice: stanceResult._estimatedPrice,
+            item: stanceResult._item,
+            lastAssessment: lastAssessmentJson,
+            disengagementCount: stanceResult._disengagementCount,
+            stagnationCount: stanceResult._patience,
+          }
+        );
+        traceData.messageId = messageId;
       }
+
+      await saveTraceQuietly();
     } catch (error) {
       console.error("LLM generation failed:", error);
       if (traceData.rawResponse || traceData.toolCalled !== undefined) {
