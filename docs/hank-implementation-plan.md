@@ -243,19 +243,25 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 
 **Goal:** Free tier works. Paid credits purchasable via Stripe.
 
+**See `docs/monetization.md` for full credit system design, cost analysis, and margin calculations.**
+
 ### 4a: Credit System
-- [ ] Convex schema: credits table (userId, freeCreditsRemaining, purchasedCredits, lastFreeReset)
-- [ ] 3 free credits per day, reset at midnight (user's timezone or UTC — decide)
-- [ ] 1 credit = 1 conversation
-- [ ] Credit check before conversation starts
-- [ ] "Out of credits" state with purchase CTA
+- [ ] Convex schema: credits table (userId, balance, totalPurchased, totalUsed)
+- [ ] 1 credit = 1 user message (3 credits for photo messages)
+- [ ] New users receive 30 free messages (starter pack, no daily reset)
+- [ ] Credit check on message send, not conversation start
+- [ ] "Out of credits" state with purchase CTA (mid-conversation friendly)
 
 ### 4b: Stripe Integration
 - [ ] Stripe Checkout for credit pack purchases
-- [ ] Credit packs: 10 for $0.99, 30 for $1.99, 75 for $3.99
+- [ ] Credit packs: 50 for $1.99, 150 for $4.99, 400 for $9.99
 - [ ] Convex HTTP action as Stripe webhook handler
-- [ ] Webhook receives payment confirmation → adds credits to user
+- [ ] Webhook receives payment confirmation → adds credits to balance
 - [ ] Credits screen/modal showing balance + purchase options
+
+### 4c: Cost Controls
+- [ ] Sliding context window after turn 8 (first message + last 6 messages) to cap per-message LLM cost
+- [ ] Per-message cost tracking for analytics (actual tokens used per call)
 
 **Time:** 2-3 days.
 
@@ -532,7 +538,7 @@ After each phase, ask:
 - **After Phase 2:** Does Hank sound right? Is the voice screenshot-worthy? If not, keep tuning. Don't move on until the voice lands.
 - **After Phase 4:** Full product works end-to-end. Test with wife + friends. Get honest feedback.
 - **After Phase 5:** Record a test TikTok. Is the conversation entertaining in 15 seconds? If not, the content format needs rethinking.
-- **After launch:** Are people hitting the 3 credit limit? That's the signal to double down. If nobody runs out of free credits, usage is too low.
+- **After launch:** Are people running out of starter credits? What's the median conversation length? Are users buying credit packs? These are the signals to tune pricing.
 
 ---
 
@@ -621,5 +627,5 @@ Tyler's prompt structure in `lib/advisor/prompts.ts` maps directly to Hank:
 1. ~~**App name / domain**~~ — AskHank / askhank.app.
 2. ~~**Photo input in web v1?**~~ **Yes — proven.** Already built camera-based scanning for Hopshelf (Google Gemini Flash). Same approach for Hank.
 3. ~~**System prompt**~~ — Done. Lives in `convex/llm/prompt.ts`. Dynamic stance, JSON output, scoring guidelines.
-4. **Credit reset timezone** — UTC or user's timezone? UTC is simpler.
+4. ~~**Credit reset timezone**~~ — No longer relevant. Starter pack model has no daily reset.
 5. **Conversation memory scope** — how many past conversations to inject as context? All of them gets expensive. Last 10? Last 30 days?
