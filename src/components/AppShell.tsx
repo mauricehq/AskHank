@@ -83,7 +83,7 @@ export function AppShell() {
         {needsOnboarding ? (
           <OnboardingPrompt />
         ) : currentView === "stats" ? (
-          <StatsPanel onBack={() => setCurrentView("empty")} />
+          <StatsPanel onBack={() => setCurrentView("empty")} onOpenSettings={() => setCurrentView("settings")} />
         ) : currentView === "settings" ? (
           <SettingsPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "admin" && canAccessAdminPanel ? (

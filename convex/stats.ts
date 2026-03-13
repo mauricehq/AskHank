@@ -29,12 +29,14 @@ export const getStats = query({
       (c) => c.verdict === "denied"
     );
 
-    const biggestSave =
-      deniedConversations.length > 0
-        ? Math.max(
-            ...deniedConversations.map((c) => c.estimatedPrice ?? 0)
-          ) || null
-        : null;
+    // Biggest save: find the denied conversation with the highest price
+    let biggestSave: { amount: number; item: string | null; date: number } | null = null;
+    for (const conv of deniedConversations) {
+      const price = conv.estimatedPrice ?? 0;
+      if (price > 0 && (biggestSave === null || price > biggestSave.amount)) {
+        biggestSave = { amount: price, item: conv.item ?? null, date: conv.createdAt };
+      }
+    }
 
     // Current streak: count consecutive denied from most recent backward
     const sorted = [...conversations].sort(
@@ -50,20 +52,30 @@ export const getStats = query({
       }
     }
 
-    // Category breakdown: top 5 from denied conversations
-    const categoryCounts = new Map<string, number>();
+    // Category breakdown: top 5 from denied conversations, with total saved amount
+    const categoryData = new Map<string, { count: number; amount: number }>();
     for (const conv of deniedConversations) {
       if (conv.category) {
-        categoryCounts.set(
-          conv.category,
-          (categoryCounts.get(conv.category) ?? 0) + 1
-        );
+        const existing = categoryData.get(conv.category) ?? { count: 0, amount: 0 };
+        existing.count++;
+        existing.amount += conv.estimatedPrice ?? 0;
+        categoryData.set(conv.category, existing);
       }
     }
-    const categories = [...categoryCounts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
+    const categories = [...categoryData.entries()]
+      .map(([name, { count, amount }]) => ({ name, count, amount }))
+      .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
+
+    // Work-hours saved: derive from savedTotal + user's income
+    let hoursSaved: number | null = null;
+    if (savedTotal > 0 && user.incomeAmount && user.incomeType) {
+      const grossHourly = user.incomeType === "annual" ? user.incomeAmount / 2080 : user.incomeAmount;
+      const netHourly = grossHourly * 0.75;
+      if (netHourly > 0) {
+        hoursSaved = Math.round((savedTotal / netHourly) * 10) / 10;
+      }
+    }
 
     return {
       savedTotal,
@@ -74,6 +86,7 @@ export const getStats = query({
       biggestSave,
       currentStreak,
       categories,
+      hoursSaved,
     };
   },
 });
