@@ -40,6 +40,138 @@ Don't just measure shares. Measure whether the product actually prevents purchas
 
 ---
 
+## Competitive Advantage: Everyone Else Is Behind a Paywall
+
+Every impulse buying app on the iOS App Store locks the experience behind a paywall before the user even knows if it works. Hank gives you 3 free conversations per day and shows example conversations before you type anything.
+
+Launch positioning: **"Every impulse buying app charges you before you can try it. Hank lets you argue for free."**
+
+That's a Reddit post, a ProductHunt tagline, and an App Store description in one sentence.
+
+---
+
+## Monetization Framing: Savings, Not Roasts
+
+The credit pack framing must match the utility, not the entertainment.
+
+| Framing | Conversion |
+|---|---|
+| "Buy 10 roasts for $0.99" | Why would I pay to be insulted? |
+| "10 purchase decisions for $0.99" | Maybe, but I can decide myself |
+| "Saved $2,847 this year. Refill to keep saving." | Obvious. The app pays for itself 100x over. |
+
+Nobody buys a credit pack to get roasted. They buy it because the $0.99 pack that prevented a $200 impulse buy has a 200x return.
+
+The "Saved $X" counter isn't just a retention feature — it's the monetization engine. Once that number is meaningful, refilling credits is a no-brainer. "You've saved $847. You have 0 credits left." The counter does the selling.
+
+The free tier (3/day) lets users build up their saved counter before ever paying. By the time they hit the paywall, they have proof the app works.
+
+**The roasting is why they enjoy it. The saving is why they pay.**
+
+---
+
+## Distribution Tiers
+
+### Tier 1: People actively searching for help (launch)
+
+Go where people are already trying to solve the problem, not where they're looking for entertainment. Target big communities where impulse buying comes up as a topic, not tiny niche subs.
+
+**Primary targets (large, active, impulse buying is a recurring topic):**
+- **r/ADHD** (2M) — impulse buying is one of the most discussed symptoms. "I spent $400 on Amazon last night and I don't remember why" is a weekly post. Hank is a coping tool, not a toy. This is probably the single best community for Hank.
+- **r/personalfinance** (21.4M) — utility-minded, shares tools that work. Impulse buying threads appear regularly.
+- **r/povertyfinance** (2.1M) — people who feel the pain of impulse buys the hardest. High motivation to change.
+- **r/Anticonsumption** (1.5M) — philosophically aligned, anti-impulse-buying mindset built in.
+- **r/minimalism** (2.5M) — "buy less, buy better" audience, receptive to friction tools.
+- **r/frugal** (1.1M) — practical, utility-first community.
+
+**Secondary (smaller but perfectly targeted):**
+- **r/NoBuy** (67K) — tiny but every member is the exact target user. Good for early testers, not for scale.
+
+**Handle with care:**
+- **r/shoppingaddiction** — Real community with real pain. Ranges from casual impulse buyers to people coping with grief and depression through shopping. Hank can help the "I spend $282/month on random stuff out of boredom" crowd, but would feel tone-deaf to someone shopping because their mom died. Position Hank as one tool for casual impulse friction, explicitly not a replacement for therapy. Lead humble: "this helped me add friction to everyday impulse buys, obviously not a cure-all." Same energy as Hank's own line: "I talk you out of impulse buys, not into life choices. That's above my pay grade."
+
+**Not a fit:**
+- r/impulsebuying — doesn't exist.
+
+### Landing Page: Set Expectations Early
+
+The landing page must make clear what Hank is and isn't. This filters out users who'd have a bad experience and attracts users who'll love it.
+
+**What Hank is:**
+- A debate partner who challenges your impulse purchases
+- Sarcastic, blunt, funny — like a friend who's better with money
+- A friction tool that makes you think before you buy
+
+**What Hank isn't:**
+- A therapist, counselor, or mental health tool
+- A budgeting app or spending tracker
+- Gentle, supportive, or encouraging
+
+If you can't take the debate, don't sign up. Hank isn't for everyone and that's fine. The people who get it will love it. The people who don't should know before they create an account, not after.
+
+This honesty is also good positioning — "not for everyone" makes it more appealing to the people it IS for.
+
+**SEO:** "how to stop impulse buying" — one genuinely useful blog post about impulse prevention techniques, mention Hank as one approach. Long-tail traffic from people who already have the problem.
+
+### Tier 2: Proof-based sharing (post-launch, once users have data)
+
+The killer content isn't "Hank roasted me." It's:
+
+> "I've saved $2,847 this year using this app. Every time I'm about to buy something stupid, I argue with it first. Most of the time I realize I don't need it."
+
+That's a post in r/nobuy or r/personalfinance that gets upvoted because it's a real result, not a joke. The entertainment is the hook inside the post ("it told me my headphones were Bose speakers for my microwave") but the credibility comes from the number.
+
+### Tier 3: The "Saved $X" counter as viral artifact
+
+Not the conversation. Not the verdict card. The counter.
+
+```
+┌─────────────────────────────────┐
+│         ASK HANK                │
+│                                 │
+│    You've saved                 │
+│       $2,847                    │
+│    this year                    │
+│                                 │
+│    47 purchases talked out of   │
+│    3 approved                   │
+│                                 │
+│         askhank.app             │
+└─────────────────────────────────┘
+```
+
+This is the share artifact for utility. "I saved $2,847" is a flex. It's identity-reinforcing ("I'm responsible with money") and proof the app works. People share scoreboards — Strava miles, Duolingo streaks, Spotify Wrapped. The saved counter is Hank's version.
+
+### Tier 4: Entertainment as amplifier (not primary)
+
+TikTok screen recordings and conversation screenshots still happen. They're the bonus, not the strategy. Someone posts their "Saved $2,847" screenshot, people ask "what is this?", they check it out, the funny conversations seal the deal.
+
+### The funnel
+
+```
+Problem-aware user finds Hank (Reddit, SEO, word of mouth)
+→ Tries it free (3/day, example conversations show the voice)
+→ Uses it at impulse moments (utility)
+→ Saved $X counter grows (proof it works)
+→ Shares the counter or a funny conversation (organic distribution)
+→ Hits credit limit, buys a pack (the savings justify the cost)
+```
+
+Every step is driven by utility. The entertainment makes each step more enjoyable but isn't required for the funnel to work.
+
+### Channel by entry point
+
+| Context | Lead with | The surprise |
+|---|---|---|
+| r/nobuy, r/personalfinance | Savings number, utility | They discover the funny voice |
+| TikTok, Reels | Funny conversation | They discover the savings counter |
+| Friend in iMessage | Conversation card | They try it, build their own counter |
+| SEO / Google | "How to stop impulse buying" | They find a tool that actually works |
+
+Different entry points, same product. The utility gets them in through search and forums. The roast gets them in through social. Both lead to the same place.
+
+---
+
 ## The Share Problem
 
 Conversations are the product, but they're also long (6-8 exchanges typical) and text-heavy. A full conversation screenshot is unreadable on TikTok and too much for Instagram stories. The share artifact needs to be designed, not assumed.
