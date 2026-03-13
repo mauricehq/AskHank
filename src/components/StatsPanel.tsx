@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, TrendingUp, MessageSquare, Flame, Trophy, Clock } from "lucide-react";
+import { ArrowLeft, TrendingUp, MessageSquare, Flame, Trophy, Clock, ShieldCheck } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -48,7 +48,7 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
             {stats.hoursSaved !== null ? (
               <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-text-secondary">
                 <Clock size={14} />
-                <span>That&apos;s <span className="font-semibold text-text">{stats.hoursSaved}h</span> of work</span>
+                <span>That&apos;s <span className="font-semibold text-text">{stats.hoursSaved >= 16 ? `${Math.round((stats.hoursSaved / 8) * 10) / 10} days` : `${stats.hoursSaved} ${stats.hoursSaved === 1 ? "hour" : "hours"}`}</span> of work</span>
               </div>
             ) : (
               <button
@@ -60,8 +60,13 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
             )}
           </div>
 
-          {/* Overview row */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Overview grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              icon={<ShieldCheck size={16} />}
+              value={String(stats.deniedCount)}
+              label="Resisted"
+            />
             <StatCard
               icon={<TrendingUp size={16} />}
               value={stats.resistanceRate !== null ? `${stats.resistanceRate}%` : "0%"}
@@ -75,7 +80,7 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
             <StatCard
               icon={<Flame size={16} />}
               value={String(stats.currentStreak)}
-              label="Deny Streak"
+              label="Resist Streak"
             />
           </div>
 

@@ -124,6 +124,17 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
       {(() => {
         const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
         const savedTotal = user?.savedTotal ?? 0;
+
+        // Compute hours saved if income is set
+        let hoursSaved: number | null = null;
+        if (savedTotal > 0 && user?.incomeAmount && user?.incomeType) {
+          const grossHourly = user.incomeType === "annual" ? user.incomeAmount / 2080 : user.incomeAmount;
+          const netHourly = grossHourly * 0.75;
+          if (netHourly > 0) {
+            hoursSaved = Math.round((savedTotal / netHourly) * 10) / 10;
+          }
+        }
+
         return (
           <div className="shrink-0 px-2 pb-3">
             <button
@@ -142,10 +153,10 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
               </div>
               <div className="border-l border-border flex-1 py-3.5 text-center">
                 <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
-                  {deniedCount}
+                  {hoursSaved !== null ? (hoursSaved >= 16 ? Math.round((hoursSaved / 8) * 10) / 10 : hoursSaved) : deniedCount}
                 </div>
                 <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
-                  skipped
+                  {hoursSaved !== null ? (hoursSaved >= 16 ? "days saved" : "hours saved") : "resisted"}
                 </div>
               </div>
             </button>
