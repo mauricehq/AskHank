@@ -108,6 +108,18 @@ export const getUserByToken = internalQuery({
   },
 });
 
+export const setStripeCustomerId = internalMutation({
+  args: {
+    userId: v.id("users"),
+    stripeCustomerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      stripeCustomerId: args.stripeCustomerId,
+    });
+  },
+});
+
 // --- One-time migration: grant starter credits to existing users ---
 
 export const migrateExistingUsers = internalMutation({

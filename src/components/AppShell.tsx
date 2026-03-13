@@ -100,7 +100,7 @@ export function AppShell() {
         {needsOnboarding ? (
           <OnboardingPrompt />
         ) : currentView === "settings" ? (
-          <SettingsPanel onBack={() => setCurrentView("empty")} />
+          <SettingsPanel onBack={() => setCurrentView("empty")} onOpenCredits={() => setCreditsModalOpen(true)} />
         ) : currentView === "admin" && canAccessAdminPanel ? (
           <AdminPanel onBack={() => setCurrentView("empty")} />
         ) : currentView === "chat" ? (

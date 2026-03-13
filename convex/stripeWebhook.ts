@@ -47,12 +47,25 @@ export const handleWebhook = internalAction({
       return;
     }
 
+    const userId = metadata.userId as Id<"users">;
+
     await ctx.runMutation(internal.credits.addCredits, {
-      userId: metadata.userId as Id<"users">,
+      userId,
       stripeSessionId: session.id,
       packId: metadata.packId,
       credits,
       amountCents: session.amount_total ?? 0,
     });
+
+    // Belt + suspenders: capture stripeCustomerId if not already saved
+    if (session.customer) {
+      const customerId = typeof session.customer === "string"
+        ? session.customer
+        : session.customer.id;
+      await ctx.runMutation(internal.credits.setStripeCustomerId, {
+        userId,
+        stripeCustomerId: customerId,
+      });
+    }
   },
 });

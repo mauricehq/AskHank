@@ -13,6 +13,7 @@ export default defineSchema({
         v.literal("admin")
       )
     ),
+    stripeCustomerId: v.optional(v.string()),
     savedTotal: v.optional(v.number()),
     deniedCount: v.optional(v.number()),
     updatedAt: v.number(),

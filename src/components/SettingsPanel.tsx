@@ -15,9 +15,11 @@ import {
   LogOut,
   Trash2,
   AlertTriangle,
+  CreditCard,
+  Coins,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { useTheme } from "next-themes";
 import { api } from "../../convex/_generated/api";
 
@@ -87,7 +89,7 @@ function SettingRow({
 /* ── Button classes ── */
 
 const btnStandardClass =
-  "rounded-xl text-[10px] font-bold uppercase tracking-widest border border-border bg-bg-card text-text-secondary hover:border-accent/50 hover:text-text hover:bg-bg-surface px-4 py-2.5 active:scale-[0.97] transition-colors";
+  "rounded-xl text-[10px] font-bold uppercase tracking-widest border border-border bg-bg-surface text-text hover:border-accent/50 hover:bg-accent/10 px-4 py-2.5 active:scale-[0.97] transition-colors";
 
 const btnDangerClass =
   "rounded-xl text-[10px] font-bold uppercase tracking-widest border border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10 hover:border-red-500/50 px-4 py-2.5 active:scale-[0.97] transition-colors";
@@ -96,12 +98,15 @@ const btnDangerClass =
 
 interface SettingsPanelProps {
   onBack: () => void;
+  onOpenCredits: () => void;
 }
 
-export function SettingsPanel({ onBack }: SettingsPanelProps) {
+export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
   const user = useQuery(api.users.currentUser);
+  const creditBalance = useQuery(api.credits.getBalance);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const deleteAccountMutation = useMutation(api.users.deleteAccount);
+  const createPortalSession = useAction(api.stripe.createPortalSession);
   const { signOut } = useClerk();
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -111,6 +116,7 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -153,6 +159,18 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
   const cancelEditing = () => {
     setIsEditingName(false);
     setNameInput("");
+  };
+
+  const openPortal = async () => {
+    setIsLoadingPortal(true);
+    try {
+      const result = await createPortalSession({});
+      if (result?.url) {
+        window.open(result.url, "_blank");
+      }
+    } finally {
+      setIsLoadingPortal(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -278,8 +296,45 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
             </SettingRow>
           </SettingSection>
 
+          {/* ── Payments ── */}
+          <SettingSection icon={CreditCard} title="Payments" delay={120}>
+            <SettingRow
+              icon={Coins}
+              label="Credits"
+              description="Your message balance"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-secondary">
+                  {creditBalance?.balance ?? 0} credits
+                </span>
+                <button onClick={onOpenCredits} className={btnStandardClass}>
+                  Buy More
+                </button>
+              </div>
+            </SettingRow>
+            <SettingRow
+              icon={CreditCard}
+              label="Payment Method"
+              description="Manage your saved card"
+            >
+              {user?.stripeCustomerId ? (
+                <button
+                  onClick={openPortal}
+                  disabled={isLoadingPortal}
+                  className={btnStandardClass}
+                >
+                  {isLoadingPortal ? "Loading..." : "Manage"}
+                </button>
+              ) : (
+                <span className="text-sm text-text-secondary">
+                  No payment method
+                </span>
+              )}
+            </SettingRow>
+          </SettingSection>
+
           {/* ── Account ── */}
-          <SettingSection icon={Shield} title="Account" delay={160}>
+          <SettingSection icon={Shield} title="Account" delay={200}>
             <SettingRow
               icon={LogOut}
               label="Sign Out"

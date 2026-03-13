@@ -42,10 +42,25 @@ export const createCheckoutSession = action({
     if (!priceId) throw new Error(`Stripe price not configured for pack: ${packId}`);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
     const stripe = getStripe();
+
+    // Create or reuse Stripe Customer
+    let stripeCustomerId = user.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: user._id },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation(internal.credits.setStripeCustomerId, {
+        userId: user._id,
+        stripeCustomerId,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      customer: stripeCustomerId,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}?credits=success`,
       cancel_url: `${appUrl}?credits=cancelled`,
@@ -59,5 +74,30 @@ export const createCheckoutSession = action({
     if (!session.url) throw new Error("Stripe did not return a checkout URL");
 
     return { url: session.url };
+  },
+});
+
+export const createPortalSession = action({
+  args: {},
+  handler: async (ctx): Promise<{ url: string } | null> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.runQuery(internal.credits.getUserByToken, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+    if (!user) throw new Error("User not found");
+
+    if (!user.stripeCustomerId) return null;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const stripe = getStripe();
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: appUrl,
+    });
+
+    return { url: portalSession.url };
   },
 });
