@@ -108,25 +108,25 @@ export function AppShell() {
         ) : (
           <EmptyState onStartChat={() => setCurrentView("chat")} />
         )}
+
+        {/* Credit purchase toast — inside main so it centers with content */}
+        {creditToast && (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-end justify-center pb-6">
+            <div className={`pointer-events-auto rounded-xl px-5 py-3 text-sm font-medium shadow-lg ${
+              creditToast === "success"
+                ? "bg-accent text-user-text"
+                : "bg-bg-card border border-border text-text"
+            }`}>
+              {creditToast === "success"
+                ? "Credits added!"
+                : "Purchase cancelled"}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Credits modal */}
       <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} />
-
-      {/* Credit purchase toast */}
-      {creditToast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-          <div className={`rounded-xl px-5 py-3 text-sm font-medium shadow-lg ${
-            creditToast === "success"
-              ? "bg-green-600 text-white"
-              : "bg-bg-card border border-border text-text"
-          }`}>
-            {creditToast === "success"
-              ? "Credits added!"
-              : "Purchase cancelled"}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
