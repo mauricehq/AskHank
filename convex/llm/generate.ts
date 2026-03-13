@@ -123,7 +123,7 @@ interface GetStanceResult {
   closing?: boolean;
   // Internal fields (not sent to LLM)
   _disengagementCount: number;
-  _zeroStreak: number;
+  _patience: number;
   _category: string;
   _estimatedPrice?: number;
   _item?: string;
@@ -135,7 +135,7 @@ interface GetStanceResult {
 interface ConversationState {
   currentStance: Stance;
   disengagementCount: number;
-  zeroStreak: number;
+  patience: number;
   runningScore: number;
   storedItem?: string;
   turnCount: number;
@@ -182,7 +182,7 @@ function buildClosingBrief(
 }
 
 function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: ConversationState): GetStanceResult {
-  const { currentStance, disengagementCount, zeroStreak, runningScore, storedItem, turnCount } = state;
+  const { currentStance, disengagementCount, patience, runningScore, storedItem, turnCount } = state;
 
   const assessment = sanitizeAssessment(rawAssessmentInput);
   const coalesced = coalesceTurnContext(assessment, state.previousContext ?? null);
@@ -211,7 +211,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       score: runningScore,
       guidance: "This is out of scope. Deflect with personality using the OUT OF SCOPE guidelines.",
       _disengagementCount: disengagementCount,
-      _zeroStreak: zeroStreak,
+      _patience: patience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -232,7 +232,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       verdict: "approved",
       closing: true,
       _disengagementCount: disengagementCount,
-      _zeroStreak: zeroStreak,
+      _patience: patience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -254,7 +254,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
-      _zeroStreak: 0,
+      _patience: 0,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -276,7 +276,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       verdict: "denied",
       closing: true,
       _disengagementCount: disengagementCount + 1,
-      _zeroStreak: zeroStreak,
+      _patience: patience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -295,7 +295,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       score: nonAnswerScore,
       guidance: `The user gave a non-answer. Stay at your stance. Push them to make a real argument. Something like "That's not an argument. What's actually wrong with what you have now."`,
       _disengagementCount: 1,
-      _zeroStreak: zeroStreak,
+      _patience: patience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -305,15 +305,47 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     };
   }
 
-  // 6. Directed question → neutral, no score change, reset disengagement
+  // 6. Directed question → patience +1, no score change, reset disengagement
   if (assessment.is_directed_question) {
+    const newPatience = patience + 1;
     const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+
+    // Patience exhausted on directed questions
+    if (newPatience >= 10) {
+      const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
+      return {
+        stance: currentStance,
+        score: runningScore,
+        guidance: `They've been asking questions instead of making a case for ${brief.itemContext}. You're done. 1 sentence, mic drop.`,
+        verdict: "denied",
+        closing: true,
+        _disengagementCount: 0,
+        _patience: newPatience,
+        _category: category,
+        _estimatedPrice: estimatedPrice,
+        _item: item,
+        _decisionType: "patience-denied",
+        _scoringResult: makeScoringResult(runningScore, 0),
+        _persistedContext: persistedContext,
+      };
+    }
+
+    // Patience warning for directed questions
+    let patienceGuidance = "";
+    if (newPatience >= 8) {
+      patienceGuidance = " Last chance. If they don't give you something real, you're done next turn.";
+    } else if (newPatience >= 6) {
+      patienceGuidance = " Your patience is almost gone. Tell them to make a real argument or you're closing this.";
+    } else if (newPatience >= 4) {
+      patienceGuidance = " They're not building a case. Push them to give you something concrete.";
+    }
+
     return {
       stance: currentStance,
       score: runningScore,
-      guidance: "They're asking you to explain yourself. Answer their question directly, then push for something new about their purchase case.",
+      guidance: "They're asking you to explain yourself. Answer their question directly, then push for something new about their purchase case." + patienceGuidance,
       _disengagementCount: 0,
-      _zeroStreak: zeroStreak,  // preserve — don't increment, don't reset
+      _patience: newPatience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -333,6 +365,16 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   const newRunningScore = runningScore + delta;
 
+  // 7b. Patience: drains on zero/negative delta, restores on positive delta
+  let newPatience: number;
+  if (turnCount === 1) {
+    newPatience = 0;
+  } else if (delta > 0) {
+    newPatience = Math.max(0, patience - 4);
+  } else {
+    newPatience = patience + 3;
+  }
+
   // 7a. Collapse: score < -5 AND turnCount > 3 → denied
   if (newRunningScore < -5 && turnCount > 3) {
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
@@ -347,7 +389,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
-      _zeroStreak: 0,
+      _patience: newPatience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
@@ -357,10 +399,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     };
   }
 
-  // 7b. Stagnation: delta === 0 (turn 1 exempt — no pushback to counter yet)
-  const newZeroStreak = delta === 0 && turnCount > 1 ? zeroStreak + 1 : 0;
-
-  if (newZeroStreak >= 3) {
+  if (newPatience >= 10) {
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
     const allSummaries = [...prevSummaries, newSummary];
     const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
@@ -368,26 +407,28 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     return {
       stance: currentStance,
       score: newRunningScore,
-      guidance: `${newZeroStreak} turns going nowhere on ${brief.itemContext}. Call out the repetition. 1 sentence, mic drop.`,
+      guidance: `Patience gone on ${brief.itemContext}. They had their chances. 1 sentence, mic drop.`,
       verdict: "denied",
       closing: true,
       _disengagementCount: 0,
-      _zeroStreak: newZeroStreak,
+      _patience: newPatience,
       _category: category,
       _estimatedPrice: estimatedPrice,
       _item: item,
-      _decisionType: "stagnation-denied",
+      _decisionType: "patience-denied",
       _scoringResult: makeScoringResult(newRunningScore, delta),
       _persistedContext: persistedContext,
     };
   }
 
-  // Stagnation warning (1-2 consecutive zero deltas)
-  let stagnationWarning = "";
-  if (newZeroStreak === 1) {
-    stagnationWarning = " They didn't make progress this turn. Push them harder.";
-  } else if (newZeroStreak === 2) {
-    stagnationWarning = " Two turns without progress. Warn them: one more weak turn and you're done.";
+  // Patience warnings
+  let patienceWarning = "";
+  if (newPatience >= 8) {
+    patienceWarning = " Last chance. If they don't give you something real, you're done next turn.";
+  } else if (newPatience >= 6) {
+    patienceWarning = " Your patience is almost gone. Tell them to make a real argument or you're closing this.";
+  } else if (newPatience >= 4) {
+    patienceWarning = " They're not building a case. Push them to give you something concrete.";
   }
 
   // 7c. Determine stance from new score
@@ -412,7 +453,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
       RELUCTANT: "Strong case but not fully convinced. Push for final proof.",
       CONCEDE: "", // handled above
     };
-    guidance = stanceGuidance[guardrailedStance] + stagnationWarning;
+    guidance = stanceGuidance[guardrailedStance] + patienceWarning;
   }
 
   return {
@@ -422,7 +463,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     verdict: guardrailedStance === "CONCEDE" ? "approved" : undefined,
     closing: guardrailedStance === "CONCEDE" ? true : undefined,
     _disengagementCount: 0,
-    _zeroStreak: newZeroStreak,
+    _patience: newPatience,
     _category: category,
     _estimatedPrice: estimatedPrice,
     _item: item,
@@ -508,7 +549,7 @@ export const respond = internalAction({
 
       const currentStance = toStance(conversation.stance);
       const disengagementCount = conversation.disengagementCount ?? 0;
-      const zeroStreak = conversation.stagnationCount ?? 0;  // repurposed field
+      const patience = conversation.stagnationCount ?? 0;  // patience meter (reuses DB field)
       const runningScore = conversation.score ?? 0;
       const turnCount = messages.filter((m) => m.role === "user").length;
 
@@ -552,7 +593,7 @@ export const respond = internalAction({
         disengagementCount,
         estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
         category: previousContext?.category ?? conversation.category,
-        zeroStreak,
+        patience,
         turnCount,
         turnSummaries: previousContext?.turnSummaries,
         recentMoves,
@@ -575,7 +616,7 @@ export const respond = internalAction({
         temperature: TEMPERATURE_ASSESSMENT,
         maxTokens: 300,
         disengagementCount,
-        stagnationCount: zeroStreak,
+        stagnationCount: patience,
       });
 
       // 4. CALL 1: LLM with tool available (low temp for consistent classification)
@@ -629,7 +670,7 @@ export const respond = internalAction({
         const stanceResult = executeGetStance(rawAssessment, {
           currentStance,
           disengagementCount,
-          zeroStreak,
+          patience,
           runningScore,
           storedItem: conversation.item,
           turnCount,
@@ -749,7 +790,7 @@ export const respond = internalAction({
           category: stanceResult._category,
           estimatedPrice: stanceResult._estimatedPrice,
           disengagementCount: stanceResult._disengagementCount,
-          stagnationCount: stanceResult._zeroStreak,
+          stagnationCount: stanceResult._patience,
         });
 
         // Persist context as lastAssessment JSON
@@ -776,7 +817,7 @@ export const respond = internalAction({
               item: stanceResult._item,
               lastAssessment: lastAssessmentJson,
               disengagementCount: stanceResult._disengagementCount,
-              stagnationCount: stanceResult._zeroStreak,
+              stagnationCount: stanceResult._patience,
               excuse,
               verdictTagline,
             }
@@ -795,7 +836,7 @@ export const respond = internalAction({
               item: stanceResult._item,
               lastAssessment: lastAssessmentJson,
               disengagementCount: stanceResult._disengagementCount,
-              stagnationCount: stanceResult._zeroStreak,
+              stagnationCount: stanceResult._patience,
             }
           );
           traceData.messageId = messageId;
@@ -823,7 +864,7 @@ export const respond = internalAction({
           category: conversation.category ?? "other",
           estimatedPrice: conversation.estimatedPrice,
           disengagementCount,
-          stagnationCount: zeroStreak,
+          stagnationCount: patience,
         });
 
         const messageId = await ctx.runMutation(internal.conversations.saveResponse, {

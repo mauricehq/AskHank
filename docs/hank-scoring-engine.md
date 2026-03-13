@@ -153,11 +153,11 @@ No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can'
 | Condition | Trigger | Result |
 |-----------|---------|--------|
 | Non-answer | 2 consecutive non-answers | Denied |
-| Stagnation | 3 consecutive turns with delta = 0 (turn 1 exempt) | Denied |
+| Patience exhausted | Patience meter reaches 10+ | Denied |
 | Collapse | Score < -5 after turn 3 | Denied |
 | User backs down | "Yeah you're right" etc. | Denied |
 
-**Stagnation** tracks consecutive zero-delta turns via `zeroStreak`. Slow progress (+3, +3) is still progress. But three turns of +0 means they can't counter Hank. Turn 1 is exempt — the user hasn't had a chance to argue yet. Directed questions preserve (don't increment or reset) the streak.
+**Patience** is a meter that drains at different rates based on turn type. Zero-delta turns drain +3, directed questions drain +1, and positive-delta turns restore -4 (floor 0). Turn 1 is exempt (patience stays 0). Warnings escalate: waning (4-5), thin (6-7), final (8-9), auto-deny (10+). A strong argument can fully recover patience from any warning level.
 
 **Collapse** prevents users from digging an emotional hole indefinitely. A "want" opener (score 0) + one emotional turn (-3) = -3, not great but recoverable. Past -5 after turn 3, it's a pattern.
 
@@ -198,16 +198,15 @@ Score carries over when items or prices change. Thresholds recalculate.
 3. user_backed_down     → denied (Hank wins)
 4. is_non_answer + ≥1   → denied (disengagement closure)
 5. is_non_answer (1st)  → warning, score -5
-6. is_directed_question → neutral, no score change
+6. is_directed_question → patience +1, no score change
+      - patience ≥ 10 → denied
 7. Normal turn:
    a. Turn 1: delta = getStartingScore(intent)
    b. Turn 2+: delta = computeTurnDelta(assessment)
    c. newScore = runningScore + delta
-   d. Collapse check: score < -5 AND turn > 3 → denied
-   e. Stagnation: delta=0 AND turn>1 → increment zeroStreak
-      - zeroStreak ≥ 3 → denied
-      - 1-2 → escalating warning
-   f. delta > 0 → reset zeroStreak
+   d. Patience: turn1 → 0, delta>0 → max(0, patience-4), else → patience+3
+   e. Collapse check: score < -5 AND turn > 3 → denied
+   f. Patience check: patience ≥ 10 → denied
    g. Determine stance from score
    h. Apply guardrails (pace cap, floor)
 ```
@@ -224,7 +223,7 @@ Three distinct slots in each LLM trace:
 | `sanitizedScores` | Persisted context (item, price, intent, turnSummaries) |
 | `scoringResult` | ScoringResult (runningScore, delta, stance, thresholdMultiplier, priceModifier) |
 
-Decision types: `normal`, `normal (stance capped)`, `casual`, `out-of-scope`, `directed-question`, `concede`, `user-backed-down`, `disengagement-increment`, `disengagement-denied`, `stagnation-denied`, `collapse-denied`, `error`.
+Decision types: `normal`, `normal (stance capped)`, `casual`, `out-of-scope`, `directed-question`, `concede`, `user-backed-down`, `disengagement-increment`, `disengagement-denied`, `patience-denied`, `collapse-denied`, `error`.
 
 ---
 
@@ -236,4 +235,4 @@ Decision types: `normal`, `normal (stance capped)`, `casual`, `out-of-scope`, `d
 | `convex/llm/prompt.ts` | Tool definition (get_stance schema), system prompt builder, debate progress injection |
 | `convex/llm/generate.ts` | Orchestration: sanitization, context carry-forward, executeGetStance decision tree, two-call LLM pattern, trace capture |
 | `convex/llm/moves.ts` | Rhetorical move detection (prompt-only, doesn't affect scoring) |
-| `convex/schema.ts` | `conversations.stagnationCount` repurposed for zeroStreak (same type) |
+| `convex/schema.ts` | `conversations.stagnationCount` repurposed for patience meter (same type) |

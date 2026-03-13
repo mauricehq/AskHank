@@ -16,7 +16,7 @@ interface PromptConfig {
   disengagementCount?: number;
   estimatedPrice?: number;
   category?: string;
-  zeroStreak?: number;
+  patience?: number;
   turnCount?: number;
   turnSummaries?: TurnSummary[];
   recentMoves?: DetectedMove[];
@@ -152,7 +152,7 @@ export function buildSystemPrompt(config: PromptConfig = {}): string {
     disengagementCount = 0,
     estimatedPrice,
     category,
-    zeroStreak = 0,
+    patience = 0,
     turnCount = 1,
   } = config;
   const userName = displayName || "this person";
@@ -280,11 +280,13 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
     );
   }
 
-  // Zero streak context (only when > 0) — factual only, guidance comes from tool result
-  if (zeroStreak >= 1) {
-    sections.push(
-      `STAGNATION CONTEXT: ${zeroStreak} consecutive turn${zeroStreak > 1 ? "s" : ""} with no score progress.`
-    );
+  // Patience context — level-based warnings so LLM knows Hank's state
+  if (patience >= 8) {
+    sections.push(`PATIENCE: One more weak turn and Hank closes this.`);
+  } else if (patience >= 6) {
+    sections.push(`PATIENCE: Hank's patience is running thin.`);
+  } else if (patience >= 4) {
+    sections.push(`PATIENCE: Hank's patience is waning.`);
   }
 
   return sections.filter((s): s is string => s !== null).join("\n\n");
