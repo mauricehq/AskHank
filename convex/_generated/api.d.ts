@@ -16,6 +16,7 @@ import type * as lib_roleConstants from "../lib/roleConstants.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as llmTraces from "../llmTraces.js";
 import type * as llm_generate from "../llm/generate.js";
+import type * as llm_memory from "../llm/memory.js";
 import type * as llm_moves from "../llm/moves.js";
 import type * as llm_openrouter from "../llm/openrouter.js";
 import type * as llm_prompt from "../llm/prompt.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roles": typeof lib_roles;
   llmTraces: typeof llmTraces;
   "llm/generate": typeof llm_generate;
+  "llm/memory": typeof llm_memory;
   "llm/moves": typeof llm_moves;
   "llm/openrouter": typeof llm_openrouter;
   "llm/prompt": typeof llm_prompt;

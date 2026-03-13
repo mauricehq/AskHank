@@ -20,6 +20,7 @@ interface PromptConfig {
   turnCount?: number;
   turnSummaries?: TurnSummary[];
   recentMoves?: DetectedMove[];
+  pastConversationsYaml?: string | null;
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -248,6 +249,11 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
 - "It's for the kids" → "Your kid needs this for school, or you feel bad and this is how you're fixing it?"
 - "The whole family uses it" → "The whole family uses it. How — every day, or you watched one movie together last month?"
 - "Everyone else's kids have one" → That's keeping up with the Joneses with a family wrapper. Call it out.`,
+
+    // Past conversations (memory)
+    config.pastConversationsYaml
+      ? `PAST CONVERSATIONS — you've talked to ${userName} before. Use this to spot patterns, throw back claims, and reference what you've already let through. Don't recite the list — weave it into your pushback naturally when relevant.\n${config.pastConversationsYaml}`
+      : null,
 
     // Conversation progress
     `CONVERSATION PROGRESS — this is turn ${turnCount}. ${

@@ -257,6 +257,29 @@ export const saveResponseWithScoring = internalMutation({
   },
 });
 
+export const internalGetPastConversations = internalQuery({
+  args: {
+    userId: v.id("users"),
+    excludeConversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    return conversations
+      .filter((c) => c._id !== args.excludeConversationId)
+      .map((c) => ({
+        item: c.item,
+        estimatedPrice: c.estimatedPrice,
+        verdict: c.verdict,
+        excuse: c.excuse,
+        createdAt: c.createdAt,
+      }));
+  },
+});
+
 // --- Test helpers (internal only, used by testChat) ---
 
 export const internalGetFirstAdmin = internalQuery({

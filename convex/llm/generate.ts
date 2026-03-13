@@ -7,6 +7,7 @@ import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
 import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
 import { extractRecentMoves } from "./moves";
+import { formatMemoryYaml } from "./memory";
 
 // LLM temperature settings
 const TEMPERATURE_ASSESSMENT = 0.8;
@@ -585,6 +586,12 @@ export const respond = internalAction({
         { userId: args.userId }
       );
 
+      const pastConversations = await ctx.runQuery(
+        internal.conversations.internalGetPastConversations,
+        { userId: args.userId, excludeConversationId: args.conversationId }
+      );
+      const pastConversationsYaml = formatMemoryYaml(pastConversations);
+
       // 2. Build prompt
       const recentMoves = extractRecentMoves(
         messages.map((m) => ({ role: m.role, content: m.content }))
@@ -600,6 +607,7 @@ export const respond = internalAction({
         turnCount,
         turnSummaries: previousContext?.turnSummaries,
         recentMoves,
+        pastConversationsYaml,
       });
 
       const llmMessages = buildMessages(
