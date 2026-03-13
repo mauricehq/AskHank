@@ -245,42 +245,33 @@ Call 2 prompt selection:
 #### Not built (deferred to dossier in Phase 7)
 - [ ] Quote tracking: Hank throws the user's own words back at them — needs richer per-conversation data than what memory nudges store
 
-### 3e: Work-Hours Reframe
+### 3e: Work-Hours Reframe ✅
 
 **The insight:** Telling someone a standing desk costs $350 is abstract. Telling them it costs 12.5 hours of their labor is visceral. Price-to-hours conversion is one of the most effective impulse killers — validated by Reddit users who built entire apps around this single mechanic.
 
 **How it works:**
-- [ ] Optional salary/hourly rate input (settings or onboarding — "What do you make per hour?" or "What's your annual salary?")
-- [ ] Stored on user record in Convex (never shared, never displayed publicly)
-- [ ] After-tax estimation: apply rough tax bracket to convert gross → net hourly rate
-- [ ] When Hank knows the price and the user's rate, inject work-hours context into the system prompt
-- [ ] Hank weaves it into the conversation naturally: "That's 12.5 hours of your life for a standing desk you'll use as a shelf."
-- [ ] Works as a scoring amplifier — the reframe makes Hank's arguments land harder, not just as a standalone line
+- [x] Optional salary/hourly rate input (onboarding + settings — annual salary or hourly rate)
+- [x] Stored on user record in Convex (`incomeAmount`, `incomeType` on users table — never shared, never displayed publicly)
+- [x] After-tax estimation: flat 25% effective tax rate, annual → hourly via 2080 hours/year
+- [x] When Hank knows the price and the user's rate, inject `work_hours:` YAML block into system prompt (after PRICE CONTEXT)
+- [x] Hank weaves it into the conversation naturally: "That's 12 hours of your life for a gadget you'll forget about."
+- [x] Anti-parroting directive: use once max, don't lead with it, never say their rate out loud
+
+**Implementation details:**
+- Pure computation in `convex/llm/workHours.ts` (no Convex imports) — `computeWorkHours()` + `formatWorkHoursBlock()`
+- Injected into `buildSystemPrompt()` (turn 2+) and `buildOpenerPrompt()` (turn 1 when price known)
+- Work hours recomputed after Call 1 scoring to avoid one-turn lag when price changes mid-conversation
+- `setIncome` / `clearIncome` mutations with auth checks, positive amount validation
+- Onboarding: segmented toggle (Annual Salary / Hourly Rate) + dollar input below name field, optional
+- Settings: inline-edit row between Display Name and Email, with "Remove income" link
 
 **Prompt injection format:**
 ```yaml
 work_hours:
-  hourly_rate_net: 28.00
-  item_cost: 350.00
-  hours_equivalent: 12.5
-  context: "This purchase costs 12.5 hours of work after taxes."
+  hourly_rate_net: 23.44
+  hours_equivalent: 21.3
+Use this ONCE max per conversation. Don't lead with it. Never say their rate out loud. Narrate in your voice — e.g. "That's 12 hours of your life for a gadget you'll forget about."
 ```
-
-**Rules for Hank:**
-- Use it once per conversation max — repetition kills the impact
-- Don't lead with it. Build the case first, then drop the hours reframe as the gut punch
-- If user hasn't set their rate, don't ask mid-conversation. Skip it.
-- Never say the user's actual salary/rate out loud — only the hours equivalent
-
-**No rate set? Still works (partially):**
-- Hank can still use relative framing without exact hours: "How many hours do you work for $350?"
-- The question itself forces the mental math, even without a stored rate
-
-**Why this belongs in Phase 3 (not later):**
-- Zero dependency on dossier or banger system
-- Small implementation surface — one user field, one prompt section, one calculation
-- High impact on the core product loop (makes conversations more effective at preventing purchases)
-- Directly validated by real users — not speculative
 
 ### ~~3f: User Dossier~~ → Deferred to v1.5
 Retention feature, not a launch feature. At launch there are zero conversations to build a dossier from. It gets valuable after 10-15 conversations per user — that's weeks of usage. Build it when early users have enough history for it to matter. See hank-scoring-engine.md for full dossier design.
@@ -559,7 +550,7 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a-3d done) | Work-hours reframe |
+| 3: Persistence | ✅ Done (3a-3e) | Storage, history, saved counter, memory, work-hours reframe |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
