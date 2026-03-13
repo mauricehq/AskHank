@@ -46,6 +46,7 @@ export default defineSchema({
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
     excuse: v.optional(v.string()),
     verdictTagline: v.optional(v.string()),
+    memoryReferenceCount: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   messages: defineTable({

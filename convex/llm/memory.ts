@@ -1,69 +1,89 @@
 "use node";
 
-interface PastConversation {
+export interface PastConversation {
+  _id: string;
   item?: string;
+  category?: string;
   estimatedPrice?: number;
-  verdict?: "approved" | "denied";
   excuse?: string;
   createdAt: number;
+  memoryReferenceCount?: number;
 }
 
-const MAX_CONVERSATIONS = 30;
+export interface MemoryNudge {
+  conversationId: string;
+  item: string;
+  estimatedPrice?: number;
+  excuse?: string;
+  dateLabel: string;
+}
 
 const SHORT_MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-function formatShortDate(timestamp: number): string {
+export function formatShortDate(timestamp: number): string {
   const d = new Date(timestamp);
   return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
-function sanitizeForYaml(value: string): string {
+export function sanitizeForYaml(value: string): string {
   return value.replace(/"/g, "'");
 }
 
-function formatEntry(c: PastConversation): string {
-  const lines: string[] = [];
-  lines.push(`  - item: "${sanitizeForYaml(c.item!)}"`);
-  if (c.estimatedPrice && c.estimatedPrice > 0) {
-    lines.push(`    price: "$${c.estimatedPrice.toLocaleString()}"`);
-  }
-  lines.push(`    date: "${formatShortDate(c.createdAt)}"`);
-  if (c.excuse) {
-    lines.push(`    claim: "${sanitizeForYaml(c.excuse)}"`);
-  }
-  return lines.join("\n");
-}
+/**
+ * Select ONE past conversation to reference in the opener.
+ * Filters to: valid item + category matches currentCategory + category is not "other".
+ * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
+ */
+export function selectMemoryNudge(
+  conversations: PastConversation[],
+  currentCategory: string
+): MemoryNudge | null {
+  if (!currentCategory || currentCategory === "other") return null;
 
-export function formatMemoryYaml(
-  conversations: PastConversation[]
-): string | null {
-  // Sort most recent first, cap at 30
-  const sorted = [...conversations]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, MAX_CONVERSATIONS);
-
-  // Filter out entries with no useful item
-  const useful = sorted.filter(
-    (c) => c.item && c.item !== "unknown"
+  const candidates = conversations.filter(
+    (c) =>
+      c.item &&
+      c.item !== "unknown" &&
+      c.category &&
+      c.category !== "other" &&
+      c.category === currentCategory
   );
 
-  const approved = useful.filter((c) => c.verdict === "approved");
-  const history = useful.filter((c) => c.verdict !== "approved");
+  if (candidates.length === 0) return null;
 
-  if (approved.length === 0 && history.length === 0) {
-    return null;
-  }
+  // Sort: lowest ref count first, then most recent
+  candidates.sort((a, b) => {
+    const refA = a.memoryReferenceCount ?? 0;
+    const refB = b.memoryReferenceCount ?? 0;
+    if (refA !== refB) return refA - refB;
+    return b.createdAt - a.createdAt;
+  });
 
-  const sections: string[] = [];
-  if (approved.length > 0) {
-    sections.push("approved:\n" + approved.map(formatEntry).join("\n"));
-  }
-  if (history.length > 0) {
-    sections.push("history:\n" + history.map(formatEntry).join("\n"));
-  }
+  const pick = candidates[0];
+  return {
+    conversationId: pick._id,
+    item: pick.item!,
+    estimatedPrice: pick.estimatedPrice,
+    excuse: pick.excuse,
+    dateLabel: formatShortDate(pick.createdAt),
+  };
+}
 
-  return sections.join("\n");
+/**
+ * Format the directive injected into the opener prompt.
+ */
+export function formatNudgePrompt(nudge: MemoryNudge, userName: string): string {
+  const item = sanitizeForYaml(nudge.item);
+  const priceStr =
+    nudge.estimatedPrice && nudge.estimatedPrice > 0
+      ? ` ($${nudge.estimatedPrice})`
+      : "";
+  const claimStr =
+    nudge.excuse
+      ? ` They claimed "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}."`
+      : "";
+  return `MEMORY — ${userName} came to you before about "${item}"${priceStr} (${nudge.dateLabel}).${claimStr} Work this into your opener — one natural callback, don't force it awkwardly.`;
 }

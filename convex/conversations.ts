@@ -271,12 +271,26 @@ export const internalGetPastConversations = internalQuery({
     return conversations
       .filter((c) => c._id !== args.excludeConversationId)
       .map((c) => ({
+        _id: c._id,
         item: c.item,
+        category: c.category,
         estimatedPrice: c.estimatedPrice,
         verdict: c.verdict,
         excuse: c.excuse,
         createdAt: c.createdAt,
+        memoryReferenceCount: c.memoryReferenceCount,
       }));
+  },
+});
+
+export const internalIncrementMemoryRef = internalMutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
+    await ctx.db.patch(args.conversationId, {
+      memoryReferenceCount: (conversation.memoryReferenceCount ?? 0) + 1,
+    });
   },
 });
 

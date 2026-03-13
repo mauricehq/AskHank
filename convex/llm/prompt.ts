@@ -20,7 +20,6 @@ interface PromptConfig {
   turnCount?: number;
   turnSummaries?: TurnSummary[];
   recentMoves?: DetectedMove[];
-  pastConversationsYaml?: string | null;
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -250,11 +249,6 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
 - "The whole family uses it" → "The whole family uses it. How — every day, or you watched one movie together last month?"
 - "Everyone else's kids have one" → That's keeping up with the Joneses with a family wrapper. Call it out.`,
 
-    // Past conversations (memory)
-    config.pastConversationsYaml
-      ? `PAST CONVERSATIONS — you've talked to ${userName} before. Use this to spot patterns, throw back claims, and reference what you've already let through. Don't recite the list — weave it into your pushback naturally when relevant.\n${config.pastConversationsYaml}`
-      : null,
-
     // Conversation progress
     `CONVERSATION PROGRESS — this is turn ${turnCount}. ${
       turnCount <= 2
@@ -333,6 +327,7 @@ interface OpenerPromptConfig {
   displayName?: string;
   estimatedPrice?: number;
   category?: string;
+  memoryNudge?: string | null;
 }
 
 function buildPriceBlock(estimatedPrice?: number, category?: string): string {
@@ -351,7 +346,7 @@ export function buildOpenerPrompt(config: OpenerPromptConfig): string {
 You're talking to ${userName}.
 
 ${priceBlock}
-
+${config.memoryNudge ? `\n${config.memoryNudge}\n` : ""}
 YOUR ONE JOB: Write an opening line. This is the first thing they'll read. Make it land.
 
 Rules:
@@ -366,6 +361,8 @@ Good openers:
 - A standing desk. For the job where you already sit eight hours. Bold.
 - You want a $3,000 espresso machine and I bet you drink it with oat milk.
 - Your wife doesn't like the fridge. That's an opinion, not a compressor failure.
+- Back again. Last time it was $550 headphones because you "listen to music all day." Now it's a laptop.
+- A standing desk. Wasn't it an espresso machine two weeks ago.
 
 Bad openers (NEVER do these):
 - What's wrong with your current setup? (generic probe)

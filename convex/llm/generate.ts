@@ -7,7 +7,7 @@ import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
 import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
 import { extractRecentMoves } from "./moves";
-import { formatMemoryYaml } from "./memory";
+import { selectMemoryNudge, formatNudgePrompt } from "./memory";
 
 // LLM temperature settings
 const TEMPERATURE_ASSESSMENT = 0.8;
@@ -586,11 +586,13 @@ export const respond = internalAction({
         { userId: args.userId }
       );
 
-      const pastConversations = await ctx.runQuery(
-        internal.conversations.internalGetPastConversations,
-        { userId: args.userId, excludeConversationId: args.conversationId }
-      );
-      const pastConversationsYaml = formatMemoryYaml(pastConversations);
+      // Only fetch past conversations on turn 1 (memory nudge is opener-only)
+      const pastConversations = turnCount === 1
+        ? await ctx.runQuery(
+            internal.conversations.internalGetPastConversations,
+            { userId: args.userId, excludeConversationId: args.conversationId }
+          )
+        : [];
 
       // 2. Build prompt
       const recentMoves = extractRecentMoves(
@@ -607,7 +609,6 @@ export const respond = internalAction({
         turnCount,
         turnSummaries: previousContext?.turnSummaries,
         recentMoves,
-        pastConversationsYaml,
       });
 
       const llmMessages = buildMessages(
@@ -706,6 +707,18 @@ export const respond = internalAction({
       const toolResultStr = JSON.stringify(toolResultForLLM);
       traceData.toolResult = toolResultStr;
 
+      // Select memory nudge (opener only)
+      let memoryNudge: string | null = null;
+      let memoryNudgeConversationId: Id<"conversations"> | null = null;
+
+      if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+        const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
+        if (nudge) {
+          memoryNudge = formatNudgePrompt(nudge, displayName || "this person");
+          memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
+        }
+      }
+
       // Select focused prompt for Call 2 when it matters
       // Closer always takes priority; opener only for normal scoring turns on turn 1
       let call2SystemPrompt: string;
@@ -721,6 +734,7 @@ export const respond = internalAction({
           displayName: displayName ?? undefined,
           estimatedPrice: stanceResult._estimatedPrice,
           category: stanceResult._category,
+          memoryNudge,
         });
       } else {
         call2SystemPrompt = systemPrompt;
@@ -866,6 +880,14 @@ export const respond = internalAction({
           }
         );
         traceData.messageId = messageId;
+      }
+
+      // Increment memory reference count (only when nudge was used)
+      if (memoryNudgeConversationId) {
+        await ctx.runMutation(
+          internal.conversations.internalIncrementMemoryRef,
+          { conversationId: memoryNudgeConversationId }
+        );
       }
 
       await saveTraceQuietly();
