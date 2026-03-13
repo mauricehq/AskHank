@@ -33,7 +33,7 @@ export function sanitizeForYaml(value: string): string {
 }
 
 /**
- * Select ONE past conversation to reference in the opener.
+ * Select ONE past conversation to reference when Hank's stance softens.
  * Filters to: valid item + category matches currentCategory + category is not "other".
  * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
  */
@@ -73,7 +73,7 @@ export function selectMemoryNudge(
 }
 
 /**
- * Format the directive injected into the opener prompt.
+ * Format the memory directive injected into the system prompt on stance softening.
  */
 export function formatNudgePrompt(nudge: MemoryNudge, userName: string): string {
   const item = sanitizeForYaml(nudge.item);
@@ -85,5 +85,5 @@ export function formatNudgePrompt(nudge: MemoryNudge, userName: string): string 
     nudge.excuse
       ? ` They claimed "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}."`
       : "";
-  return `MEMORY — ${userName} came to you before about "${item}"${priceStr} (${nudge.dateLabel}).${claimStr} Work this into your opener — one natural callback, don't force it awkwardly.`;
+  return `MEMORY — ${userName} came to you before about "${item}"${priceStr} (${nudge.dateLabel}).${claimStr} Work this in naturally right now — one dry callback to show you remember. Don't force it awkwardly.`;
 }

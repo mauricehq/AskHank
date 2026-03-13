@@ -91,7 +91,7 @@ export function determineStance(score: number, thresholdMultiplier: number): Sta
 
 // --- Guardrails (unchanged from v2) ---
 
-const STANCE_ORDER: Stance[] = ["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"];
+export const STANCE_ORDER: Stance[] = ["IMMOVABLE", "FIRM", "SKEPTICAL", "RELUCTANT", "CONCEDE"];
 
 export function applyStanceGuardrails(
   computedStance: Stance,

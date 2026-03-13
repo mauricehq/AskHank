@@ -18,6 +18,7 @@ import {
   determineStance,
   applyStanceGuardrails,
   computePriceModifier,
+  STANCE_ORDER,
   type TurnAssessment,
   type TurnSummary,
   type Stance,
@@ -39,6 +40,7 @@ interface PersistedContext {
   category: string;
   intent: Intent;
   turnSummaries: TurnSummary[];
+  memoryNudgeUsed?: boolean;
 }
 
 const DEFAULT_PERSISTED: PersistedContext = {
@@ -200,6 +202,10 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // Build persisted context (will be updated with turnSummary below)
   const prevSummaries = state.previousContext?.turnSummaries ?? [];
+  // Sticky flags that must carry forward across all branches
+  const stickyFlags = {
+    ...(state.previousContext?.memoryNudgeUsed ? { memoryNudgeUsed: true as const } : {}),
+  };
   // Fallback for early-exit branches that don't modify context
   const unchangedContext: PersistedContext = state.previousContext ?? { ...DEFAULT_PERSISTED, ...coalesced, turnSummaries: [] };
 
@@ -250,7 +256,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   if (assessment.user_backed_down) {
     const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
     const winRef = brief.winningArgument ? ` They almost had you with '${brief.winningArgument}' — acknowledge that.` : "";
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: runningScore,
@@ -272,7 +278,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   if (assessment.is_non_answer && disengagementCount >= 1) {
     const nonAnswerScore = runningScore - 5;
     const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: nonAnswerScore,
@@ -293,7 +299,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 5. Non-answer (first) → increment counter, warning
   if (assessment.is_non_answer) {
     const nonAnswerScore = runningScore - 5;
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: nonAnswerScore,
@@ -312,7 +318,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 6. Directed question → patience +1, no score change, reset disengagement
   if (assessment.is_directed_question) {
     const newPatience = patience + 1;
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
 
     // Patience exhausted on directed questions
     if (newPatience >= 10) {
@@ -385,7 +391,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     const allSummaries = [...prevSummaries, newSummary];
     const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
     const weakRef = brief.weakestMoment ? ` Their weakest moment was '${brief.weakestMoment}' — reference it.` : "";
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
@@ -407,7 +413,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
     const allSummaries = [...prevSummaries, newSummary];
     const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
@@ -441,7 +447,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // Build turn summary
   const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
-  const persistedContext: PersistedContext = { ...coalesced, turnSummaries: [...prevSummaries, newSummary] };
+  const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: [...prevSummaries, newSummary] };
 
   // Stance guidance — enriched for CONCEDE
   let guidance: string;
@@ -570,6 +576,7 @@ export const respond = internalAction({
               ? parsed.intent
               : "want",
             turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
+            memoryNudgeUsed: parsed.memoryNudgeUsed === true,
           };
         } catch {
           previousContext = null;
@@ -586,13 +593,11 @@ export const respond = internalAction({
         { userId: args.userId }
       );
 
-      // Only fetch past conversations on turn 1 (memory nudge is opener-only)
-      const pastConversations = turnCount === 1
-        ? await ctx.runQuery(
-            internal.conversations.internalGetPastConversations,
-            { userId: args.userId, excludeConversationId: args.conversationId }
-          )
-        : [];
+      // Fetch past conversations (needed for memory nudge on stance softening)
+      const pastConversations = await ctx.runQuery(
+        internal.conversations.internalGetPastConversations,
+        { userId: args.userId, excludeConversationId: args.conversationId }
+      );
 
       // 2. Build prompt
       const recentMoves = extractRecentMoves(
@@ -707,15 +712,22 @@ export const respond = internalAction({
       const toolResultStr = JSON.stringify(toolResultForLLM);
       traceData.toolResult = toolResultStr;
 
-      // Select memory nudge (opener only)
+      // Select memory nudge on first stance softening (FIRM→SKEPTICAL, SKEPTICAL→RELUCTANT, etc.)
       let memoryNudge: string | null = null;
       let memoryNudgeConversationId: Id<"conversations"> | null = null;
 
-      if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+      if (
+        turnCount > 1 &&
+        stanceResult._decisionType.startsWith("normal") &&
+        !stanceResult.closing &&
+        !stanceResult._persistedContext.memoryNudgeUsed &&
+        STANCE_ORDER.indexOf(stanceResult.stance) > STANCE_ORDER.indexOf(currentStance)
+      ) {
         const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
         if (nudge) {
           memoryNudge = formatNudgePrompt(nudge, displayName || "this person");
           memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
+          stanceResult._persistedContext.memoryNudgeUsed = true;
         }
       }
 
@@ -734,10 +746,11 @@ export const respond = internalAction({
           displayName: displayName ?? undefined,
           estimatedPrice: stanceResult._estimatedPrice,
           category: stanceResult._category,
-          memoryNudge,
         });
       } else {
-        call2SystemPrompt = systemPrompt;
+        call2SystemPrompt = memoryNudge
+          ? systemPrompt + "\n\n" + memoryNudge
+          : systemPrompt;
       }
 
       // Capture Call 2 prompt in trace when it differs from Call 1

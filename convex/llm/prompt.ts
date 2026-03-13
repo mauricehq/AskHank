@@ -327,7 +327,6 @@ interface OpenerPromptConfig {
   displayName?: string;
   estimatedPrice?: number;
   category?: string;
-  memoryNudge?: string | null;
 }
 
 function buildPriceBlock(estimatedPrice?: number, category?: string): string {
@@ -346,7 +345,7 @@ export function buildOpenerPrompt(config: OpenerPromptConfig): string {
 You're talking to ${userName}.
 
 ${priceBlock}
-${config.memoryNudge ? `\n${config.memoryNudge}\n` : ""}
+
 YOUR ONE JOB: Write an opening line. This is the first thing they'll read. Make it land.
 
 Rules:
@@ -361,8 +360,6 @@ Good openers:
 - A standing desk. For the job where you already sit eight hours. Bold.
 - You want a $3,000 espresso machine and I bet you drink it with oat milk.
 - Your wife doesn't like the fridge. That's an opinion, not a compressor failure.
-- Back again. Last time it was $550 headphones because you "listen to music all day." Now it's a laptop.
-- A standing desk. Wasn't it an espresso machine two weeks ago.
 
 Bad openers (NEVER do these):
 - What's wrong with your current setup? (generic probe)

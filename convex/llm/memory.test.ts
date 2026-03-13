@@ -176,6 +176,6 @@ describe("formatNudgePrompt", () => {
 
   it("includes the work-this-in directive", () => {
     const result = formatNudgePrompt(baseNudge, "Alex");
-    expect(result).toContain("Work this into your opener");
+    expect(result).toContain("Work this in naturally right now");
   });
 });
