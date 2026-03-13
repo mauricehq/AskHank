@@ -33,7 +33,8 @@ export function sanitizeForYaml(value: string): string {
 }
 
 /**
- * Select ONE past conversation to reference when Hank's stance softens.
+ * Select ONE past conversation to reference.
+ * Called on turn 2+ when no nudge has been stored yet.
  * Filters to: valid item + category matches currentCategory + category is not "other".
  * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
  */

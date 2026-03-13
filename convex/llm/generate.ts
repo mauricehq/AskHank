@@ -18,7 +18,6 @@ import {
   determineStance,
   applyStanceGuardrails,
   computePriceModifier,
-  STANCE_ORDER,
   type TurnAssessment,
   type TurnSummary,
   type Stance,
@@ -40,7 +39,7 @@ interface PersistedContext {
   category: string;
   intent: Intent;
   turnSummaries: TurnSummary[];
-  memoryNudgeUsed?: boolean;
+  memoryNudgeText?: string;
 }
 
 const DEFAULT_PERSISTED: PersistedContext = {
@@ -204,7 +203,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   const prevSummaries = state.previousContext?.turnSummaries ?? [];
   // Sticky flags that must carry forward across all branches
   const stickyFlags = {
-    ...(state.previousContext?.memoryNudgeUsed ? { memoryNudgeUsed: true as const } : {}),
+    ...(state.previousContext?.memoryNudgeText ? { memoryNudgeText: state.previousContext.memoryNudgeText } : {}),
   };
   // Fallback for early-exit branches that don't modify context
   const unchangedContext: PersistedContext = state.previousContext ?? { ...DEFAULT_PERSISTED, ...coalesced, turnSummaries: [] };
@@ -586,7 +585,7 @@ export const respond = internalAction({
                 ? parsed.intent
                 : "want",
               turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
-              memoryNudgeUsed: parsed.memoryNudgeUsed === true,
+              memoryNudgeText: typeof parsed.memoryNudgeText === "string" ? parsed.memoryNudgeText : undefined,
             };
           } catch {
             previousContext = null;
@@ -717,27 +716,26 @@ export const respond = internalAction({
         const toolResultStr = JSON.stringify(toolResultForLLM);
         traceData.toolResult = toolResultStr;
   
-        // Select memory nudge on first stance softening (FIRM→SKEPTICAL, SKEPTICAL→RELUCTANT, etc.)
-        let memoryNudge: string | null = null;
+        // Select memory nudge on turn 2+ if not yet stored
         let memoryNudgeConversationId: Id<"conversations"> | null = null;
   
         if (
-          turnCount > 1 &&
-          stanceResult._decisionType.startsWith("normal") &&
-          !stanceResult.closing &&
-          !stanceResult._persistedContext.memoryNudgeUsed &&
-          STANCE_ORDER.indexOf(stanceResult.stance) > STANCE_ORDER.indexOf(currentStance)
+          turnCount >= 2 &&
+          !stanceResult._persistedContext.memoryNudgeText &&
+          !stanceResult.closing
         ) {
           const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
           if (nudge) {
-            memoryNudge = formatNudgePrompt(nudge);
             memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
-            stanceResult._persistedContext.memoryNudgeUsed = true;
+            stanceResult._persistedContext.memoryNudgeText = formatNudgePrompt(nudge);
           }
         }
   
         // Select focused prompt for Call 2 when it matters
         // Closer always takes priority; opener only for normal scoring turns on turn 1
+        // Get nudge text — either just-selected or carried from a previous turn
+        const nudgeText = stanceResult._persistedContext.memoryNudgeText ?? null;
+
         let call2SystemPrompt: string;
         if (stanceResult.closing && stanceResult.verdict) {
           call2SystemPrompt = buildCloserPrompt({
@@ -753,8 +751,8 @@ export const respond = internalAction({
             category: stanceResult._category,
           });
         } else {
-          call2SystemPrompt = memoryNudge
-            ? systemPrompt + "\n\n" + memoryNudge
+          call2SystemPrompt = nudgeText
+            ? systemPrompt + "\n\n" + nudgeText
             : systemPrompt;
         }
   
