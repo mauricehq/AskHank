@@ -619,7 +619,7 @@ export const respond = internalAction({
           computeWorkHours(priceForWorkHours, userIncomeAmount, userIncomeType)
         );
 
-        const systemPrompt = buildSystemPrompt({
+        const promptConfig = {
           displayName: displayName ?? undefined,
           stance: currentStance,
           disengagementCount,
@@ -630,7 +630,8 @@ export const respond = internalAction({
           turnSummaries: previousContext?.turnSummaries,
           recentMoves,
           workHoursBlock,
-        });
+        };
+        const systemPrompt = buildSystemPrompt(promptConfig);
   
         const llmMessages = buildMessages(
           systemPrompt,
@@ -768,9 +769,17 @@ export const respond = internalAction({
             workHoursBlock: openerWorkHoursBlock,
           });
         } else {
+          // Recompute work hours with current-turn price (avoids one-turn lag)
+          let call2Base = systemPrompt;
+          if (stanceResult._estimatedPrice && stanceResult._estimatedPrice !== priceForWorkHours) {
+            const updatedWorkHoursBlock = formatWorkHoursBlock(
+              computeWorkHours(stanceResult._estimatedPrice, userIncomeAmount, userIncomeType)
+            );
+            call2Base = buildSystemPrompt({ ...promptConfig, workHoursBlock: updatedWorkHoursBlock });
+          }
           call2SystemPrompt = nudgeText
-            ? systemPrompt + "\n\n" + nudgeText
-            : systemPrompt;
+            ? call2Base + "\n\n" + nudgeText
+            : call2Base;
         }
   
         // Capture Call 2 prompt in trace when it differs from Call 1
