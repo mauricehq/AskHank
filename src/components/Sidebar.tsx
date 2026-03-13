@@ -35,10 +35,11 @@ interface SidebarProps {
   activeConversationId?: Id<"conversations"> | null;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
+  onOpenStats?: () => void;
   onDeleteConversation?: (id: Id<"conversations">) => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onDeleteConversation }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onOpenStats, onDeleteConversation }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const history = useQuery(api.conversations.listForUser);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
@@ -123,21 +124,23 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
       {(() => {
         const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
         const savedTotal = user?.savedTotal ?? 0;
-        if (deniedCount === 0 && savedTotal === 0) return null;
         return (
           <div className="shrink-0 px-2 pb-3">
-            <div className="flex rounded-[10px] bg-bg-surface py-1">
-              {savedTotal > 0 && (
-                <div className="flex-1 py-3.5 text-center">
-                  <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
-                    ${savedTotal.toLocaleString()}
-                  </div>
-                  <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
-                    saved
-                  </div>
+            <button
+              onClick={() => {
+                if (!isDesktop) onClose();
+                onOpenStats?.();
+              }}
+              className="flex w-full cursor-pointer rounded-[10px] bg-bg-surface py-1 transition-shadow hover:ring-1 hover:ring-border">
+              <div className="flex-1 py-3.5 text-center">
+                <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
+                  ${savedTotal.toLocaleString()}
                 </div>
-              )}
-              <div className={`${savedTotal > 0 ? "border-l border-border" : ""} flex-1 py-3.5 text-center`}>
+                <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                  saved
+                </div>
+              </div>
+              <div className="border-l border-border flex-1 py-3.5 text-center">
                 <div className="text-[22px] font-bold leading-none tracking-tight text-accent">
                   {deniedCount}
                 </div>
@@ -145,7 +148,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
                   skipped
                 </div>
               </div>
-            </div>
+            </button>
           </div>
         );
       })()}

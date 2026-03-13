@@ -24,6 +24,7 @@ import type * as llm_prompt from "../llm/prompt.js";
 import type * as llm_scoring from "../llm/scoring.js";
 import type * as llm_testChat from "../llm/testChat.js";
 import type * as llm_workHours from "../llm/workHours.js";
+import type * as stats from "../stats.js";
 import type * as users from "../users.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "llm/scoring": typeof llm_scoring;
   "llm/testChat": typeof llm_testChat;
   "llm/workHours": typeof llm_workHours;
+  stats: typeof stats;
   users: typeof users;
 }>;
 
