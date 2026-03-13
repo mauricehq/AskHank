@@ -457,10 +457,10 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     guidance = `They earned it. Concede like it costs you something.${winRef} Don't say "you thought this through" — be specific to THIS conversation. 1-2 sentences. Grudging approval + specific warning about ${brief.itemContext}.`;
   } else {
     const stanceGuidance: Record<Stance, string> = {
-      IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
-      FIRM: "Weak case. Don't concede unless overwhelming evidence.",
-      SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak.",
-      RELUCTANT: "Strong case but not fully convinced. Push for final proof.",
+      IMMOVABLE: "Pure impulse. No valid case. Push hard. Do NOT concede.",
+      FIRM: "Weak case. Hold the line. Do NOT concede.",
+      SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak. Do NOT concede.",
+      RELUCTANT: "Strong case but not fully convinced. Push for final proof. Do NOT concede.",
       CONCEDE: "", // handled above
     };
     guidance = stanceGuidance[guardrailedStance] + patienceWarning;
@@ -725,7 +725,7 @@ export const respond = internalAction({
       ) {
         const nudge = selectMemoryNudge(pastConversations, stanceResult._category);
         if (nudge) {
-          memoryNudge = formatNudgePrompt(nudge, displayName || "this person");
+          memoryNudge = formatNudgePrompt(nudge);
           memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
           stanceResult._persistedContext.memoryNudgeUsed = true;
         }

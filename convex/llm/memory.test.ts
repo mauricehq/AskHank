@@ -128,36 +128,36 @@ describe("formatNudgePrompt", () => {
     dateLabel: "Mar 5",
   };
 
-  it("includes price when present", () => {
-    const result = formatNudgePrompt(baseNudge, "Alex");
-    expect(result).toContain("($550)");
-    expect(result).toContain("MEMORY");
-    expect(result).toContain("Alex");
-    expect(result).toContain('"headphones"');
-    expect(result).toContain("(Mar 5)");
+  it("outputs structured YAML-like data with all fields", () => {
+    const result = formatNudgePrompt(baseNudge);
+    expect(result).toContain("MEMORY:");
+    expect(result).toContain('previous_item: "headphones"');
+    expect(result).toContain("price: $550");
+    expect(result).toContain('date: "Mar 5"');
+    expect(result).not.toContain("user:");
   });
 
-  it("omits price when 0", () => {
+  it("omits price line when 0", () => {
     const nudge = { ...baseNudge, estimatedPrice: 0 };
-    const result = formatNudgePrompt(nudge, "Alex");
-    expect(result).not.toContain("($");
+    const result = formatNudgePrompt(nudge);
+    expect(result).not.toContain("price:");
   });
 
-  it("omits price when undefined", () => {
+  it("omits price line when undefined", () => {
     const nudge = { ...baseNudge, estimatedPrice: undefined };
-    const result = formatNudgePrompt(nudge, "Alex");
-    expect(result).not.toContain("($");
+    const result = formatNudgePrompt(nudge);
+    expect(result).not.toContain("price:");
   });
 
-  it("includes claim when present", () => {
-    const result = formatNudgePrompt(baseNudge, "Alex");
-    expect(result).toContain('They claimed "I listen to music all day."');
+  it("includes their_claim when excuse present", () => {
+    const result = formatNudgePrompt(baseNudge);
+    expect(result).toContain('their_claim: "I listen to music all day"');
   });
 
-  it("omits claim when excuse is undefined", () => {
+  it("omits their_claim when excuse is undefined", () => {
     const nudge = { ...baseNudge, excuse: undefined };
-    const result = formatNudgePrompt(nudge, "Alex");
-    expect(result).not.toContain("claimed");
+    const result = formatNudgePrompt(nudge);
+    expect(result).not.toContain("their_claim");
   });
 
   it("sanitizes double quotes in item and excuse", () => {
@@ -168,14 +168,15 @@ describe("formatNudgePrompt", () => {
       excuse: 'She said "you need this"',
       dateLabel: "Mar 8",
     };
-    const result = formatNudgePrompt(nudge, "Alex");
+    const result = formatNudgePrompt(nudge);
     expect(result).toContain("He said 'buy it'");
     expect(result).toContain("She said 'you need this'");
-    expect(result).not.toContain('""');
   });
 
-  it("includes the work-this-in directive", () => {
-    const result = formatNudgePrompt(baseNudge, "Alex");
-    expect(result).toContain("Work this in naturally right now");
+  it("includes the directive and examples", () => {
+    const result = formatNudgePrompt(baseNudge);
+    expect(result).toContain("Weave one dry callback");
+    expect(result).toContain("Don't parrot");
+    expect(result).toContain("Examples:");
   });
 });

@@ -74,16 +74,20 @@ export function selectMemoryNudge(
 
 /**
  * Format the memory directive injected into the system prompt on stance softening.
+ * Structured data so the LLM narrates in its own voice instead of parroting a sentence.
  */
-export function formatNudgePrompt(nudge: MemoryNudge, userName: string): string {
-  const item = sanitizeForYaml(nudge.item);
-  const priceStr =
-    nudge.estimatedPrice && nudge.estimatedPrice > 0
-      ? ` ($${nudge.estimatedPrice})`
-      : "";
-  const claimStr =
-    nudge.excuse
-      ? ` They claimed "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}."`
-      : "";
-  return `MEMORY — ${userName} came to you before about "${item}"${priceStr} (${nudge.dateLabel}).${claimStr} Work this in naturally right now — one dry callback to show you remember. Don't force it awkwardly.`;
+export function formatNudgePrompt(nudge: MemoryNudge): string {
+  const lines: string[] = [];
+  lines.push("MEMORY:");
+  lines.push(`  previous_item: "${sanitizeForYaml(nudge.item)}"`);
+  if (nudge.estimatedPrice && nudge.estimatedPrice > 0) {
+    lines.push(`  price: $${nudge.estimatedPrice}`);
+  }
+  lines.push(`  date: "${nudge.dateLabel}"`);
+  if (nudge.excuse) {
+    lines.push(`  their_claim: "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}"`);
+  }
+  lines.push("Weave one dry callback into your response. Don't parrot these fields — narrate them in your voice.");
+  lines.push('Examples: "Wasn\'t it a $550 pair of headphones last time. Same energy, different gadget." / "You were here two weeks ago for an espresso machine. Starting to see a pattern."');
+  return lines.join("\n");
 }

@@ -24,12 +24,12 @@ interface PromptConfig {
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
   IMMOVABLE:
-    "Pure impulse. Do not acknowledge any validity in their argument. They have no case whatsoever.",
-  FIRM: "Do not concede unless presented with overwhelming evidence of genuine need.",
+    "Pure impulse. They have no case whatsoever. You CANNOT concede — only the scoring system can change your stance.",
+  FIRM: "Their case is weak. You CANNOT concede — only the scoring system can move you. Hold the line.",
   SKEPTICAL:
-    "They've made half a case. Acknowledge what's valid, but push hard on what's weak. Still lean toward denial.",
+    "They've made half a case. Acknowledge what's valid, but push hard on what's weak. You CANNOT concede — only the scoring system can move you.",
   RELUCTANT:
-    "Strong case but you're not fully convinced. Push for final proof. One more solid argument could tip it.",
+    "Strong case but you're not fully convinced. Push for final proof. You CANNOT concede — only the scoring system can move you.",
   CONCEDE:
     "They've made a genuinely strong case. Concede reluctantly, in character. Give them a grudging approval with a final warning about spending. This is your final response — do NOT ask a follow-up question.",
 };
