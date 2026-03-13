@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Coins, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Coins, Loader2, Check } from "lucide-react";
 import { useQuery } from "convex/react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -21,11 +21,16 @@ interface CreditsModalProps {
 export function CreditsModal({ open, onClose }: CreditsModalProps) {
   const credits = useQuery(api.credits.getBalance);
   const createCheckout = useAction(api.stripe.createCheckoutSession);
+  const chargeSaved = useAction(api.stripe.chargeSavedMethod);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Escape key closes
+  // Reset state when modal opens; escape key closes
   useEffect(() => {
     if (!open) return;
+    setLoadingPack(null);
+    setPurchaseSuccess(false);
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -34,6 +39,7 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
     return () => {
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = "";
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   }, [open, onClose]);
 
@@ -42,12 +48,27 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
   const handlePurchase = async (packId: PackId) => {
     setLoadingPack(packId);
     try {
+      // Try direct charge on saved card first
+      const result = await chargeSaved({ packId });
+      if ("success" in result) {
+        setPurchaseSuccess(true);
+        setLoadingPack(null);
+        closeTimerRef.current = setTimeout(() => onClose(), 1500);
+        return;
+      }
+    } catch {
+      // Fall through to checkout
+    }
+
+    // No saved card or charge failed — redirect to Stripe Checkout
+    try {
       const { url } = await createCheckout({ packId });
       if (url) {
         window.location.href = url;
       }
     } catch (error) {
       console.error("Checkout failed:", error);
+    } finally {
       setLoadingPack(null);
     }
   };
@@ -61,68 +82,86 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
         className="w-full max-w-[440px] rounded-3xl border border-border bg-bg-card shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <div>
-            <h3 className="text-lg font-bold text-text">Get Credits</h3>
-            <p className="text-xs text-text-secondary mt-0.5">
-              1 credit = 1 message to Hank
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Current balance */}
-        <div className="mx-6 mt-3 flex items-center gap-2.5 rounded-xl bg-bg-surface px-4 py-3">
-          <Coins size={18} className="text-text-secondary" />
-          <span className="text-sm font-semibold text-text">
-            {credits?.balance ?? 0} credits remaining
-          </span>
-        </div>
-
-        {/* Pack options */}
-        <div className="px-6 py-5 space-y-3">
-          {PACKS.map((pack) => (
-            <button
-              key={pack.id}
-              onClick={() => handlePurchase(pack.id)}
-              disabled={loadingPack !== null}
-              className={`relative flex w-full items-center justify-between rounded-2xl border px-5 py-4 transition-colors active:scale-[0.98] ${
-                pack.highlight
-                  ? "border-accent/50 bg-accent/5 hover:bg-accent/10"
-                  : "border-border bg-bg-surface hover:bg-bg-surface/80"
-              } ${loadingPack !== null ? "opacity-60 pointer-events-none" : ""}`}
-            >
-              <div className="text-left">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-text">{pack.credits} credits</span>
-                  {pack.highlight && (
-                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
-                      Popular
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-text-secondary mt-0.5">{pack.label}</div>
+        {purchaseSuccess ? (
+          <>
+            {/* Success state */}
+            <div className="flex flex-col items-center justify-center px-6 py-12">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15 mb-4">
+                <Check size={28} className="text-accent" />
               </div>
-              <div className="flex items-center gap-2">
-                {loadingPack === pack.id ? (
-                  <Loader2 size={16} className="animate-spin text-accent" />
-                ) : (
-                  <span className="text-base font-bold text-accent">{pack.price}</span>
-                )}
+              <h3 className="text-lg font-bold text-text">Credits added!</h3>
+              <p className="text-sm text-text-secondary mt-1">
+                Your balance has been updated.
+              </p>
+            </div>
+            <div className="h-1 w-full bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
+          </>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-2">
+              <div>
+                <h3 className="text-lg font-bold text-text">Get Credits</h3>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  1 credit = 1 message to Hank
+                </p>
               </div>
-            </button>
-          ))}
-        </div>
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-        {/* Accent bottom bar */}
-        <div className="h-1 w-full bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
+            {/* Current balance */}
+            <div className="mx-6 mt-3 flex items-center gap-2.5 rounded-xl bg-bg-surface px-4 py-3">
+              <Coins size={18} className="text-text-secondary" />
+              <span className="text-sm font-semibold text-text">
+                {credits?.balance ?? 0} credits remaining
+              </span>
+            </div>
+
+            {/* Pack options */}
+            <div className="px-6 py-5 space-y-3">
+              {PACKS.map((pack) => (
+                <button
+                  key={pack.id}
+                  onClick={() => handlePurchase(pack.id)}
+                  disabled={loadingPack !== null}
+                  className={`relative flex w-full items-center justify-between rounded-2xl border px-5 py-4 transition-colors active:scale-[0.98] ${
+                    pack.highlight
+                      ? "border-accent/50 bg-accent/5 hover:bg-accent/10"
+                      : "border-border bg-bg-surface hover:bg-bg-surface/80"
+                  } ${loadingPack !== null ? "opacity-60 pointer-events-none" : ""}`}
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-text">{pack.credits} credits</span>
+                      {pack.highlight && (
+                        <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-text-secondary mt-0.5">{pack.label}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {loadingPack === pack.id ? (
+                      <Loader2 size={16} className="animate-spin text-accent" />
+                    ) : (
+                      <span className="text-base font-bold text-accent">{pack.price}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Accent bottom bar */}
+            <div className="h-1 w-full bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
+          </>
+        )}
       </div>
     </div>
   );

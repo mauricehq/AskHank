@@ -166,7 +166,7 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
     try {
       const result = await createPortalSession({});
       if (result?.url) {
-        window.open(result.url, "_blank");
+        window.location.href = result.url;
       }
     } finally {
       setIsLoadingPortal(false);

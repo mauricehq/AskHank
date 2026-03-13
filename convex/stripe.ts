@@ -61,6 +61,12 @@ export const createCheckoutSession = action({
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: stripeCustomerId,
+      payment_intent_data: {
+        setup_future_usage: "on_session",
+      },
+      saved_payment_method_options: {
+        allow_redisplay_filters: ["always", "limited"],
+      },
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}?credits=success`,
       cancel_url: `${appUrl}?credits=cancelled`,
@@ -74,6 +80,73 @@ export const createCheckoutSession = action({
     if (!session.url) throw new Error("Stripe did not return a checkout URL");
 
     return { url: session.url };
+  },
+});
+
+export const chargeSavedMethod = action({
+  args: { packId: v.string() },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: true } | { requiresCheckout: true }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const packId = args.packId as PackId;
+    const pack = CREDIT_PACKS[packId];
+    if (!pack) throw new Error("Invalid pack ID");
+
+    const user = await ctx.runQuery(internal.credits.getUserByToken, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+    if (!user) throw new Error("User not found");
+
+    if (!user.stripeCustomerId) return { requiresCheckout: true };
+
+    const stripe = getStripe();
+
+    // Check for saved payment methods
+    const methods = await stripe.paymentMethods.list({
+      customer: user.stripeCustomerId,
+      type: "card",
+    });
+    if (methods.data.length === 0) return { requiresCheckout: true };
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: pack.priceCents,
+        currency: "usd",
+        customer: user.stripeCustomerId,
+        payment_method: methods.data[0].id,
+        confirm: true,
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: "never",
+        },
+        metadata: {
+          userId: user._id,
+          packId,
+          credits: String(pack.credits),
+        },
+      });
+
+      if (paymentIntent.status === "succeeded") {
+        await ctx.runMutation(internal.credits.addCredits, {
+          userId: user._id,
+          stripeSessionId: paymentIntent.id,
+          packId,
+          credits: pack.credits,
+          amountCents: pack.priceCents,
+        });
+        return { success: true };
+      }
+
+      // Any other status (requires_action, requires_confirmation, etc.)
+      return { requiresCheckout: true };
+    } catch {
+      // Card declined, network error, etc.
+      return { requiresCheckout: true };
+    }
   },
 });
 
