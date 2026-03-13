@@ -80,7 +80,7 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
 
         {/* Current balance */}
         <div className="mx-6 mt-3 flex items-center gap-2.5 rounded-xl bg-bg-surface px-4 py-3">
-          <Coins size={18} className={credits?.balance === 0 ? "text-red-400" : "text-accent"} />
+          <Coins size={18} className="text-text-secondary" />
           <span className="text-sm font-semibold text-text">
             {credits?.balance ?? 0} credits remaining
           </span>

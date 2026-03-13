@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Coins, Plus, Settings, Shield, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins, Plus, Settings, Shield, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -132,17 +132,13 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
             }}
             className="flex w-full items-center gap-2.5 rounded-[10px] bg-bg-surface px-3.5 py-3 text-left hover:bg-bg-surface/80 transition-colors"
           >
-            <Coins size={16} className={credits.balance === 0 ? "text-red-400" : "text-accent"} />
+            <Coins size={16} className="text-text-secondary" />
             <div className="flex-1 min-w-0">
-              <div className={`text-sm font-bold tracking-tight ${credits.balance === 0 ? "text-red-400" : "text-text"}`}>
+              <div className="text-sm font-bold tracking-tight text-text">
                 {credits.balance} credits
               </div>
-              {credits.balance === 0 && (
-                <div className="text-[10px] text-red-400/80 mt-0.5">
-                  Tap to buy more
-                </div>
-              )}
             </div>
+            <ChevronRight size={14} className="text-text-secondary/50" />
           </button>
         )}
 
