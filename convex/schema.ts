@@ -16,6 +16,8 @@ export default defineSchema({
     timezone: v.optional(v.string()),
     savedTotal: v.optional(v.number()),
     deniedCount: v.optional(v.number()),
+    incomeAmount: v.optional(v.number()),
+    incomeType: v.optional(v.union(v.literal("hourly"), v.literal("annual"))),
     updatedAt: v.number(),
   }).index("by_token", ["tokenIdentifier"]),
 

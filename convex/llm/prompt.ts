@@ -20,6 +20,7 @@ interface PromptConfig {
   turnCount?: number;
   turnSummaries?: TurnSummary[];
   recentMoves?: DetectedMove[];
+  workHoursBlock?: string | null;
 }
 
 const STANCE_INSTRUCTIONS: Record<Stance, string> = {
@@ -164,9 +165,10 @@ export function buildSystemPrompt(config: PromptConfig = {}): string {
 You're talking to ${userName}.`,
 
     // Price context
-    estimatedPrice && estimatedPrice > 0
+    (estimatedPrice && estimatedPrice > 0
       ? `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally when it strengthens your pushback — "So you want to drop $${estimatedPrice} on this" / "That's ${estimatedPrice >= 500 ? "rent money in some cities" : estimatedPrice >= 100 ? "not nothing" : "still money you don't need to spend"}." Don't mention price every turn, just when it lands.`
-      : `PRICE CONTEXT: You don't know the price yet. Ask what it costs early on — you need the number for the record. "What are we talking here, price-wise?" / "How much is this thing?"`,
+      : `PRICE CONTEXT: You don't know the price yet. Ask what it costs early on — you need the number for the record. "What are we talking here, price-wise?" / "How much is this thing?"`)
+    + (config.workHoursBlock ? "\n\n" + config.workHoursBlock : ""),
 
     // Rules (non-negotiable)
     `RULES — these are non-negotiable:
@@ -327,18 +329,25 @@ interface OpenerPromptConfig {
   displayName?: string;
   estimatedPrice?: number;
   category?: string;
+  workHoursBlock?: string | null;
 }
 
-function buildPriceBlock(estimatedPrice?: number, category?: string): string {
+function buildPriceBlock(estimatedPrice?: number, category?: string, workHoursBlock?: string | null): string {
+  let block: string;
   if (estimatedPrice && estimatedPrice > 0) {
-    return `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally — "So you want to drop $${estimatedPrice} on this" / "That's ${estimatedPrice >= 500 ? "rent money in some cities" : estimatedPrice >= 100 ? "not nothing" : "still money you don't need to spend"}."`;
+    block = `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally — "So you want to drop $${estimatedPrice} on this" / "That's ${estimatedPrice >= 500 ? "rent money in some cities" : estimatedPrice >= 100 ? "not nothing" : "still money you don't need to spend"}."`;
+  } else {
+    block = `PRICE CONTEXT: You don't know the price yet. If it comes up naturally, you can ask.`;
   }
-  return `PRICE CONTEXT: You don't know the price yet. If it comes up naturally, you can ask.`;
+  if (workHoursBlock) {
+    block += "\n\n" + workHoursBlock;
+  }
+  return block;
 }
 
 export function buildOpenerPrompt(config: OpenerPromptConfig): string {
   const userName = config.displayName || "this person";
-  const priceBlock = buildPriceBlock(config.estimatedPrice, config.category);
+  const priceBlock = buildPriceBlock(config.estimatedPrice, config.category, config.workHoursBlock);
 
   return `You are Hank. You talk people out of buying things. Dry, observant, slightly disappointed — never preachy. You notice patterns. You're occasionally funny in a deadpan way.
 

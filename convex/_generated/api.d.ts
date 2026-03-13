@@ -23,6 +23,7 @@ import type * as llm_openrouter from "../llm/openrouter.js";
 import type * as llm_prompt from "../llm/prompt.js";
 import type * as llm_scoring from "../llm/scoring.js";
 import type * as llm_testChat from "../llm/testChat.js";
+import type * as llm_workHours from "../llm/workHours.js";
 import type * as users from "../users.js";
 
 import type {
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "llm/prompt": typeof llm_prompt;
   "llm/scoring": typeof llm_scoring;
   "llm/testChat": typeof llm_testChat;
+  "llm/workHours": typeof llm_workHours;
   users: typeof users;
 }>;
 

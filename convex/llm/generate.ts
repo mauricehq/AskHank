@@ -8,6 +8,7 @@ import { chatCompletion, type ChatMessage } from "./openrouter";
 import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
 import { extractRecentMoves } from "./moves";
 import { selectMemoryNudge, formatNudgePrompt } from "./memory";
+import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
 
 // LLM temperature settings
 const TEMPERATURE_ASSESSMENT = 0.8;
@@ -598,6 +599,8 @@ export const respond = internalAction({
         );
         const displayName = userInfo.displayName;
         const userTimezone = userInfo.timezone ?? undefined;
+        const userIncomeAmount = userInfo.incomeAmount ?? undefined;
+        const userIncomeType = (userInfo.incomeType ?? undefined) as "hourly" | "annual" | undefined;
   
         // Fetch past conversations (needed for memory nudge on stance softening)
         const pastConversations = await ctx.runQuery(
@@ -609,7 +612,13 @@ export const respond = internalAction({
         const recentMoves = extractRecentMoves(
           messages.map((m) => ({ role: m.role, content: m.content }))
         );
-  
+
+        // Work hours: compute from persisted price + user income
+        const priceForWorkHours = previousContext?.estimated_price ?? conversation.estimatedPrice;
+        const workHoursBlock = formatWorkHoursBlock(
+          computeWorkHours(priceForWorkHours, userIncomeAmount, userIncomeType)
+        );
+
         const systemPrompt = buildSystemPrompt({
           displayName: displayName ?? undefined,
           stance: currentStance,
@@ -620,6 +629,7 @@ export const respond = internalAction({
           turnCount,
           turnSummaries: previousContext?.turnSummaries,
           recentMoves,
+          workHoursBlock,
         });
   
         const llmMessages = buildMessages(
@@ -747,10 +757,15 @@ export const respond = internalAction({
             verdict: stanceResult.verdict,
           });
         } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+          // For opener, compute work hours fresh from the just-extracted price
+          const openerWorkHoursBlock = formatWorkHoursBlock(
+            computeWorkHours(stanceResult._estimatedPrice, userIncomeAmount, userIncomeType)
+          );
           call2SystemPrompt = buildOpenerPrompt({
             displayName: displayName ?? undefined,
             estimatedPrice: stanceResult._estimatedPrice,
             category: stanceResult._category,
+            workHoursBlock: openerWorkHoursBlock,
           });
         } else {
           call2SystemPrompt = nudgeText

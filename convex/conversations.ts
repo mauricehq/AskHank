@@ -196,6 +196,8 @@ export const internalGetUserInfo = internalQuery({
     return {
       displayName: user?.displayName ?? null,
       timezone: user?.timezone ?? null,
+      incomeAmount: user?.incomeAmount ?? null,
+      incomeType: user?.incomeType ?? null,
     };
   },
 });

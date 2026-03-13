@@ -8,6 +8,7 @@ import {
   Check,
   User,
   Mail,
+  DollarSign,
   Palette,
   Sun,
   Moon,
@@ -101,6 +102,8 @@ interface SettingsPanelProps {
 export function SettingsPanel({ onBack }: SettingsPanelProps) {
   const user = useQuery(api.users.currentUser);
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const setIncomeMutation = useMutation(api.users.setIncome);
+  const clearIncomeMutation = useMutation(api.users.clearIncome);
   const deleteAccountMutation = useMutation(api.users.deleteAccount);
   const { signOut } = useClerk();
   const { resolvedTheme, setTheme } = useTheme();
@@ -108,6 +111,9 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [isEditingIncome, setIsEditingIncome] = useState(false);
+  const [incomeTypeInput, setIncomeTypeInput] = useState<"annual" | "hourly">("annual");
+  const [incomeAmountInput, setIncomeAmountInput] = useState("");
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -153,6 +159,38 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
   const cancelEditing = () => {
     setIsEditingName(false);
     setNameInput("");
+  };
+
+  // Income helpers
+  const hasIncome = !!(user?.incomeAmount && user?.incomeType);
+  const incomeDisplay = hasIncome
+    ? user.incomeType === "annual"
+      ? `$${user.incomeAmount!.toLocaleString()}/yr`
+      : `$${user.incomeAmount!.toLocaleString()}/hr`
+    : "Not set";
+
+  const startEditingIncome = () => {
+    setIncomeTypeInput(user?.incomeType ?? "annual");
+    setIncomeAmountInput(user?.incomeAmount ? String(user.incomeAmount) : "");
+    setIsEditingIncome(true);
+  };
+
+  const saveIncome = async () => {
+    const parsed = parseFloat(incomeAmountInput.replace(/,/g, ""));
+    if (parsed > 0) {
+      await setIncomeMutation({ incomeAmount: parsed, incomeType: incomeTypeInput });
+      setIsEditingIncome(false);
+    }
+  };
+
+  const cancelEditingIncome = () => {
+    setIsEditingIncome(false);
+    setIncomeAmountInput("");
+  };
+
+  const removeIncome = async () => {
+    await clearIncomeMutation();
+    setIsEditingIncome(false);
   };
 
   const handleDelete = async () => {
@@ -235,6 +273,94 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
                     onClick={startEditing}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
                     aria-label="Edit display name"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+              )}
+            </SettingRow>
+            <SettingRow
+              icon={DollarSign}
+              label="Income"
+              description="Helps Hank reframe prices as work hours"
+            >
+              {isEditingIncome ? (
+                <div className="flex flex-col items-end gap-2">
+                  {/* Segmented toggle */}
+                  <div className="flex rounded-lg border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIncomeTypeInput("annual")}
+                      className={`px-3 py-1 text-[10px] font-semibold transition-colors ${
+                        incomeTypeInput === "annual"
+                          ? "bg-accent text-user-text"
+                          : "bg-bg-surface text-text-secondary hover:text-text"
+                      }`}
+                    >
+                      Annual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIncomeTypeInput("hourly")}
+                      className={`px-3 py-1 text-[10px] font-semibold transition-colors ${
+                        incomeTypeInput === "hourly"
+                          ? "bg-accent text-user-text"
+                          : "bg-bg-surface text-text-secondary hover:text-text"
+                      }`}
+                    >
+                      Hourly
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary text-xs">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={incomeAmountInput}
+                        onChange={(e) => setIncomeAmountInput(e.target.value.replace(/[^0-9.,]/g, ""))}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveIncome();
+                          if (e.key === "Escape") cancelEditingIncome();
+                        }}
+                        className="w-[120px] rounded-lg border-[1.5px] border-border bg-input-bg pl-5 pr-2.5 py-1 text-sm text-text outline-none focus:border-accent"
+                      />
+                    </div>
+                    <button
+                      onClick={saveIncome}
+                      disabled={!incomeAmountInput || parseFloat(incomeAmountInput.replace(/,/g, "")) <= 0}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-accent hover:bg-bg-surface disabled:opacity-50"
+                      aria-label="Save"
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button
+                      onClick={cancelEditingIncome}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface"
+                      aria-label="Cancel"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  {hasIncome && (
+                    <button
+                      onClick={removeIncome}
+                      className="text-[11px] text-text-secondary hover:text-red-500 transition-colors"
+                    >
+                      Remove income
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-text-secondary">
+                    {incomeDisplay}
+                  </span>
+                  <button
+                    onClick={startEditingIncome}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+                    aria-label="Edit income"
                   >
                     <Pencil size={14} />
                   </button>
