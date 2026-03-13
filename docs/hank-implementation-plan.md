@@ -217,11 +217,11 @@ Call 2 prompt selection:
 - [x] Delete conversation
 - [x] Enhance history entries: show item name, verdict badge (denied/approved), price — instead of generic title
 
-### 3c: "Saved $X" Counter
-- [ ] Running total stored per user in Convex
-- [ ] Incremented when a conversation closes as denied and user provided an estimated price
-- [ ] Displayed prominently on main screen
-- [ ] Hank asks for estimated price if user doesn't provide it
+### 3c: "Saved $X" Counter ✅
+- [x] Running total stored per user in Convex (`savedTotal` + `deniedCount` fields on users table)
+- [x] Incremented when a conversation closes as denied and user provided an estimated price (conditional increment in `saveResponseWithVerdict`)
+- [x] Displayed prominently on main screen (two-stat card in sidebar: `$saved` + `skipped`)
+- [x] Hank asks for estimated price if user doesn't provide it (system prompt instructs LLM to ask early)
 
 ### 3d: Hank's Memory (Conversation Summaries)
 - [ ] Query last 20-30 conversation summaries for the user before each new conversation
@@ -275,7 +275,7 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 - [x] Message appear animation (Hank's responses slide/fade in)
 - [x] Typing indicator animation
 - [x] Verdict reveal (denied = firm, approved = reluctant acknowledgment)
-- [ ] "Saved $X" counter tick-up animation (needs Phase 3c first)
+- [ ] "Saved $X" counter tick-up animation
 - [x] Screen transitions
 - [x] Button press feedback
 
@@ -509,7 +509,7 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a + 3b done) | Saved counter, memory |
+| 3: Persistence | Partial (3a + 3b + 3c done) | Memory |
 | 4: Credits + Stripe | Not started | Credit system, payments |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
