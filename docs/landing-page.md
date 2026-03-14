@@ -84,7 +84,7 @@ Full viewport. Centered. Generous whitespace.
 ```
 Ask Hank
 
-Tell him what you want to buy. He says no.
+Tell him what you want to buy. He pushes back.
 
 A spending guardrail disguised as an argument
 with a friend who's better with money than you are.
@@ -96,7 +96,7 @@ with a friend who's better with money than you are.
 - "Try it free" opens Clerk signup modal
 - "Sign in" opens Clerk signin modal
 - Subtle scroll indicator at the bottom (chevron down, gentle bounce)
-- Theme toggle in top-right corner
+- No theme toggle — landing page is dark mode only. The app has light/dark toggle after sign-in.
 
 ---
 
@@ -165,23 +165,37 @@ VERDICT: CASE CLOSED — DENIED ($900)
   [delay: 1000]
 ```
 
-**Tab 2 — Running Shoes ($250) — APPROVED**
+**Tab 2 — Pressure Washer ($200) — APPROVED (hard-won)**
+
+The only APPROVED example. Critically, this one is *earned* — the user fights for 4 rounds before Hank concedes. Shows the product isn't a blanket "no" bot, but you have to make a real case. Based on a real conversation.
+
 ```
-User: I need new running shoes. Mine have 800 miles on them. $250.
+User: Looking at buying a pressure washer to wash my car. Around $200.
   [delay: 0]
 
-Hank: 800 miles is past dead for most shoes.
-      What are you running, and how often?
+Hank: You already wash your car without one.
+      What's wrong with the hose and bucket method?
   [delay: 800, typingDuration: 1200]
 
-User: 4 times a week, training for a half marathon next month.
+User: I wash every 2 weeks, Montreal winters destroy
+      the paint. Grit gets stuck like glue.
   [delay: 1200]
 
-Hank: Regular use, clear timeline, current pair is
-      shot. Fine. But you better actually run in these.
-  [delay: 800, typingDuration: 1500]
+Hank: A pressure washer won't stop winter from happening.
+      How many car washes would $200 buy at the touchless
+      place down the road?
+  [delay: 800, typingDuration: 1800]
 
-VERDICT: CASE CLOSED — APPROVED ($250)
+User: Around 10, not even a full winter. And I have
+      my own garage so I don't freeze outside.
+  [delay: 1500]
+
+Hank: Alright, fine. Winter in Montreal is a warzone
+      and you've actually thought this through. Just
+      promise me you'll use it more than once a season.
+  [delay: 800, typingDuration: 2000]
+
+VERDICT: CASE CLOSED — APPROVED ($200)
   [delay: 1000]
 ```
 
@@ -211,10 +225,46 @@ VERDICT: CASE CLOSED — DENIED ($45)
   [delay: 1000]
 ```
 
-**Why these three:**
-- Espresso machine = relatable, classic impulse buy, shows Hank's "callback" move
-- Running shoes = APPROVED — proves Hank isn't a blanket "no" bot, shows fair assessment
-- Scented candles = female-coded purchase, low price point, shows Hank handles all categories without being patronizing. The "self-care vs retail therapy" line is sharp.
+**Tab 4 — Gaming Monitor ($800) — DENIED (memory callback)**
+
+The showcase for Hank's memory feature. Hank references the espresso machine conversation from Tab 1. The visitor just watched that tab — so when Hank calls it back, the connection is instant. This is the "wait, he *remembers*?" moment.
+
+**This tab must always come after Tab 1 in the auto-cycle.** The callback only lands if the visitor has seen the espresso machine conversation first.
+
+```
+User: I want a new 4K gaming monitor. About $800.
+  [delay: 0]
+
+Hank: What's your current monitor failing at, exactly?
+  [delay: 800, typingDuration: 1000]
+
+User: It's only 1080p and I play competitive shooters.
+      The clarity difference at 4K is huge.
+  [delay: 1200]
+
+Hank: A 1080p monitor worked fine for years. Now suddenly
+      it's holding you back, right when shiny new 4K
+      screens hit the market. Convenient timing.
+  [delay: 800, typingDuration: 1800]
+
+User: It's 5 years old and has ghosting issues.
+      Games have gotten more demanding too.
+  [delay: 1500]
+
+Hank: Last week it was a $900 espresso machine.
+      Now it's an $800 monitor. You're not upgrading,
+      you're just shopping with extra steps.
+  [delay: 800, typingDuration: 2000]
+
+VERDICT: CASE CLOSED — DENIED ($800)
+  [delay: 1000]
+```
+
+**Why these four:**
+- Espresso machine = relatable, classic impulse buy, quick denial, shows Hank's sharp one-liners
+- Pressure washer = the APPROVED example, but hard-won. User fights for 4 rounds with real arguments (Montreal winter, regular use, has a garage, math works out). Shows Hank is fair — you CAN win, but you have to earn it.
+- Scented candles = female-coded purchase, low price point, TikTok-driven impulse. Shows Hank handles all categories without being patronizing. The "self-care vs retail therapy" line is sharp. Proves price isn't the issue — $45 gets denied because the reasoning is weak.
+- Gaming monitor = the memory callback. Hank references the espresso machine from Tab 1 — "Last week it was a $900 espresso machine." The visitor just watched that conversation, so the callback clicks instantly. This is the differentiator — he's not a one-off chatbot, he builds a case file on you over time. Must auto-cycle after Tab 1 for the reference to land.
 
 **Visual design:**
 - Chat container styled like the real app (dark bg, message bubbles, HANK label in accent mono)
@@ -231,21 +281,49 @@ VERDICT: CASE CLOSED — DENIED ($45)
 
 ```
 01                       02                       03
-Tell Hank what           He pushes back.          You get a verdict.
-you want to buy.         Hard.                    Usually "no."
+Tell Hank what           Make your case.          You get a verdict.
+you want to buy.                                  Usually "no."
 
-Open a conversation.     Hank challenges every    When the case is closed,
-Type the item.           angle. "I want it"       you see exactly how much
-That's it.               isn't good enough.       you didn't spend.
+Open a conversation.     Hank pushes back. You    When the case is closed,
+Type the item.           push back harder. If     you see exactly how much
+That's it.               your argument holds up,  you didn't spend — or
+                         he'll come around.       didn't need to.
 ```
 
 Numbers in DM Mono, accent color. Desktop: 3-column row. Mobile: stacked.
 
 ---
 
-### Section 4: Why Hank Works
+### Section 4: Your Scorecard
 
-**Header:** `WHY OTHER TOOLS FAIL`
+**Header:** `TRACK YOUR WINS`
+
+A mockup of the stats/saved counter as it would look in the app. Not a global "users have saved $X" — that's fake at launch. Instead, show what YOUR counter will look like after using Hank.
+
+```
+┌──────────────────┐  ┌──────────────────┐
+│                   │  │                   │
+│  You've saved     │  │  That's           │
+│     $2,847        │  │     114 hours     │
+│  this year        │  │  of work          │
+│                   │  │                   │
+│  47 talked out of │  │  You kept.        │
+│  3 approved       │  │                   │
+│                   │  │                   │
+└──────────────────┘  └──────────────────┘
+```
+
+Two cards side by side. Left is the dollar savings. Right is the work-hours equivalent — the gut punch version of the same number. $2,847 is abstract. 114 hours of your life is not.
+
+This is an example mockup with placeholder numbers — styled like the real stats view in the app. The framing is aspirational: "this is what it looks like after a few months of using Hank."
+
+Short line underneath: "Every denied purchase adds to your total. The app pays for itself."
+
+---
+
+### Section 5: Why Hank Works
+
+**Header:** `WHY HANK WORKS`
 
 **Left side (paragraph):**
 
@@ -274,7 +352,7 @@ Closes with a check icon: "Hank: A debate you have to win."
 
 ---
 
-### Section 5: Free to Try
+### Section 6: Free to Try
 
 **Header:** `FREE TO TRY`
 
@@ -283,16 +361,17 @@ Every impulse buying app charges you before
 you can try it. Hank lets you argue for free.
 
 30 free messages. No credit card.
-No trial that expires. No "premium unlock."
+No subscription. No trial that expires.
 
 If you run out, credit packs start at $1.99.
+Buy what you need, when you need it.
 ```
 
 Optional: show credit pack tiers (50/$1.99, 150/$4.99, 400/$9.99) as informational cards. No purchase action on the landing page.
 
 ---
 
-### Section 6: Fair Warning
+### Section 7: Fair Warning
 
 Top and bottom border — feels like a warning label.
 
@@ -311,9 +390,9 @@ Last line gets slightly more weight. This is the personality filter.
 
 ---
 
-### Section 7: Final CTA + Footer
+### Section 8: Final CTA
 
-Minimal echo of the hero.
+Minimal echo of the hero. Last chance to convert.
 
 ```
 Ask Hank
@@ -321,11 +400,37 @@ Ask Hank
 Tell him what you want to buy.
 
 [Try it free]
-
-askhank.app
 ```
 
-One button. Domain in mono. Nothing else.
+One button. No "Sign in" here — this is for new users.
+
+---
+
+### Footer
+
+**Salvaged from Hopshelf's `Footer.tsx`.** Same grid layout, adapted for Hank.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│  [icon] Ask Hank              Product       Legal        │
+│  Tell him what you            Demo          Terms        │
+│  want to buy.                 How It Works  Privacy      │
+│  He pushes back.              Pricing       Contact      │
+│                                                          │
+│  ─────────────────────────────────────────────────────── │
+│  © 2026 AskHank                            [mail icon]   │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Left (2 cols):** Logo + icon + tagline
+- **Product column:** Scroll anchor links (Demo, How It Works, Pricing) — same as navbar
+- **Legal column:** Terms of Service, Privacy Policy, Contact (mailto)
+- **Bottom row:** Copyright + contact icon (mail). No social links until there's a presence to link to.
+- Mobile: stacked single column
+
+Legal pages (Terms, Privacy) are separate routes — required for launch but simple boilerplate. Contact is a mailto link.
 
 ---
 
@@ -342,10 +447,10 @@ One button. Domain in mono. Nothing else.
 
 ## Open Questions
 
-1. **Credit pack display in Section 5 — worth showing?** It might anchor the price ("this is cheap") or distract from the "free" message. Could just say "credit packs start at $1.99" without showing the tiers.
+1. **Credit pack display in the pricing section — worth showing tiers visually?** It might anchor the price ("this is cheap") or distract from the "free" message. Currently just says "credit packs start at $1.99" in text. Decide once credits are built (Phase 4).
 
-2. **Should there be a "Saved $X by Hank users" counter eventually?** Not for launch (no data), but worth designing the space for it in the hero or Section 5.
+2. ~~**Should there be a "Saved $X by Hank users" counter eventually?**~~ Resolved — Section 4 shows a per-user mockup with dollars + work hours side by side.
 
-3. **The Hank logo/icon — should it appear in the hero?** We have `AskHankIcon.svg`. Could go above the text or replace the text logo.
+3. ~~**The Hank logo/icon — should it appear in the hero?**~~ Resolved — yes. Icon in the navbar next to "Ask Hank" text, same pattern as Hopshelf's `HopshelfIcon` in `Navbar.tsx`. Uses `AskHankIcon.svg` at ~24-28px.
 
-4. **Auto-play conversation count — 3 or 4?** Three feels tight (espresso, shoes, candles). A fourth tab (e.g. Video Game $60 — "You have 40 unplayed games. This isn't a library, it's a graveyard.") adds range without bloating the demo. Hopshelf uses 4 tabs.
+4. ~~**Auto-play conversation count — 3 or 4?**~~ Resolved — 4 tabs. Espresso machine, pressure washer, scented candles, gaming monitor (memory callback).
