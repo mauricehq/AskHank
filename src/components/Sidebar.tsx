@@ -8,7 +8,10 @@ import { api } from "../../convex/_generated/api";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { useCountUp } from "@/hooks/useCountUp";
 import { HistoryItem } from "./HistoryItem";
+import { useRouter, useParams } from "next/navigation";
+import { useAppLayout } from "./AppLayoutContext";
 import type { Id } from "../../convex/_generated/dataModel";
+import Link from "next/link";
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Math.max(0, Date.now() - timestamp);
@@ -31,17 +34,9 @@ interface SidebarProps {
   isDesktop: boolean;
   onClose: () => void;
   onToggle: () => void;
-  onNewConversation?: () => void;
-  onSelectConversation?: (id: Id<"conversations">) => void;
-  activeConversationId?: Id<"conversations"> | null;
-  onOpenAdmin?: () => void;
-  onOpenSettings?: () => void;
-  onOpenStats?: () => void;
-  onDeleteConversation?: (id: Id<"conversations">) => void;
-  onOpenCredits?: () => void;
 }
 
-export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversation, onSelectConversation, activeConversationId, onOpenAdmin, onOpenSettings, onOpenStats, onDeleteConversation, onOpenCredits }: SidebarProps) {
+export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) {
   const user = useQuery(api.users.currentUser);
   const history = useQuery(api.conversations.listForUser);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
@@ -49,13 +44,22 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
+  const router = useRouter();
+  const params = useParams();
+  const { openCreditsModal } = useAppLayout();
+
+  const activeConversationId = params.id as Id<"conversations"> | undefined;
+
   const sidebarContent = (
     <div className="flex h-full w-[280px] flex-col">
       {/* Header */}
       <div className="flex h-[60px] shrink-0 items-center justify-between px-4">
-        <span className="text-base font-bold tracking-tight text-text">
-          Ask <span className="text-accent">Hank</span>
-        </span>
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
+          <span className="text-base font-bold tracking-tight text-text">
+            Ask <span className="text-accent">Hank</span>
+          </span>
+        </Link>
         <button
           onClick={isDesktop ? onToggle : onClose}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
@@ -70,7 +74,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
         <button
           onClick={() => {
             if (!isDesktop) onClose();
-            onNewConversation?.();
+            router.push("/conversations/new");
           }}
           className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
         >
@@ -108,12 +112,15 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
               isActive={activeConversationId === item._id}
               onClick={() => {
                 if (!isDesktop) onClose();
-                onSelectConversation?.(item._id);
+                router.push(`/conversations/${item._id}`);
               }}
               onDelete={async () => {
                 try {
                   await deleteConversation({ conversationId: item._id });
-                  onDeleteConversation?.(item._id);
+                  // If we deleted the active conversation, go to empty state
+                  if (item._id === activeConversationId) {
+                    router.push("/conversations");
+                  }
                 } catch {
                   // Mutation failed — Convex shows error toast, list stays unchanged
                 }
@@ -130,7 +137,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
           <button
             onClick={() => {
               if (!isDesktop) onClose();
-              onOpenCredits?.();
+              openCreditsModal();
             }}
             className="flex w-full items-center gap-2.5 rounded-[10px] bg-bg-surface px-3.5 py-3 text-left hover:bg-bg-surface/80 transition-colors"
           >
@@ -151,7 +158,6 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
         history={history}
         isDesktop={isDesktop}
         onClose={onClose}
-        onOpenStats={onOpenStats}
       />
 
       {/* Footer */}
@@ -165,7 +171,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
             <button
               onClick={() => {
                 if (!isDesktop) onClose();
-                onOpenAdmin?.();
+                router.push("/admin");
               }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
               aria-label="Admin"
@@ -177,7 +183,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle, onNewConversatio
           <button
             onClick={() => {
               if (!isDesktop) onClose();
-              onOpenSettings?.();
+              router.push("/settings");
             }}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"
@@ -230,14 +236,13 @@ function SidebarStats({
   history,
   isDesktop,
   onClose,
-  onOpenStats,
 }: {
   user: { savedTotal?: number; incomeAmount?: number; incomeType?: string } | undefined | null;
   history: { verdict?: string }[] | undefined;
   isDesktop: boolean;
   onClose: () => void;
-  onOpenStats?: () => void;
 }) {
+  const router = useRouter();
   const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
   const savedTotal = user?.savedTotal ?? 0;
 
@@ -265,7 +270,7 @@ function SidebarStats({
       <button
         onClick={() => {
           if (!isDesktop) onClose();
-          onOpenStats?.();
+          router.push("/stats");
         }}
         className="flex w-full cursor-pointer rounded-[10px] bg-bg-surface py-1 transition-shadow hover:ring-1 hover:ring-border">
         <div className="flex-1 py-3.5 text-center">

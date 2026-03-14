@@ -66,8 +66,8 @@ export const createCheckoutSession = action({
         allow_redisplay_filters: ["always", "limited"],
       },
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}?credits=success`,
-      cancel_url: `${appUrl}?credits=cancelled`,
+      success_url: `${appUrl}/conversations?credits=success`,
+      cancel_url: `${appUrl}/conversations?credits=cancelled`,
       metadata: {
         userId: user._id,
         packId: args.packId,
@@ -185,7 +185,7 @@ export const createPortalSession = action({
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: appUrl,
+      return_url: `${appUrl}/conversations`,
     });
 
     return { url: portalSession.url };
