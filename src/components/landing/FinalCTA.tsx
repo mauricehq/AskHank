@@ -5,17 +5,20 @@ import Link from "next/link";
 
 export function FinalCTA() {
   return (
-    <div className="py-24 md:py-32 px-6 text-center">
-      <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+    <div className="relative py-24 md:py-32 px-6 text-center overflow-hidden">
+      {/* Accent glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[250px] bg-accent/6 blur-[100px] rounded-full pointer-events-none" />
+
+      <h2 className="relative text-4xl md:text-5xl font-bold tracking-tight">
         Ask <span className="text-accent">Hank</span>
       </h2>
-      <p className="mt-4 text-text-secondary text-base md:text-lg">
+      <p className="relative mt-4 text-text-secondary text-base md:text-lg">
         Tell him what you want to buy.
       </p>
-      <div className="mt-8">
+      <div className="relative mt-8">
         <Show when="signed-out">
           <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-            <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+            <button className="rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all hover:shadow-[0_0_30px_rgba(198,90,46,0.3)]">
               Try it free
             </button>
           </SignUpButton>
@@ -23,7 +26,7 @@ export function FinalCTA() {
         <Show when="signed-in">
           <Link
             href="/conversations"
-            className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+            className="inline-block rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all hover:shadow-[0_0_30px_rgba(198,90,46,0.3)]"
           >
             Open Hank
           </Link>

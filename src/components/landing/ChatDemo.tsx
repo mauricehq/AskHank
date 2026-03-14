@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Coffee, Droplets, Flame, Monitor } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useInView } from "@/hooks/useInView";
 import { SectionHeader } from "./SectionHeader";
 
@@ -19,6 +20,7 @@ interface DemoConversation {
   id: string;
   label: string;
   shortLabel: string;
+  icon: LucideIcon;
   price: number;
   verdict: "denied" | "approved";
   verdictQuote: string;
@@ -30,6 +32,7 @@ const CONVERSATIONS: DemoConversation[] = [
     id: "espresso",
     label: "Espresso Machine",
     shortLabel: "Espresso",
+    icon: Coffee,
     price: 900,
     verdict: "denied",
     verdictQuote: "That's a Pinterest board with a credit card.",
@@ -69,6 +72,7 @@ const CONVERSATIONS: DemoConversation[] = [
     id: "pressure-washer",
     label: "Pressure Washer",
     shortLabel: "Washer",
+    icon: Droplets,
     price: 200,
     verdict: "approved",
     verdictQuote: "You've actually thought this through.",
@@ -118,6 +122,7 @@ const CONVERSATIONS: DemoConversation[] = [
     id: "candles",
     label: "Scented Candles",
     shortLabel: "Candles",
+    icon: Flame,
     price: 45,
     verdict: "denied",
     verdictQuote: "Happiness isn't stored in pumpkin chai wax.",
@@ -158,6 +163,7 @@ const CONVERSATIONS: DemoConversation[] = [
     id: "monitor",
     label: "Gaming Monitor",
     shortLabel: "Monitor",
+    icon: Monitor,
     price: 800,
     verdict: "denied",
     verdictQuote: "You're not upgrading, you're just shopping with extra steps.",
@@ -369,47 +375,64 @@ export function ChatDemo() {
 
       {/* Tab bar */}
       <div role="tablist" className="flex justify-center gap-3 sm:gap-6 mb-8 md:mb-12 px-2 flex-wrap">
-        {CONVERSATIONS.map((conv, i) => (
-          <button
-            key={conv.id}
-            role="tab"
-            aria-selected={i === activeIndex}
-            onClick={() => handleTabClick(i)}
-            className={`relative font-mono text-[0.65rem] sm:text-xs uppercase tracking-widest pb-2 whitespace-nowrap transition-colors duration-200 ${
-              i === activeIndex
-                ? "text-text"
-                : "text-text-secondary hover:text-text"
-            }`}
-          >
-            <span className="sm:hidden">{conv.shortLabel}</span>
-            <span className="hidden sm:inline">
-              {conv.label} &mdash; ${conv.price}
-            </span>
-
-            {/* Dim underline for active tab */}
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-200 ${
-                i === activeIndex ? "bg-border" : "bg-transparent"
+        {CONVERSATIONS.map((conv, i) => {
+          const Icon = conv.icon;
+          return (
+            <button
+              key={conv.id}
+              role="tab"
+              aria-selected={i === activeIndex}
+              onClick={() => handleTabClick(i)}
+              className={`relative font-mono text-[0.65rem] sm:text-xs uppercase tracking-widest pb-2 whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+                i === activeIndex
+                  ? "text-text"
+                  : "text-text-secondary hover:text-text"
               }`}
-            />
+            >
+              <Icon className="w-3.5 h-3.5 hidden sm:inline" />
+              <span className="sm:hidden">{conv.shortLabel}</span>
+              <span className="hidden sm:inline">
+                {conv.label} &mdash; ${conv.price}
+              </span>
 
-            {/* Progress bar fill during auto-advance pause */}
-            {i === activeIndex && autoCycleEnabled && (
+              {/* Dim underline for active tab */}
               <div
-                className="absolute bottom-0 left-0 h-0.5 bg-accent rounded-full"
-                style={{
-                  width: showProgress ? "100%" : "0%",
-                  transition: showProgress ? "width 4s linear" : "none",
-                }}
+                className={`absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-200 ${
+                  i === activeIndex ? "bg-border" : "bg-transparent"
+                }`}
               />
-            )}
-          </button>
-        ))}
+
+              {/* Progress bar fill during auto-advance pause */}
+              {i === activeIndex && autoCycleEnabled && (
+                <div
+                  className="absolute bottom-0 left-0 h-0.5 bg-accent rounded-full"
+                  style={{
+                    width: showProgress ? "100%" : "0%",
+                    transition: showProgress ? "width 4s linear" : "none",
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Chat window */}
-      <div ref={ref} className="w-full max-w-2xl mx-auto">
-        <div className="bg-bg-surface rounded-xl border border-border overflow-hidden flex flex-col select-none">
+      <div ref={ref} className="w-full max-w-2xl mx-auto relative">
+        {/* Ambient glow */}
+        <div className="absolute -inset-6 bg-accent/8 blur-[80px] rounded-full pointer-events-none" />
+
+        <div className="relative bg-bg-surface rounded-2xl border border-border/60 overflow-hidden flex flex-col select-none shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+          {/* App chrome header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-border/60" />
+              <div className="w-3 h-3 rounded-full bg-border/60" />
+              <div className="w-3 h-3 rounded-full bg-border/60" />
+            </div>
+            <div className="w-px h-4 bg-border/40" />
+            <span className="font-mono text-xs text-text-secondary tracking-wide">Ask Hank</span>
+          </div>
           {/* Messages area */}
           <div ref={chatContainerRef} className="p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
             {visibleMessages.map((msg, index) => {

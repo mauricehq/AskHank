@@ -42,7 +42,9 @@ export function WhyHankWorks() {
         <div className="space-y-6">
           {failures.map((item) => (
             <div key={item.label} className="flex gap-3">
-              <X className="w-5 h-5 text-denied shrink-0 mt-0.5" />
+              <div className="w-8 h-8 rounded-full bg-denied/10 flex items-center justify-center shrink-0">
+                <X className="w-4 h-4 text-denied" />
+              </div>
               <div>
                 <div className="font-semibold text-text mb-1">{item.label}</div>
                 <p className="text-sm text-text-secondary leading-relaxed">
@@ -52,8 +54,10 @@ export function WhyHankWorks() {
             </div>
           ))}
 
-          <div className="flex gap-3 pt-2">
-            <Check className="w-5 h-5 text-approved shrink-0 mt-0.5" />
+          <div className="flex gap-3 bg-accent/5 border border-accent/20 rounded-xl p-4">
+            <div className="w-8 h-8 rounded-full bg-approved/10 flex items-center justify-center shrink-0">
+              <Check className="w-4 h-4 text-approved" />
+            </div>
             <div>
               <div className="font-semibold text-text mb-1">Hank</div>
               <p className="text-sm text-text-secondary leading-relaxed">
