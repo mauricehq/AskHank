@@ -273,13 +273,14 @@ export function ChatDemo() {
   const [autoCycleEnabled, setAutoCycleEnabled] = useState(true);
   const [showProgress, setShowProgress] = useState(false);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const currentConversation = CONVERSATIONS[activeIndex];
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll chat container to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [visibleCount, isTyping, showVerdict]);
 
   // Play through current conversation's messages
@@ -410,7 +411,7 @@ export function ChatDemo() {
       <div ref={ref} className="w-full max-w-2xl mx-auto">
         <div className="bg-bg-surface rounded-xl border border-border overflow-hidden flex flex-col select-none">
           {/* Messages area */}
-          <div className="p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
+          <div ref={chatContainerRef} className="p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
             {visibleMessages.map((msg, index) => {
               const isHank = msg.role === "hank";
 
@@ -455,8 +456,6 @@ export function ChatDemo() {
                 quote={currentConversation.verdictQuote}
               />
             )}
-
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Static input bar (cosmetic) */}

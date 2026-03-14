@@ -1,6 +1,7 @@
 "use client";
 
-import { SignUpButton } from "@clerk/nextjs";
+import { Show, SignUpButton } from "@clerk/nextjs";
+import Link from "next/link";
 
 export function FinalCTA() {
   return (
@@ -12,11 +13,21 @@ export function FinalCTA() {
         Tell him what you want to buy.
       </p>
       <div className="mt-8">
-        <SignUpButton mode="modal">
-          <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
-            Try it free
-          </button>
-        </SignUpButton>
+        <Show when="signed-out">
+          <SignUpButton mode="modal" forceRedirectUrl="/conversations">
+            <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+              Try it free
+            </button>
+          </SignUpButton>
+        </Show>
+        <Show when="signed-in">
+          <Link
+            href="/conversations"
+            className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+          >
+            Open Hank
+          </Link>
+        </Show>
       </div>
     </div>
   );

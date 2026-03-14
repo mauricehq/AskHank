@@ -1,7 +1,8 @@
 "use client";
 
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { Show, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 
 export function Hero() {
   return (
@@ -20,16 +21,26 @@ export function Hero() {
       </p>
 
       <div className="mt-10 flex gap-3">
-        <SignUpButton mode="modal">
-          <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
-            Try it free
-          </button>
-        </SignUpButton>
-        <SignInButton mode="modal">
-          <button className="rounded-[10px] border border-border bg-transparent px-6 py-2.5 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
-            Sign in
-          </button>
-        </SignInButton>
+        <Show when="signed-out">
+          <SignUpButton mode="modal" forceRedirectUrl="/conversations">
+            <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+              Try it free
+            </button>
+          </SignUpButton>
+          <SignInButton mode="modal" forceRedirectUrl="/conversations">
+            <button className="rounded-[10px] border border-border bg-transparent px-6 py-2.5 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
+              Sign in
+            </button>
+          </SignInButton>
+        </Show>
+        <Show when="signed-in">
+          <Link
+            href="/conversations"
+            className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+          >
+            Open Hank
+          </Link>
+        </Show>
       </div>
 
       <div aria-hidden="true" className="mt-16 animate-[scroll-bounce_2s_ease-in-out_infinite] text-text-secondary">

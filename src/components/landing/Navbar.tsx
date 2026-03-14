@@ -71,12 +71,12 @@ export function Navbar() {
         {/* Right: auth buttons (desktop) */}
         <div className="hidden md:flex items-center gap-3">
           <Show when="signed-out">
-            <SignInButton mode="modal">
+            <SignInButton mode="modal" forceRedirectUrl="/conversations">
               <button className="rounded-[10px] border border-border bg-transparent px-4 py-2 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
                 Sign in
               </button>
             </SignInButton>
-            <SignUpButton mode="modal">
+            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
               <button className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
                 Try it free
               </button>
@@ -84,7 +84,7 @@ export function Navbar() {
           </Show>
           <Show when="signed-in">
             <Link
-              href="/"
+              href="/conversations"
               className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
             >
               Open Hank
@@ -95,7 +95,7 @@ export function Navbar() {
         {/* Right: mobile auth */}
         <div className="md:hidden">
           <Show when="signed-out">
-            <SignUpButton mode="modal">
+            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
               <button className="rounded-[10px] bg-accent px-3 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
                 Try it free
               </button>
@@ -103,7 +103,7 @@ export function Navbar() {
           </Show>
           <Show when="signed-in">
             <Link
-              href="/"
+              href="/conversations"
               className="rounded-[10px] bg-accent px-3 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
             >
               Open Hank
@@ -127,7 +127,7 @@ export function Navbar() {
           ))}
           <hr className="border-border" />
           <Show when="signed-out">
-            <SignInButton mode="modal">
+            <SignInButton mode="modal" forceRedirectUrl="/conversations">
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-text-secondary hover:text-text font-medium text-left"

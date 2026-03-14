@@ -11,6 +11,7 @@ import { ScrollToBottom } from "./ScrollToBottom";
 import { useConversation } from "@/hooks/useConversation";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useAppLayout } from "./AppLayoutContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { TraceSummary } from "@/types/chat";
 
@@ -18,10 +19,10 @@ interface ChatScreenProps {
   conversationId?: Id<"conversations"> | null;
   onConversationCreated?: (id: Id<"conversations">) => void;
   onNewConversation: () => void;
-  onOpenCredits?: () => void;
 }
 
-export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation, onOpenCredits }: ChatScreenProps) {
+export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
+  const { openCreditsModal } = useAppLayout();
   const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, outOfCredits, thinkingSince } = useConversation();
   const { isAdmin } = useUserAccess();
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
@@ -154,7 +155,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
                   Buy more to keep talking to Hank.
                 </p>
                 <button
-                  onClick={onOpenCredits}
+                  onClick={openCreditsModal}
                   className="mt-3 rounded-[10px] bg-accent px-5 py-2 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
                 >
                   Get credits

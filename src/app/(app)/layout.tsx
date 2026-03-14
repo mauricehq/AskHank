@@ -3,33 +3,27 @@
 import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
 import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { SessionErrorBanner } from "./SessionErrorBanner";
-import { Sidebar } from "./Sidebar";
-import { MobileTopBar } from "./MobileTopBar";
-import { EmptyState } from "./EmptyState";
-import { ChatScreen } from "./ChatScreen";
-import { OnboardingPrompt } from "./OnboardingPrompt";
-import { AdminPanel } from "./admin/AdminPanel";
-import { SettingsPanel } from "./SettingsPanel";
-import { CreditsModal } from "./CreditsModal";
-import { StatsPanel } from "./StatsPanel";
-import { useUserAccess } from "@/hooks/useUserAccess";
+import { SessionErrorBanner } from "@/components/SessionErrorBanner";
+import { Sidebar } from "@/components/Sidebar";
+import { MobileTopBar } from "@/components/MobileTopBar";
+import { OnboardingPrompt } from "@/components/OnboardingPrompt";
+import { CreditsModal } from "@/components/CreditsModal";
+import { AppLayoutProvider, useAppLayout } from "@/components/AppLayoutContext";
 
-export function AppShell() {
+function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { isLoading, sessionError, clearSessionError } = useStoreUserEffect();
   const user = useQuery(api.users.currentUser);
-  const { canAccessAdminPanel } = useUserAccess();
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-  const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings" | "stats">("empty");
-  const [activeConversationId, setActiveConversationId] = useState<Id<"conversations"> | null>(null);
-  const [creditsModalOpen, setCreditsModalOpen] = useState(false);
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+    isDesktop,
+    creditsModalOpen,
+    setCreditsModalOpen,
+  } = useAppLayout();
 
   // Handle Stripe return URL
   const [creditToast, setCreditToast] = useState<"success" | "cancelled" | null>(null);
@@ -50,7 +44,6 @@ export function AppShell() {
   if (isLoading || user === undefined) return null;
 
   const needsOnboarding = user !== null && user.displayName == null;
-
   const sidebarIsOpen = isDesktop ? sidebarOpen : mobileSidebarOpen;
 
   return (
@@ -58,25 +51,12 @@ export function AppShell() {
       {/* Mobile top bar */}
       <MobileTopBar onMenuClick={() => setMobileSidebarOpen(true)} />
 
-      {/* Single Sidebar instance — renders desktop panel or mobile overlay based on isDesktop */}
+      {/* Sidebar */}
       <Sidebar
         isOpen={sidebarIsOpen}
         isDesktop={isDesktop}
         onClose={() => isDesktop ? setSidebarOpen(false) : setMobileSidebarOpen(false)}
-        onToggle={() => isDesktop ? setSidebarOpen((prev) => !prev) : setMobileSidebarOpen((prev) => !prev)}
-        onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }}
-        onSelectConversation={(id) => { setActiveConversationId(id); setCurrentView("chat"); }}
-        activeConversationId={activeConversationId}
-        onOpenAdmin={() => setCurrentView("admin")}
-        onOpenSettings={() => setCurrentView("settings")}
-        onOpenStats={() => setCurrentView("stats")}
-        onDeleteConversation={(id) => {
-          if (id === activeConversationId) {
-            setActiveConversationId(null);
-            setCurrentView("empty");
-          }
-        }}
-        onOpenCredits={() => setCreditsModalOpen(true)}
+        onToggle={() => isDesktop ? setSidebarOpen((prev: boolean) => !prev) : setMobileSidebarOpen((prev: boolean) => !prev)}
       />
 
       {/* Main content */}
@@ -101,19 +81,11 @@ export function AppShell() {
 
         {needsOnboarding ? (
           <OnboardingPrompt />
-        ) : currentView === "stats" ? (
-          <StatsPanel onBack={() => setCurrentView("empty")} onOpenSettings={() => setCurrentView("settings")} />
-        ) : currentView === "settings" ? (
-          <SettingsPanel onBack={() => setCurrentView("empty")} onOpenCredits={() => setCreditsModalOpen(true)} />
-        ) : currentView === "admin" && canAccessAdminPanel ? (
-          <AdminPanel onBack={() => setCurrentView("empty")} />
-        ) : currentView === "chat" ? (
-          <ChatScreen conversationId={activeConversationId} onConversationCreated={setActiveConversationId} onNewConversation={() => { setActiveConversationId(null); setCurrentView("empty"); }} onOpenCredits={() => setCreditsModalOpen(true)} />
         ) : (
-          <EmptyState onStartChat={() => setCurrentView("chat")} />
+          children
         )}
 
-        {/* Credit purchase toast — inside main so it centers with content */}
+        {/* Credit purchase toast */}
         {creditToast && (
           <div className="pointer-events-none absolute inset-0 z-50 flex items-end justify-center pb-6">
             <div className={`pointer-events-auto rounded-xl px-5 py-3 text-sm font-medium shadow-lg ${
@@ -132,5 +104,13 @@ export function AppShell() {
       {/* Credits modal */}
       <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} />
     </div>
+  );
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AppLayoutProvider>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </AppLayoutProvider>
   );
 }
