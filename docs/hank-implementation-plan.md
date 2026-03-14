@@ -40,11 +40,12 @@
 
 ---
 
-## Phase 1: Auth ✅
+## Phase 1: Auth (partially done)
 
 **Goal:** User can sign in with Google and has an identity in Convex.
 
-- [x] Set up Clerk auth with Google OAuth + Email/Password
+- [x] Set up Clerk auth with Email/Password
+- [ ] Google OAuth — skipped to derisk the scoring engine, needs completion before launch
 - [x] Sign-in/sign-up modals (on-brand — burnt orange accent, DM Sans, AskHank tokens via Clerk appearance prop)
 - [x] Auth guard — proxy.ts protects all routes except `/`, page uses `<Show>` components
 - [x] User record in Convex (tokenIdentifier, email, displayName, updatedAt)
@@ -374,13 +375,87 @@ Hank's closing line (e.g. "the cheapest therapy session you'll ever have") can o
 - [ ] Optimized for vertical format (1080x1350) — Instagram Stories / TikTok friendly
 - [ ] Include app URL on every card as CTA
 
+#### Alternative: Unified Share Card (from distribution strategy)
+
+`docs/hank-distribution-strategy.md` proposes consolidating Verdict + Roast into a single card with three elements: user's original ask (setup), Hank's best line (punchline), verdict + item + price (result). The argument: the closing line alone is a punchline without a setup — external viewers need context.
+
+```
+┌─────────────────────────────────┐
+│  ASK HANK                       │
+│                                 │
+│  "I want to upgrade my fridge   │
+│   so my wife stops complaining" │
+│                                 │
+│  "You're treating appliances    │
+│   like duct tape for your       │
+│   marriage."                    │
+│                                 │
+│  ──────────────────────────     │
+│  DENIED — Fridge ($1,000)       │
+│  askhank.app                    │
+└─────────────────────────────────┘
+```
+
+Best line auto-selection heuristics: the message that caused user to back down, the most specific/personal callback, the longest response, or the message that shifted stance toward IMMOVABLE. Fallback: let the user tap a Hank message to feature it.
+
+**Decision deferred.** Ship Verdict + Roast first, see what users actually share, then consolidate or keep both. The unified card is a strong alternative but both approaches are theories until real data says otherwise.
+
+#### "Saved $X" Share Card
+
+The savings counter as a personal achievement card — Strava miles, Duolingo streaks energy. Separate from conversation cards.
+
+```
+┌─────────────────────────────────┐
+│         ASK HANK                │
+│                                 │
+│    You've saved                 │
+│       $2,847                    │
+│    this year                    │
+│                                 │
+│    47 purchases talked out of   │
+│    3 approved                   │
+│                                 │
+│         askhank.app             │
+└─────────────────────────────────┘
+```
+
+- [ ] Shareable stats card (image generation from user stats)
+- [ ] Accessible from stats page (share button)
+
+#### Clean Mode (for screen recording)
+
+Screen recording is the primary TikTok/Reels format — users record themselves arguing with Hank in real time. The app just needs to look good on camera. No video export or replay features needed — users screen-record natively.
+
+- [ ] Toggle that hides sidebar, all chrome — shows only the conversation
+- [ ] Accessible from chat screen (minimal icon, doesn't clutter the UI)
+
 #### Share UX
 - [ ] Enable the currently-disabled Share button on VerdictCard
 - [ ] Two options: "Share Verdict" (full context) and "Share Roast" (single quote)
 - [ ] Two-step download flow (generate image on first tap, save on second — iOS Safari safe)
 - [ ] `navigator.share()` on mobile with clipboard fallback on desktop
 
-**Reference:** `Hopshelf/components/share/ShareCardModal.tsx` — generic share pattern with iOS Safari safe download handling.
+**Don't build:** Video export, auto-scroll replay, or anything fancy. Users will screen-record. Let them.
+
+**Reference:** `Hopshelf/components/share/ShareCardModal.tsx` — generic share pattern with iOS Safari safe download handling. `docs/hank-distribution-strategy.md` — full distribution analysis and share format rationale.
+
+### 5d: Polish Pass
+
+**Goal:** Review the entire app for rough edges before launch. Everything should feel intentional.
+
+#### App-wide review
+- [ ] Walk every screen on desktop and mobile — flag jank, misalignment, dead states
+- [ ] Error states: API failures, empty states, edge cases all handled gracefully
+- [ ] Loading states: no layout shift, skeletons where needed
+
+#### Conversation history improvements
+- [ ] Search/filter conversations — as history grows, finding old conversations is painful
+- [ ] Better empty state when no conversations exist
+
+#### Mobile delete (bug fix)
+- [ ] Swipe-to-delete on history items — current delete uses `group-hover:flex` on the trash icon, which is invisible on touch devices. Users cannot delete conversations on mobile at all.
+- [ ] Swipe gesture with confirm state (red background reveal, snap-back on cancel)
+- [ ] Keep hover-to-reveal on desktop unchanged
 
 ### 5c: Landing Content
 - [ ] Marketing section on the same site (root page or above-the-fold before sign-in)
@@ -395,18 +470,39 @@ Hank's closing line (e.g. "the cheapest therapy session you'll ever have") can o
 
 ## Phase 6: Launch Prep
 
-**Goal:** Everything needed to go live and start the TikTok engine.
+**Goal:** Everything needed to go live and start the TikTok engine. Operational infrastructure so you're not launching blind.
 
+### 6a: Auth Completion
+- [ ] Google OAuth via Clerk — configure provider, test sign-in flow, handle account linking (existing email/password user signs in with Google)
+- [ ] Verify Convex user record creation works for Google-authed users (same `useStoreUserEffect` path)
+
+### 6b: Analytics & Instrumentation
+- [ ] **PostHog** — event tracking, funnels, session replay. Key events: sign_up, conversation_started, conversation_completed, verdict_issued, credits_purchased, credits_exhausted, share_initiated
+- [ ] **Vercel Analytics** — web vitals, page views, performance. Zero-config, just enable in Vercel dashboard + add `<Analytics />` component
+- [ ] Funnel definition: landing → sign_up → first_conversation → verdict → second_conversation → credits_purchased
+
+### 6c: Error Monitoring
+- [ ] **Sentry** — error tracking with source maps. Catches client-side crashes, unhandled rejections, Convex action failures
+- [ ] Alert on: Stripe webhook failures, LLM API errors, auth failures
+
+### 6d: Transactional Email (Resend)
+- [ ] Resend setup with custom domain (noreply@askhank.app)
+- [ ] Welcome email on sign-up (Hank-voice, brief)
+- [ ] Credit purchase receipt
+- [ ] Low-balance nudge (when balance hits 0 and user had an active conversation pattern)
+
+### 6e: Legal & Domain
 - [ ] Privacy Policy page (required, can be simple)
 - [ ] Terms of Service page (required, can be simple)
-- [ ] Custom domain (need to pick one — askhank.com? meethank.com? TBD)
+- [ ] Custom domain setup (askhank.app)
 - [ ] OG meta tags + social card (when someone shares the URL)
-- [ ] Error handling + edge cases (API failures, rate limits, Stripe issues)
-- [ ] Mobile-responsive design (people coming from TikTok are on phones)
+
+### 6f: Launch Readiness
+- [ ] Mobile-responsive audit (TikTok traffic is 95% mobile)
 - [ ] Record 3-5 TikToks before launch day
 - [ ] Have 2 weeks of content ideas ready
 
-**Time:** 1-2 days.
+**Time:** 3-5 days.
 
 ---
 
@@ -552,12 +648,12 @@ Only if web proves traction. Not before.
 | Phase | Status | What |
 |-------|--------|------|
 | 0: Setup | ✅ Done | Project scaffolding |
-| 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
+| 1: Auth | Partial | Clerk auth (Email/Password done, Google OAuth pending) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
 | 3: Persistence | ✅ Done (3a-3e) | Storage, history, saved counter, memory, work-hours reframe |
 | 4: Credits + Stripe | ✅ Done (4a-4c) | Credit system, Stripe payments, cost controls |
-| 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
-| 6: Launch Prep | Not started | Legal, domain, content prep |
+| 5: Polish + Share | ✅ 5a done | Verdict card, roast card, polish pass, landing content |
+| 6: Launch Prep | Not started | Google auth, PostHog, Vercel Analytics, Sentry, Resend email, legal, domain, content prep |
 | 7: User Dossier | Not started | v1.5 — post-launch, needs user data first |
 | 8: Banger System | Not started | v2 — post-dossier, engineers screenshot-worthy moments |
 | 9: iOS | Not started | Only if web proves traction |

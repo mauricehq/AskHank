@@ -6,8 +6,9 @@ import { UserManagement } from "./UserManagement";
 import { CreditManagement } from "./CreditManagement";
 import { HankSettings } from "./HankSettings";
 import { TraceInspector } from "./TraceInspector";
+import { ContentManager } from "./ContentManager";
 
-const TABS = ["Users", "Credits", "Hank Settings", "Traces"] as const;
+const TABS = ["Users", "Credits", "Hank Settings", "Traces", "Content"] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminPanelProps {
@@ -61,6 +62,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
           {activeTab === "Credits" && <CreditManagement />}
           {activeTab === "Hank Settings" && <HankSettings />}
           {activeTab === "Traces" && <TraceInspector />}
+          {activeTab === "Content" && <ContentManager />}
         </div>
       </div>
     </div>

@@ -141,6 +141,26 @@ export default defineSchema({
     .index("by_conversation", ["conversationId", "createdAt"])
     .index("by_message", ["messageId"]),
 
+  replayCuts: defineTable({
+    conversationId: v.id("conversations"),
+    token: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("hank")),
+        content: v.string(),
+      })
+    ),
+    // Denormalized from conversation (replay page needs one query, no auth)
+    item: v.string(),
+    estimatedPrice: v.optional(v.number()),
+    category: v.optional(v.string()),
+    verdict: v.union(v.literal("approved"), v.literal("denied")),
+    verdictTagline: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_conversation", ["conversationId"]),
+
   webhookLogs: defineTable({
     eventId: v.string(),
     eventType: v.string(),
