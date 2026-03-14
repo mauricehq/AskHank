@@ -316,7 +316,7 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 - [x] Message appear animation (Hank's responses slide/fade in)
 - [x] Typing indicator animation
 - [x] Verdict reveal (denied = firm, approved = reluctant acknowledgment)
-- [ ] "Saved $X" counter tick-up animation
+- [x] "Saved $X" counter tick-up animation (framer-motion useSpring + cascade entrance on stats page)
 - [x] Screen transitions
 - [x] Button press feedback
 
