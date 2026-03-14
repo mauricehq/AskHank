@@ -120,6 +120,116 @@ export const setStripeCustomerId = internalMutation({
   },
 });
 
+// --- Webhook logging ---
+
+export const logWebhookEvent = internalMutation({
+  args: {
+    eventId: v.string(),
+    eventType: v.string(),
+    status: v.union(v.literal("processed"), v.literal("skipped"), v.literal("error")),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Idempotent: skip if eventId already logged
+    const existing = await ctx.db
+      .query("webhookLogs")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .unique();
+    if (existing) return;
+
+    await ctx.db.insert("webhookLogs", {
+      eventId: args.eventId,
+      eventType: args.eventType,
+      status: args.status,
+      error: args.error,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// --- Refund handling ---
+
+export const deductCredits = internalMutation({
+  args: {
+    paymentIntentId: v.string(),
+    eventId: v.string(),
+    eventType: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Idempotency: skip if already successfully processed
+    const existingLog = await ctx.db
+      .query("webhookLogs")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .first();
+    if (existingLog?.status === "processed") return;
+
+    // Find purchase by paymentIntentId first, fall back to stripeSessionId
+    let purchase = await ctx.db
+      .query("purchases")
+      .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", args.paymentIntentId))
+      .first();
+    if (!purchase) {
+      purchase = await ctx.db
+        .query("purchases")
+        .withIndex("by_stripe_session", (q) => q.eq("stripeSessionId", args.paymentIntentId))
+        .first();
+    }
+
+    if (!purchase) {
+      // Log as skipped — event received but no matching purchase to refund
+      if (existingLog) {
+        await ctx.db.patch(existingLog._id, { status: "skipped", error: "No matching purchase found" });
+      } else {
+        await ctx.db.insert("webhookLogs", {
+          eventId: args.eventId, eventType: args.eventType,
+          status: "skipped", error: "No matching purchase found",
+          createdAt: Date.now(),
+        });
+      }
+      return;
+    }
+
+    // Deduct credits, clamped at 0
+    const creditsRow = await ctx.db
+      .query("credits")
+      .withIndex("by_user", (q) => q.eq("userId", purchase.userId))
+      .unique();
+    if (creditsRow) {
+      await ctx.db.patch(creditsRow._id, {
+        balance: Math.max(0, creditsRow.balance - purchase.credits),
+      });
+    }
+
+    // Log as processed — atomic with the deduction above
+    if (existingLog) {
+      await ctx.db.patch(existingLog._id, { status: "processed", error: undefined });
+    } else {
+      await ctx.db.insert("webhookLogs", {
+        eventId: args.eventId, eventType: args.eventType,
+        status: "processed", createdAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const setPaymentIntentId = internalMutation({
+  args: {
+    stripeSessionId: v.string(),
+    paymentIntentId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const purchase = await ctx.db
+      .query("purchases")
+      .withIndex("by_stripe_session", (q) => q.eq("stripeSessionId", args.stripeSessionId))
+      .unique();
+    if (purchase) {
+      await ctx.db.patch(purchase._id, {
+        paymentIntentId: args.paymentIntentId,
+      });
+    }
+  },
+});
+
 // --- One-time migration: grant starter credits to existing users ---
 
 export const migrateExistingUsers = internalMutation({

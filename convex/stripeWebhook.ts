@@ -32,40 +32,120 @@ export const handleWebhook = internalAction({
       webhookSecret,
     );
 
-    if (event.type !== "checkout.session.completed") return;
+    try {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const metadata = session.metadata;
+          if (!metadata?.userId || !metadata?.packId || !metadata?.credits) {
+            console.error("Missing metadata on checkout session:", session.id);
+            await ctx.runMutation(internal.credits.logWebhookEvent, {
+              eventId: event.id,
+              eventType: event.type,
+              status: "error",
+              error: `Missing metadata on checkout session: ${session.id}`,
+            });
+            return;
+          }
 
-    const session = event.data.object as Stripe.Checkout.Session;
-    const metadata = session.metadata;
-    if (!metadata?.userId || !metadata?.packId || !metadata?.credits) {
-      console.error("Missing metadata on checkout session:", session.id);
-      return;
-    }
+          const credits = parseInt(metadata.credits, 10);
+          if (isNaN(credits) || credits <= 0) {
+            console.error("Invalid credits metadata:", metadata.credits);
+            await ctx.runMutation(internal.credits.logWebhookEvent, {
+              eventId: event.id,
+              eventType: event.type,
+              status: "error",
+              error: `Invalid credits metadata: ${metadata.credits}`,
+            });
+            return;
+          }
 
-    const credits = parseInt(metadata.credits, 10);
-    if (isNaN(credits) || credits <= 0) {
-      console.error("Invalid credits metadata:", metadata.credits);
-      return;
-    }
+          const userId = metadata.userId as Id<"users">;
 
-    const userId = metadata.userId as Id<"users">;
+          await ctx.runMutation(internal.credits.addCredits, {
+            userId,
+            stripeSessionId: session.id,
+            packId: metadata.packId,
+            credits,
+            amountCents: session.amount_total ?? 0,
+          });
 
-    await ctx.runMutation(internal.credits.addCredits, {
-      userId,
-      stripeSessionId: session.id,
-      packId: metadata.packId,
-      credits,
-      amountCents: session.amount_total ?? 0,
-    });
+          // Backfill paymentIntentId so refunds can find this purchase
+          if (session.payment_intent) {
+            const piId = typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent.id;
+            await ctx.runMutation(internal.credits.setPaymentIntentId, {
+              stripeSessionId: session.id,
+              paymentIntentId: piId,
+            });
+          }
 
-    // Belt + suspenders: capture stripeCustomerId if not already saved
-    if (session.customer) {
-      const customerId = typeof session.customer === "string"
-        ? session.customer
-        : session.customer.id;
-      await ctx.runMutation(internal.credits.setStripeCustomerId, {
-        userId,
-        stripeCustomerId: customerId,
-      });
+          // Belt + suspenders: capture stripeCustomerId if not already saved
+          if (session.customer) {
+            const customerId = typeof session.customer === "string"
+              ? session.customer
+              : session.customer.id;
+            await ctx.runMutation(internal.credits.setStripeCustomerId, {
+              userId,
+              stripeCustomerId: customerId,
+            });
+          }
+
+          await ctx.runMutation(internal.credits.logWebhookEvent, {
+            eventId: event.id,
+            eventType: event.type,
+            status: "processed",
+          });
+          break;
+        }
+
+        case "charge.refunded": {
+          const charge = event.data.object as Stripe.Charge;
+          const paymentIntentId = typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id;
+
+          if (!paymentIntentId) {
+            await ctx.runMutation(internal.credits.logWebhookEvent, {
+              eventId: event.id,
+              eventType: event.type,
+              status: "error",
+              error: "No payment_intent on charge",
+            });
+            return;
+          }
+
+          await ctx.runMutation(internal.credits.deductCredits, {
+            paymentIntentId,
+            eventId: event.id,
+            eventType: event.type,
+          });
+          break;
+        }
+
+        default: {
+          await ctx.runMutation(internal.credits.logWebhookEvent, {
+            eventId: event.id,
+            eventType: event.type,
+            status: "skipped",
+          });
+        }
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error(`Webhook error [${event.type}]:`, errorMsg);
+      try {
+        await ctx.runMutation(internal.credits.logWebhookEvent, {
+          eventId: event.id,
+          eventType: event.type,
+          status: "error",
+          error: errorMsg,
+        });
+      } catch {
+        // Best-effort logging — don't mask the original error
+      }
+      throw e;
     }
   },
 });

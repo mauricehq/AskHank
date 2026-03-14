@@ -66,13 +66,15 @@ export default defineSchema({
   purchases: defineTable({
     userId: v.id("users"),
     stripeSessionId: v.string(),
+    paymentIntentId: v.optional(v.string()),
     packId: v.string(),
     credits: v.number(),
     amountCents: v.number(),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_stripe_session", ["stripeSessionId"]),
+    .index("by_stripe_session", ["stripeSessionId"])
+    .index("by_payment_intent", ["paymentIntentId"]),
 
   llmTraces: defineTable({
     // Links
@@ -133,4 +135,12 @@ export default defineSchema({
   })
     .index("by_conversation", ["conversationId", "createdAt"])
     .index("by_message", ["messageId"]),
+
+  webhookLogs: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    status: v.union(v.literal("processed"), v.literal("skipped"), v.literal("error")),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_event", ["eventId"]),
 });
