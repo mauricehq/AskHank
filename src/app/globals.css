@@ -124,9 +124,48 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Landing page animations ── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes settings-section-in {
     from { opacity: 1; transform: none; }
     to { opacity: 1; transform: none; }
+  }
+
+  @keyframes message-in {
+    from { opacity: 1; transform: none; }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes verdict-in {
+    from { opacity: 1; transform: none; }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes typing {
+    0%, 60%, 100% { opacity: 0.6; transform: none; }
+    30% { opacity: 1; transform: none; }
+  }
+
+  @keyframes scroll-bounce {
+    0%, 100% { transform: none; }
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }
