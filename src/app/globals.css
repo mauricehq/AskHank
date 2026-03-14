@@ -3,27 +3,6 @@
 /* ── AskHank Design Tokens ── */
 
 :root {
-  --bg: #F4EFEA;
-  --bg-surface: #EDE7E0;
-  --bg-card: #FFFFFF;
-  --text: #1F1F1F;
-  --text-secondary: #7A7A7A;
-  --accent: #C65A2E;
-  --accent-hover: #B04E26;
-  --accent-soft: rgba(198, 90, 46, 0.1);
-  --border: #D9D3CC;
-  --user-bubble: #C65A2E;
-  --user-text: #F4EFEA;
-  --hank-bubble: #FFFFFF;
-  --hank-text: #1F1F1F;
-  --denied: #C65A2E;
-  --approved: #5A8A5E;
-  --input-bg: #FFFFFF;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="dark"] {
   --bg: #1A1714;
   --bg-surface: #2A2520;
   --bg-card: #332E28;
@@ -42,6 +21,27 @@
   --input-bg: #2A2520;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] {
+  --bg: #F4EFEA;
+  --bg-surface: #EDE7E0;
+  --bg-card: #FFFFFF;
+  --text: #1F1F1F;
+  --text-secondary: #7A7A7A;
+  --accent: #C65A2E;
+  --accent-hover: #B04E26;
+  --accent-soft: rgba(198, 90, 46, 0.1);
+  --border: #D9D3CC;
+  --user-bubble: #C65A2E;
+  --user-text: #F4EFEA;
+  --hank-bubble: #FFFFFF;
+  --hank-text: #1F1F1F;
+  --denied: #C65A2E;
+  --approved: #5A8A5E;
+  --input-bg: #FFFFFF;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* ── Tailwind v4 theme bridge ── */
