@@ -3,6 +3,16 @@
 import { ArrowLeft, TrendingUp, MessageSquare, Flame, Trophy, Clock, ShieldCheck } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useCountUp } from "@/hooks/useCountUp";
+import { motion } from "framer-motion";
+
+const ease = [0.25, 0.1, 0.25, 1] as const;
+
+const cascade = (i: number) => ({
+  initial: { opacity: 0, y: 10 } as const,
+  animate: { opacity: 1, y: 0 } as const,
+  transition: { duration: 0.35, ease, delay: i * 0.06 },
+});
 
 interface StatsPanelProps {
   onBack: () => void;
@@ -11,6 +21,11 @@ interface StatsPanelProps {
 
 export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
   const stats = useQuery(api.stats.getStats);
+
+  const animatedSavedTotal = useCountUp(stats?.savedTotal ?? 0);
+  const rawHoursSaved = stats?.hoursSaved ?? 0;
+  const hoursSavedDisplay = rawHoursSaved >= 16 ? Math.round((rawHoursSaved / 8) * 10) / 10 : rawHoursSaved;
+  const animatedHoursSaved = useCountUp(hoursSavedDisplay);
 
   if (stats === undefined) return null;
 
@@ -38,9 +53,9 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-8 space-y-5">
           {/* Hero: Total Saved */}
-          <div className="rounded-xl bg-bg-surface p-6 text-center">
+          <motion.div {...cascade(0)} className="rounded-xl bg-bg-surface p-6 text-center">
             <div className="text-[40px] font-bold leading-none tracking-tight text-accent">
-              ${stats.savedTotal.toLocaleString()}
+              ${Math.round(animatedSavedTotal).toLocaleString()}
             </div>
             <div className="mt-2 text-xs font-medium uppercase tracking-[0.12em] text-text-secondary">
               Total Saved
@@ -48,7 +63,7 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
             {stats.hoursSaved !== null ? (
               <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-text-secondary">
                 <Clock size={14} />
-                <span>That&apos;s <span className="font-semibold text-text">{stats.hoursSaved >= 16 ? `${Math.round((stats.hoursSaved / 8) * 10) / 10} days` : `${stats.hoursSaved} ${stats.hoursSaved === 1 ? "hour" : "hours"}`}</span> of work</span>
+                <span>That&apos;s <span className="font-semibold text-text">{stats.hoursSaved >= 16 ? `${(Math.round(animatedHoursSaved * 10) / 10).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} days` : `${(Math.round(animatedHoursSaved * 10) / 10).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${stats.hoursSaved === 1 ? "hour" : "hours"}`}</span> of work</span>
               </div>
             ) : (
               <button
@@ -58,34 +73,18 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
                 Add your income in Settings to see hours saved
               </button>
             )}
-          </div>
+          </motion.div>
 
           {/* Overview grid */}
           <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              icon={<ShieldCheck size={16} />}
-              value={String(stats.deniedCount)}
-              label="Resisted"
-            />
-            <StatCard
-              icon={<TrendingUp size={16} />}
-              value={stats.resistanceRate !== null ? `${stats.resistanceRate}%` : "0%"}
-              label="Resistance Rate"
-            />
-            <StatCard
-              icon={<MessageSquare size={16} />}
-              value={String(stats.totalConversations)}
-              label="Conversations"
-            />
-            <StatCard
-              icon={<Flame size={16} />}
-              value={String(stats.currentStreak)}
-              label="Resist Streak"
-            />
+            <StatCard index={1} icon={<ShieldCheck size={16} />} value={String(stats.deniedCount)} label="Resisted" />
+            <StatCard index={2} icon={<TrendingUp size={16} />} value={stats.resistanceRate !== null ? `${stats.resistanceRate}%` : "0%"} label="Resistance Rate" />
+            <StatCard index={3} icon={<MessageSquare size={16} />} value={String(stats.totalConversations)} label="Conversations" />
+            <StatCard index={4} icon={<Flame size={16} />} value={String(stats.currentStreak)} label="Resist Streak" />
           </div>
 
           {/* Biggest Save */}
-          <div className="rounded-xl bg-bg-surface p-5">
+          <motion.div {...cascade(5)} className="rounded-xl bg-bg-surface p-5">
             <div className="flex items-center gap-2 text-text-secondary mb-3">
               <Trophy size={16} />
               <span className="text-xs font-medium uppercase tracking-[0.12em]">
@@ -108,21 +107,22 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
             ) : (
               <div className="text-2xl font-bold tracking-tight text-accent">$0</div>
             )}
-          </div>
+          </motion.div>
 
           {/* Category Breakdown */}
-          <div className="rounded-xl bg-bg-surface p-5">
+          <motion.div {...cascade(6)} className="rounded-xl bg-bg-surface p-5">
             <div className="text-xs font-medium uppercase tracking-[0.12em] text-text-secondary mb-4">
               Top Categories Saved
             </div>
             {stats.categories.length > 0 ? (
               <div className="space-y-3">
-                {stats.categories.map((cat) => (
+                {stats.categories.map((cat, i) => (
                   <CategoryBar
                     key={cat.name}
                     name={cat.name}
                     amount={cat.amount}
                     maxAmount={stats.categories[0].amount}
+                    index={i}
                   />
                 ))}
               </div>
@@ -131,7 +131,7 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
                 No categories yet
               </p>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
@@ -142,19 +142,21 @@ function StatCard({
   icon,
   value,
   label,
+  index,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
+  index: number;
 }) {
   return (
-    <div className="rounded-xl bg-bg-surface p-4 text-center">
+    <motion.div {...cascade(index)} className="rounded-xl bg-bg-surface p-4 text-center">
       <div className="flex justify-center text-text-secondary mb-2">{icon}</div>
       <div className="text-xl font-bold tracking-tight text-text">{value}</div>
       <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
         {label}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -162,10 +164,12 @@ function CategoryBar({
   name,
   amount,
   maxAmount,
+  index,
 }: {
   name: string;
   amount: number;
   maxAmount: number;
+  index: number;
 }) {
   const widthPercent = maxAmount > 0 ? Math.max(8, (amount / maxAmount) * 70) : 8;
   return (
@@ -175,9 +179,11 @@ function CategoryBar({
         <span className="text-xs text-text-secondary">${amount.toLocaleString()}</span>
       </div>
       <div className="h-2 rounded-full bg-bg">
-        <div
+        <motion.div
           className="h-full rounded-full bg-accent"
-          style={{ width: `${widthPercent}%` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${widthPercent}%` }}
+          transition={{ duration: 0.5, ease, delay: 0.36 + index * 0.08 }}
         />
       </div>
     </div>
