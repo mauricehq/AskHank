@@ -225,7 +225,10 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
  * Download an image from a URL
  */
 async function downloadFromUrl(url: string, filename: string): Promise<void> {
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const response = await fetch(url, { signal: controller.signal });
+  clearTimeout(timeout);
   if (!response.ok) throw new Error("Failed to fetch image");
   const blob = await response.blob();
 

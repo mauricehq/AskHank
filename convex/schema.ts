@@ -163,7 +163,11 @@ export default defineSchema({
 
   shareCards: defineTable({
     token: v.string(),
-    cardType: v.string(), // "verdict" | "roast" | "savedTotal"
+    cardType: v.union(
+      v.literal("verdict"),
+      v.literal("roast"),
+      v.literal("savedTotal")
+    ),
     conversationId: v.optional(v.id("conversations")),
     userId: v.id("users"),
     data: v.union(

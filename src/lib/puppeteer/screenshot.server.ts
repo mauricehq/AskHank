@@ -78,6 +78,17 @@ async function launchBrowser(): Promise<Browser> {
   });
 }
 
+const ALLOWED_HOSTS = ["localhost", "127.0.0.1", "askhank.app"];
+
+function isAllowedUrl(url: string): boolean {
+  const parsed = new URL(url);
+  return (
+    ALLOWED_HOSTS.includes(parsed.hostname) ||
+    parsed.hostname.endsWith(".askhank.app") ||
+    parsed.hostname.endsWith(".vercel.app")
+  );
+}
+
 export async function captureScreenshot(options: ScreenshotOptions): Promise<ScreenshotResult> {
   const {
     url,
@@ -86,6 +97,10 @@ export async function captureScreenshot(options: ScreenshotOptions): Promise<Scr
     timeout = 30000,
     headers,
   } = options;
+
+  if (!isAllowedUrl(url)) {
+    throw new Error(`Blocked screenshot request to untrusted host: ${new URL(url).hostname}`);
+  }
 
   const dimensions = IMAGE_DIMENSIONS[format];
   let browser: Browser | null = null;

@@ -90,6 +90,12 @@ export async function POST(
       headers: { "x-render-secret": renderSecret },
     });
 
+    // Re-check cache after expensive Puppeteer work (race condition guard)
+    const freshCard = await convex.query(api.shareCards.verifyOwnership, { token });
+    if (freshCard[urlField]) {
+      return NextResponse.json({ imageUrl: freshCard[urlField], cached: true });
+    }
+
     // Upload to Vercel Blob
     const blob = await put(`cards/${format}/${token}.png`, buffer, {
       access: "public",

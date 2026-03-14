@@ -46,5 +46,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CardPage({ params }: Props) {
   const { token } = await params;
-  return <CardPageClient token={token} />;
+  const card = await fetchQuery(api.shareCards.getByToken, { token });
+  return <CardPageClient token={token} initialCard={card} />;
 }

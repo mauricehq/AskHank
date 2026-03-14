@@ -1,22 +1,26 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { VerdictShareCard } from "@/components/share/VerdictShareCard";
 import type { VerdictCardData } from "@/lib/cards/types";
 
-export function CardPageClient({ token }: { token: string }) {
-  const card = useQuery(api.shareCards.getByToken, { token });
+type CardData = {
+  cardType: string;
+  data: any;
+  ogImageUrl?: string;
+  downloadImageUrl?: string;
+  createdAt: number;
+} | null;
 
-  if (card === undefined) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-bg text-text-secondary text-sm">
-        Loading...
-      </div>
-    );
-  }
+export function CardPageClient({
+  token,
+  initialCard,
+}: {
+  token: string;
+  initialCard: CardData;
+}) {
+  const card = initialCard;
 
-  if (card === null) {
+  if (!card) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-bg text-text-secondary text-sm">
         Not found
