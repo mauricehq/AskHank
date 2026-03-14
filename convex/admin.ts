@@ -87,6 +87,103 @@ export const listConversations = query({
   },
 });
 
+export const listUsersWithCredits = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").order("desc").collect();
+
+    const usersWithCredits = await Promise.all(
+      users.map(async (u) => {
+        const credits = await ctx.db
+          .query("credits")
+          .withIndex("by_user", (q) => q.eq("userId", u._id))
+          .unique();
+        return {
+          _id: u._id,
+          email: u.email,
+          displayName: u.displayName,
+          role: u.role ?? "normal",
+          balance: credits?.balance ?? 0,
+          _creationTime: u._creationTime,
+        };
+      })
+    );
+
+    return usersWithCredits;
+  },
+});
+
+export const adminAddCredits = mutation({
+  args: {
+    userId: v.id("users"),
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    if (args.amount <= 0 || !Number.isInteger(args.amount)) {
+      throw new Error("Amount must be a positive integer.");
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found.");
+
+    const creditsRow = await ctx.db
+      .query("credits")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    if (creditsRow) {
+      await ctx.db.patch(creditsRow._id, {
+        balance: creditsRow.balance + args.amount,
+      });
+    } else {
+      await ctx.db.insert("credits", {
+        userId: args.userId,
+        balance: args.amount,
+        totalPurchased: 0,
+        totalUsed: 0,
+      });
+    }
+  },
+});
+
+export const adminSetBalance = mutation({
+  args: {
+    userId: v.id("users"),
+    balance: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    if (args.balance < 0 || !Number.isInteger(args.balance)) {
+      throw new Error("Balance must be a non-negative integer.");
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found.");
+
+    const creditsRow = await ctx.db
+      .query("credits")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    if (creditsRow) {
+      await ctx.db.patch(creditsRow._id, {
+        balance: args.balance,
+      });
+    } else {
+      await ctx.db.insert("credits", {
+        userId: args.userId,
+        balance: args.balance,
+        totalPurchased: 0,
+        totalUsed: 0,
+      });
+    }
+  },
+});
+
 export const getConversationMessages = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
