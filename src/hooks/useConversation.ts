@@ -78,5 +78,5 @@ export function useConversation() {
     setConversationId(id);
   }, []);
 
-  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice, outOfCredits, thinkingSince: conversation?.thinkingSince ?? null };
+  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice, category: conversation?.category, excuse: conversation?.excuse, verdictTagline: conversation?.verdictTagline, outOfCredits, thinkingSince: conversation?.thinkingSince ?? null };
 }

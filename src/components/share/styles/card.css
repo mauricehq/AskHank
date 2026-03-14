@@ -1,0 +1,126 @@
+/* ── Share Card Container Query CSS ── */
+
+.share-card-container {
+  container-name: card;
+  container-type: size;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Base typography (portrait default) ── */
+
+.card-text-hero {
+  font-size: clamp(1.5rem, 8cqmin, 3.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.card-text-hero.compact {
+  font-size: clamp(1.25rem, 6.5cqmin, 2.8rem);
+}
+
+.card-text-hero.tight {
+  font-size: clamp(1rem, 5cqmin, 2.2rem);
+}
+
+.card-text-label {
+  font-size: clamp(0.65rem, 2.8cqmin, 1rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card-text-meta {
+  font-size: clamp(0.6rem, 2.5cqmin, 0.9rem);
+  font-weight: 500;
+}
+
+.card-text-excuse {
+  font-size: clamp(0.75rem, 3.5cqmin, 1.35rem);
+  font-weight: 500;
+  line-height: 1.35;
+  font-style: italic;
+}
+
+.card-text-excuse.compact {
+  font-size: clamp(0.7rem, 3cqmin, 1.15rem);
+}
+
+.card-text-excuse.tight {
+  font-size: clamp(0.65rem, 2.5cqmin, 1rem);
+}
+
+.card-text-tagline {
+  font-size: clamp(0.7rem, 3cqmin, 1.15rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.card-text-footer {
+  font-size: clamp(0.55rem, 2.2cqmin, 0.8rem);
+  font-weight: 500;
+}
+
+/* ── Proportional spacing ── */
+
+.card-padding {
+  padding: clamp(16px, 5cqmin, 48px);
+}
+
+.card-gap {
+  gap: clamp(8px, 3cqmin, 24px);
+}
+
+.card-gap-sm {
+  gap: clamp(4px, 1.5cqmin, 12px);
+}
+
+/* ── Landscape layout (OG image aspect) ── */
+
+@container card (min-aspect-ratio: 3/2) {
+  .card-layout {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .card-left {
+    flex: 1;
+  }
+
+  .card-right {
+    flex: 1;
+  }
+
+  .card-divider {
+    display: none;
+  }
+
+  .card-text-hero {
+    font-size: clamp(1.25rem, 6cqmin, 2.8rem);
+  }
+
+  .card-text-hero.compact {
+    font-size: clamp(1rem, 5cqmin, 2.2rem);
+  }
+
+  .card-text-hero.tight {
+    font-size: clamp(0.85rem, 4cqmin, 1.8rem);
+  }
+
+  .card-text-excuse {
+    font-size: clamp(0.65rem, 2.8cqmin, 1.1rem);
+  }
+
+  .card-text-excuse.compact {
+    font-size: clamp(0.6rem, 2.5cqmin, 0.95rem);
+  }
+
+  .card-text-excuse.tight {
+    font-size: clamp(0.55rem, 2.2cqmin, 0.85rem);
+  }
+
+  .card-text-tagline {
+    font-size: clamp(0.6rem, 2.5cqmin, 1rem);
+  }
+}

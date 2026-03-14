@@ -28,6 +28,7 @@ import type * as llm_scoring from "../llm/scoring.js";
 import type * as llm_testChat from "../llm/testChat.js";
 import type * as llm_workHours from "../llm/workHours.js";
 import type * as replayCuts from "../replayCuts.js";
+import type * as shareCards from "../shareCards.js";
 import type * as stats from "../stats.js";
 import type * as stripe from "../stripe.js";
 import type * as stripeWebhook from "../stripeWebhook.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "llm/testChat": typeof llm_testChat;
   "llm/workHours": typeof llm_workHours;
   replayCuts: typeof replayCuts;
+  shareCards: typeof shareCards;
   stats: typeof stats;
   stripe: typeof stripe;
   stripeWebhook: typeof stripeWebhook;
