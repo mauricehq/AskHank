@@ -392,7 +392,7 @@ export function ChatDemo() {
               <Icon className="w-3.5 h-3.5 hidden sm:inline" />
               <span className="sm:hidden">{conv.shortLabel}</span>
               <span className="hidden sm:inline">
-                {conv.label} &mdash; ${conv.price}
+                {conv.label}
               </span>
 
               {/* Dim underline for active tab */}
@@ -434,7 +434,7 @@ export function ChatDemo() {
             <span className="font-mono text-xs text-text-secondary tracking-wide">Ask Hank</span>
           </div>
           {/* Messages area */}
-          <div ref={chatContainerRef} className="p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
+          <div ref={chatContainerRef} className="bg-bg p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
             {visibleMessages.map((msg, index) => {
               const isHank = msg.role === "hank";
 
