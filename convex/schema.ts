@@ -14,8 +14,11 @@ export default defineSchema({
       )
     ),
     stripeCustomerId: v.optional(v.string()),
+    timezone: v.optional(v.string()),
     savedTotal: v.optional(v.number()),
     deniedCount: v.optional(v.number()),
+    incomeAmount: v.optional(v.number()),
+    incomeType: v.optional(v.union(v.literal("hourly"), v.literal("annual"))),
     updatedAt: v.number(),
   }).index("by_token", ["tokenIdentifier"]),
 
@@ -47,6 +50,8 @@ export default defineSchema({
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
     excuse: v.optional(v.string()),
     verdictTagline: v.optional(v.string()),
+    memoryReferenceCount: v.optional(v.number()),
+    thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   messages: defineTable({

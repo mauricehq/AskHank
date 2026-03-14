@@ -23,14 +23,12 @@ const PRICE_ENV_MAP: Record<PackId, string> = {
 };
 
 export const createCheckoutSession = action({
-  args: { packId: v.string() },
+  args: { packId: v.union(v.literal("small"), v.literal("medium"), v.literal("large")) },
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const packId = args.packId as PackId;
-    const pack = CREDIT_PACKS[packId];
-    if (!pack) throw new Error("Invalid pack ID");
+    const pack = CREDIT_PACKS[args.packId];
 
     // Look up user
     const user = await ctx.runQuery(internal.credits.getUserByToken, {
@@ -38,8 +36,8 @@ export const createCheckoutSession = action({
     });
     if (!user) throw new Error("User not found");
 
-    const priceId = process.env[PRICE_ENV_MAP[packId]];
-    if (!priceId) throw new Error(`Stripe price not configured for pack: ${packId}`);
+    const priceId = process.env[PRICE_ENV_MAP[args.packId]];
+    if (!priceId) throw new Error(`Stripe price not configured for pack: ${args.packId}`);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const stripe = getStripe();
@@ -72,7 +70,7 @@ export const createCheckoutSession = action({
       cancel_url: `${appUrl}?credits=cancelled`,
       metadata: {
         userId: user._id,
-        packId,
+        packId: args.packId,
         credits: String(pack.credits),
       },
     });
@@ -84,7 +82,7 @@ export const createCheckoutSession = action({
 });
 
 export const chargeSavedMethod = action({
-  args: { packId: v.string() },
+  args: { packId: v.union(v.literal("small"), v.literal("medium"), v.literal("large")) },
   handler: async (
     ctx,
     args
@@ -92,9 +90,7 @@ export const chargeSavedMethod = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const packId = args.packId as PackId;
-    const pack = CREDIT_PACKS[packId];
-    if (!pack) throw new Error("Invalid pack ID");
+    const pack = CREDIT_PACKS[args.packId];
 
     const user = await ctx.runQuery(internal.credits.getUserByToken, {
       tokenIdentifier: identity.tokenIdentifier,
@@ -125,7 +121,7 @@ export const chargeSavedMethod = action({
         },
         metadata: {
           userId: user._id,
-          packId,
+          packId: args.packId,
           credits: String(pack.credits),
         },
       });
@@ -134,7 +130,7 @@ export const chargeSavedMethod = action({
         await ctx.runMutation(internal.credits.addCredits, {
           userId: user._id,
           stripeSessionId: paymentIntent.id,
-          packId,
+          packId: args.packId,
           credits: pack.credits,
           amountCents: pack.priceCents,
         });
@@ -143,8 +139,8 @@ export const chargeSavedMethod = action({
 
       // Any other status (requires_action, requires_confirmation, etc.)
       return { requiresCheckout: true };
-    } catch {
-      // Card declined, network error, etc.
+    } catch (e) {
+      console.error("Direct charge failed, falling back to checkout:", e);
       return { requiresCheckout: true };
     }
   },

@@ -17,6 +17,7 @@ import { OnboardingPrompt } from "./OnboardingPrompt";
 import { AdminPanel } from "./admin/AdminPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { CreditsModal } from "./CreditsModal";
+import { StatsPanel } from "./StatsPanel";
 import { useUserAccess } from "@/hooks/useUserAccess";
 
 export function AppShell() {
@@ -26,7 +27,7 @@ export function AppShell() {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings">("empty");
+  const [currentView, setCurrentView] = useState<"empty" | "chat" | "admin" | "settings" | "stats">("empty");
   const [activeConversationId, setActiveConversationId] = useState<Id<"conversations"> | null>(null);
   const [creditsModalOpen, setCreditsModalOpen] = useState(false);
 
@@ -68,6 +69,7 @@ export function AppShell() {
         activeConversationId={activeConversationId}
         onOpenAdmin={() => setCurrentView("admin")}
         onOpenSettings={() => setCurrentView("settings")}
+        onOpenStats={() => setCurrentView("stats")}
         onDeleteConversation={(id) => {
           if (id === activeConversationId) {
             setActiveConversationId(null);
@@ -99,6 +101,8 @@ export function AppShell() {
 
         {needsOnboarding ? (
           <OnboardingPrompt />
+        ) : currentView === "stats" ? (
+          <StatsPanel onBack={() => setCurrentView("empty")} onOpenSettings={() => setCurrentView("settings")} />
         ) : currentView === "settings" ? (
           <SettingsPanel onBack={() => setCurrentView("empty")} onOpenCredits={() => setCreditsModalOpen(true)} />
         ) : currentView === "admin" && canAccessAdminPanel ? (

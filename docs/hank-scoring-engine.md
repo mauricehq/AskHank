@@ -157,7 +157,7 @@ No MAX_OFFSET cap — per-turn scoring is already bounded at +16, so scores can'
 | Collapse | Score < -5 after turn 3 | Denied |
 | User backs down | "Yeah you're right" etc. | Denied |
 
-**Patience** is a meter that drains at different rates based on turn type. Zero-delta turns drain +3, directed questions drain +1, and positive-delta turns restore -4 (floor 0). Turn 1 is exempt (patience stays 0). Warnings escalate: waning (4-5), thin (6-7), final (8-9), auto-deny (10+). A strong argument can fully recover patience from any warning level.
+**Patience** is a meter that drains at different rates based on turn type. Zero-delta turns drain +3, directed questions drain +1, and positive-delta turns restore -4 (floor 0). Turn 1 is exempt (patience stays 0). Warnings escalate: waning (4-5), thin (6-7), final (8-9), auto-deny (10+). A strong argument can fully recover patience from any warning level. No recovery cap — the score system handles convergence for engaged users.
 
 **Collapse** prevents users from digging an emotional hole indefinitely. A "want" opener (score 0) + one emotional turn (-3) = -3, not great but recoverable. Past -5 after turn 3, it's a pattern.
 

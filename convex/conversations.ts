@@ -39,6 +39,7 @@ export const send = mutation({
         createdAt: Date.now(),
         disengagementCount: 0,
         stagnationCount: 0,
+        thinkingSince: Date.now(),
       });
     } else {
       // Verify ownership and state
@@ -52,7 +53,7 @@ export const send = mutation({
       if (conversation.status === "thinking") {
         throw new Error("Hank is still thinking.");
       }
-      await ctx.db.patch(conversationId, { status: "thinking" });
+      await ctx.db.patch(conversationId, { status: "thinking", thinkingSince: Date.now() });
     }
 
     // Deduct credit (OCC handles race conditions)
@@ -73,6 +74,11 @@ export const send = mutation({
     await ctx.scheduler.runAfter(0, internal.llm.generate.respond, {
       conversationId,
       userId: user._id,
+    });
+
+    // Safety net: recover if still thinking after 60s
+    await ctx.scheduler.runAfter(60_000, internal.conversations.recoverStuckConversation, {
+      conversationId,
     });
 
     return conversationId;
@@ -199,11 +205,16 @@ export const internalGetSetting = internalQuery({
   },
 });
 
-export const internalGetUserName = internalQuery({
+export const internalGetUserInfo = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    return user?.displayName ?? null;
+    return {
+      displayName: user?.displayName ?? null,
+      timezone: user?.timezone ?? null,
+      incomeAmount: user?.incomeAmount ?? null,
+      incomeType: user?.incomeType ?? null,
+    };
   },
 });
 
@@ -219,7 +230,7 @@ export const saveResponse = internalMutation({
       content: args.content,
       createdAt: Date.now(),
     });
-    await ctx.db.patch(args.conversationId, { status: "active" });
+    await ctx.db.patch(args.conversationId, { status: "active", thinkingSince: undefined });
     return messageId;
   },
 });
@@ -227,7 +238,28 @@ export const saveResponse = internalMutation({
 export const setError = internalMutation({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.conversationId, { status: "error" });
+    await ctx.db.patch(args.conversationId, { status: "error", thinkingSince: undefined });
+  },
+});
+
+export const recoverStuckConversation = internalMutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
+
+    // Only recover if still thinking and thinkingSince is older than 60s
+    if (
+      conversation.status === "thinking" &&
+      conversation.thinkingSince &&
+      Date.now() - conversation.thinkingSince >= 60_000
+    ) {
+      await ctx.db.patch(args.conversationId, {
+        status: "error",
+        thinkingSince: undefined,
+      });
+      console.warn(`Recovered stuck conversation ${args.conversationId} after 60s`);
+    }
   },
 });
 
@@ -268,8 +300,46 @@ export const saveResponseWithScoring = internalMutation({
       lastAssessment: args.lastAssessment,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
+      thinkingSince: undefined,
     });
     return messageId;
+  },
+});
+
+export const internalGetPastConversations = internalQuery({
+  args: {
+    userId: v.id("users"),
+    excludeConversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    return conversations
+      .filter((c) => c._id !== args.excludeConversationId)
+      .map((c) => ({
+        _id: c._id,
+        item: c.item,
+        category: c.category,
+        estimatedPrice: c.estimatedPrice,
+        verdict: c.verdict,
+        excuse: c.excuse,
+        createdAt: c.createdAt,
+        memoryReferenceCount: c.memoryReferenceCount,
+      }));
+  },
+});
+
+export const internalIncrementMemoryRef = internalMutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
+    await ctx.db.patch(args.conversationId, {
+      memoryReferenceCount: (conversation.memoryReferenceCount ?? 0) + 1,
+    });
   },
 });
 
@@ -294,6 +364,7 @@ export const createTestConversation = internalMutation({
       createdAt: Date.now(),
       disengagementCount: 0,
       stagnationCount: 0,
+      thinkingSince: Date.now(),
     });
   },
 });
@@ -308,7 +379,7 @@ export const insertTestMessage = internalMutation({
     if (!conversation) throw new Error("Conversation not found");
     if (conversation.status === "closed") throw new Error("Conversation is closed");
 
-    await ctx.db.patch(args.conversationId, { status: "thinking" });
+    await ctx.db.patch(args.conversationId, { status: "thinking", thinkingSince: Date.now() });
     await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       role: "user",
@@ -354,6 +425,7 @@ export const saveResponseWithVerdict = internalMutation({
       stagnationCount: args.stagnationCount,
       excuse: args.excuse,
       verdictTagline: args.verdictTagline,
+      thinkingSince: undefined,
     });
 
     // Increment user's savedTotal and deniedCount on denied verdicts

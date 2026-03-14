@@ -7,6 +7,8 @@ import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
 import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
 import { extractRecentMoves } from "./moves";
+import { selectMemoryNudge, formatNudgePrompt } from "./memory";
+import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
 
 // LLM temperature settings
 const TEMPERATURE_ASSESSMENT = 0.8;
@@ -38,6 +40,7 @@ interface PersistedContext {
   category: string;
   intent: Intent;
   turnSummaries: TurnSummary[];
+  memoryNudgeText?: string;
 }
 
 const DEFAULT_PERSISTED: PersistedContext = {
@@ -66,6 +69,9 @@ const DEFAULT_ASSESSMENT: TurnAssessment = {
   is_directed_question: false,
 };
 
+/** Fallback when LLM skips tool call: new_angle:false → sanitizeAssessment fills safe defaults, delta = 0 */
+const FALLBACK_ASSESSMENT: Record<string, unknown> = { new_angle: false };
+
 function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
   return {
     item: typeof raw.item === "string" ? raw.item : DEFAULT_ASSESSMENT.item,
@@ -75,7 +81,7 @@ function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
     estimated_price: typeof raw.estimated_price === "number" && raw.estimated_price > 0
       ? raw.estimated_price
       : 0,
-    category: (["electronics", "cars", "fashion", "furniture", "essentials", "safety_health", "other"] as const).includes(raw.category as any)
+    category: (["electronics", "vehicles", "fashion", "furniture", "kitchen", "travel", "entertainment", "sports_fitness", "beauty", "subscriptions", "hardware", "essentials", "safety_health", "other"] as const).includes(raw.category as any)
       ? (raw.category as string)
       : "other",
     challenge_addressed: raw.challenge_addressed === true,
@@ -196,6 +202,10 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // Build persisted context (will be updated with turnSummary below)
   const prevSummaries = state.previousContext?.turnSummaries ?? [];
+  // Sticky flags that must carry forward across all branches
+  const stickyFlags = {
+    ...(state.previousContext?.memoryNudgeText ? { memoryNudgeText: state.previousContext.memoryNudgeText } : {}),
+  };
   // Fallback for early-exit branches that don't modify context
   const unchangedContext: PersistedContext = state.previousContext ?? { ...DEFAULT_PERSISTED, ...coalesced, turnSummaries: [] };
 
@@ -246,7 +256,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   if (assessment.user_backed_down) {
     const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
     const winRef = brief.winningArgument ? ` They almost had you with '${brief.winningArgument}' — acknowledge that.` : "";
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: runningScore,
@@ -268,7 +278,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   if (assessment.is_non_answer && disengagementCount >= 1) {
     const nonAnswerScore = runningScore - 5;
     const brief = buildClosingBrief(prevSummaries, item, estimatedPrice);
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: nonAnswerScore,
@@ -289,7 +299,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 5. Non-answer (first) → increment counter, warning
   if (assessment.is_non_answer) {
     const nonAnswerScore = runningScore - 5;
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
     return {
       stance: currentStance,
       score: nonAnswerScore,
@@ -308,7 +318,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
   // 6. Directed question → patience +1, no score change, reset disengagement
   if (assessment.is_directed_question) {
     const newPatience = patience + 1;
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: prevSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: prevSummaries };
 
     // Patience exhausted on directed questions
     if (newPatience >= 10) {
@@ -381,7 +391,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     const allSummaries = [...prevSummaries, newSummary];
     const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
     const weakRef = brief.weakestMoment ? ` Their weakest moment was '${brief.weakestMoment}' — reference it.` : "";
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
@@ -403,7 +413,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
     const allSummaries = [...prevSummaries, newSummary];
     const brief = buildClosingBrief(allSummaries, item, estimatedPrice);
-    const persistedContext: PersistedContext = { ...coalesced, turnSummaries: allSummaries };
+    const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: allSummaries };
     return {
       stance: currentStance,
       score: newRunningScore,
@@ -437,7 +447,7 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
 
   // Build turn summary
   const newSummary: TurnSummary = { turn: turnCount, delta, topic: assessment.challenge_topic, addressed: assessment.challenge_addressed, evidence: assessment.evidence_provided };
-  const persistedContext: PersistedContext = { ...coalesced, turnSummaries: [...prevSummaries, newSummary] };
+  const persistedContext: PersistedContext = { ...coalesced, ...stickyFlags, turnSummaries: [...prevSummaries, newSummary] };
 
   // Stance guidance — enriched for CONCEDE
   let guidance: string;
@@ -447,10 +457,10 @@ function executeGetStance(rawAssessmentInput: Record<string, unknown>, state: Co
     guidance = `They earned it. Concede like it costs you something.${winRef} Don't say "you thought this through" — be specific to THIS conversation. 1-2 sentences. Grudging approval + specific warning about ${brief.itemContext}.`;
   } else {
     const stanceGuidance: Record<Stance, string> = {
-      IMMOVABLE: "Pure impulse. No valid case whatsoever. Push hard.",
-      FIRM: "Weak case. Don't concede unless overwhelming evidence.",
-      SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak.",
-      RELUCTANT: "Strong case but not fully convinced. Push for final proof.",
+      IMMOVABLE: "Pure impulse. No valid case. Push hard. Do NOT concede.",
+      FIRM: "Weak case. Hold the line. Do NOT concede.",
+      SKEPTICAL: "Half a case. Acknowledge what's valid, push on what's weak. Do NOT concede.",
+      RELUCTANT: "Strong case but not fully convinced. Push for final proof. Do NOT concede.",
       CONCEDE: "", // handled above
     };
     guidance = stanceGuidance[guardrailedStance] + patienceWarning;
@@ -503,18 +513,7 @@ type TraceData = Partial<{
   toolArguments: string;
   toolResult: string;
   coalescingOverrides: string;
-  estimatedCostUsd: number;
 }>;
-
-// Cost estimation per 1M tokens (approximate rates for cheap models)
-const COST_PER_MILLION_INPUT = 0.25;  // $0.25/M input tokens (Haiku-class)
-const COST_PER_MILLION_OUTPUT = 1.25; // $1.25/M output tokens
-
-function estimateCost(usage: { promptTokens: number; completionTokens: number }): number {
-  const inputCost = (usage.promptTokens / 1_000_000) * COST_PER_MILLION_INPUT;
-  const outputCost = (usage.completionTokens / 1_000_000) * COST_PER_MILLION_OUTPUT;
-  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // 6 decimal places
-}
 
 function addUsage(
   a: { promptTokens: number; completionTokens: number; totalTokens: number },
@@ -533,135 +532,143 @@ export const respond = internalAction({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const traceData: TraceData = {
-      conversationId: args.conversationId,
-    };
+    const primaryModel = (await ctx.runQuery(
+      internal.conversations.internalGetSetting,
+      { key: "hank_model" }
+    )) as string;
+    const fallbackModel = (await ctx.runQuery(
+      internal.conversations.internalGetSetting,
+      { key: "hank_fallback_model" }
+    )) as string | null;
 
-    async function saveTraceQuietly() {
-      try {
-        await ctx.runMutation(internal.llmTraces.saveTrace, traceData as any);
-      } catch (traceError) {
-        console.error("Failed to save trace (non-fatal):", traceError);
-      }
-    }
+    async function executeRespond(modelId: string) {
+      const traceData: TraceData = {
+        conversationId: args.conversationId,
+      };
 
-    try {
-      // 1. Fetch context
-      const messages = await ctx.runQuery(
-        internal.conversations.internalGetMessages,
-        { conversationId: args.conversationId }
-      );
-
-      const conversation = await ctx.runQuery(
-        internal.conversations.internalGetConversation,
-        { conversationId: args.conversationId }
-      );
-      if (!conversation) throw new Error("Conversation not found");
-
-      const currentStance = toStance(conversation.stance);
-      const disengagementCount = conversation.disengagementCount ?? 0;
-      const patience = conversation.stagnationCount ?? 0;  // patience meter (reuses DB field)
-      const runningScore = conversation.score ?? 0;
-      const turnCount = messages.filter((m) => m.role === "user").length;
-
-      // Sliding context window: for turns 9+, keep first user message + last 6 messages
-      // The lastAssessment JSON carries forward context, so the LLM doesn't lose info
-      let windowedMessages = messages;
-      if (turnCount >= 9 && messages.length > 7) {
-        const firstUserMsg = messages.find((m) => m.role === "user");
-        const tail = messages.slice(-6);
-        // Avoid duplicating the first user message if it's already in the tail
-        if (firstUserMsg && !tail.some((m) => m._id === firstUserMsg._id)) {
-          windowedMessages = [firstUserMsg, ...tail];
-        } else {
-          windowedMessages = tail;
-        }
-      }
-
-      // Parse previous context (v3 shape)
-      let previousContext: PersistedContext | null = null;
-      if (conversation.lastAssessment) {
+      async function saveTraceQuietly() {
         try {
-          const parsed = JSON.parse(conversation.lastAssessment);
-          previousContext = {
-            item: typeof parsed.item === "string" ? parsed.item : "unknown",
-            estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
-            category: typeof parsed.category === "string" ? parsed.category : "other",
-            intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(parsed.intent)
-              ? parsed.intent
-              : "want",
-            turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
-          };
-        } catch {
-          previousContext = null;
+          await ctx.runMutation(internal.llmTraces.saveTrace, traceData as any);
+        } catch (traceError) {
+          console.error("Failed to save trace (non-fatal):", traceError);
         }
       }
 
-      const modelId = (await ctx.runQuery(
-        internal.conversations.internalGetSetting,
-        { key: "hank_model" }
-      )) as string;
+      try {
+        // 1. Fetch context
+        const messages = await ctx.runQuery(
+          internal.conversations.internalGetMessages,
+          { conversationId: args.conversationId }
+        );
+  
+        const conversation = await ctx.runQuery(
+          internal.conversations.internalGetConversation,
+          { conversationId: args.conversationId }
+        );
+        if (!conversation) throw new Error("Conversation not found");
+  
+        const currentStance = toStance(conversation.stance);
+        const disengagementCount = conversation.disengagementCount ?? 0;
+        const patience = conversation.stagnationCount ?? 0;  // patience meter (reuses DB field)
+        const runningScore = conversation.score ?? 0;
+        const turnCount = messages.filter((m) => m.role === "user").length;
 
-      const displayName = await ctx.runQuery(
-        internal.conversations.internalGetUserName,
-        { userId: args.userId }
-      );
+        // Sliding context window: for turns 9+, keep first user message + last 6 messages
+        // The lastAssessment JSON carries forward context, so the LLM doesn't lose info
+        let windowedMessages = messages;
+        if (turnCount >= 9 && messages.length > 7) {
+          const firstUserMsg = messages.find((m) => m.role === "user");
+          const tail = messages.slice(-6);
+          if (firstUserMsg && !tail.some((m) => m._id === firstUserMsg._id)) {
+            windowedMessages = [firstUserMsg, ...tail];
+          } else {
+            windowedMessages = tail;
+          }
+        }
 
-      // 2. Build prompt
-      const recentMoves = extractRecentMoves(
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      );
+        // Parse previous context (v3 shape)
+        let previousContext: PersistedContext | null = null;
+        if (conversation.lastAssessment) {
+          try {
+            const parsed = JSON.parse(conversation.lastAssessment);
+            previousContext = {
+              item: typeof parsed.item === "string" ? parsed.item : "unknown",
+              estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
+              category: typeof parsed.category === "string" ? parsed.category : "other",
+              intent: (["want", "need", "replace", "upgrade", "gift"] as const).includes(parsed.intent)
+                ? parsed.intent
+                : "want",
+              turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
+              memoryNudgeText: typeof parsed.memoryNudgeText === "string" ? parsed.memoryNudgeText : undefined,
+            };
+          } catch {
+            previousContext = null;
+          }
+        }
+  
+        const userInfo = await ctx.runQuery(
+          internal.conversations.internalGetUserInfo,
+          { userId: args.userId }
+        );
+        const displayName = userInfo.displayName;
+        const userTimezone = userInfo.timezone ?? undefined;
+        const userIncomeAmount = userInfo.incomeAmount ?? undefined;
+        const userIncomeType = (userInfo.incomeType ?? undefined) as "hourly" | "annual" | undefined;
+  
+        // Fetch past conversations (needed for memory nudge on stance softening)
+        const pastConversations = await ctx.runQuery(
+          internal.conversations.internalGetPastConversations,
+          { userId: args.userId, excludeConversationId: args.conversationId }
+        );
+  
+        // 2. Build prompt
+        const recentMoves = extractRecentMoves(
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
 
-      const systemPrompt = buildSystemPrompt({
-        displayName: displayName ?? undefined,
-        stance: currentStance,
-        disengagementCount,
-        estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
-        category: previousContext?.category ?? conversation.category,
-        patience,
-        turnCount,
-        turnSummaries: previousContext?.turnSummaries,
-        recentMoves,
-      });
+        // Work hours: compute from persisted price + user income
+        const priceForWorkHours = previousContext?.estimated_price ?? conversation.estimatedPrice;
+        const workHoursBlock = formatWorkHoursBlock(
+          computeWorkHours(priceForWorkHours, userIncomeAmount, userIncomeType)
+        );
 
-      const llmMessages = buildMessages(
-        systemPrompt,
-        windowedMessages.map((m) => ({ role: m.role, content: m.content }))
-      );
-
-      // 3. Build tool definition
-      const toolDef = buildToolDefinition();
-
-      // Capture input context for trace
-      Object.assign(traceData, {
-        previousStance: currentStance,
-        systemPrompt,
-        messagesArray: JSON.stringify(llmMessages),
-        modelId,
-        temperature: TEMPERATURE_ASSESSMENT,
-        maxTokens: 300,
-        disengagementCount,
-        stagnationCount: patience,
-      });
-
-      // 4. CALL 1: LLM with tool available (low temp for consistent classification)
-      const llmStart = Date.now();
-      const call1 = await chatCompletion({
-        messages: llmMessages,
-        modelId,
-        temperature: TEMPERATURE_ASSESSMENT,
-        maxTokens: 300,
-        tools: [toolDef],
-        tool_choice: { type: "function", function: { name: "get_stance" } },
-      });
-
-      let toolCall = call1.toolCalls?.[0];
-      let call1Usage = call1.usage;
-
-      // Retry once if tool call missing (model occasionally skips despite tool_choice)
-      if (!toolCall || toolCall.function.name !== "get_stance") {
-        console.warn("LLM skipped tool — retrying (attempt 2)");
-        const retry = await chatCompletion({
+        const promptConfig = {
+          displayName: displayName ?? undefined,
+          stance: currentStance,
+          disengagementCount,
+          estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
+          category: previousContext?.category ?? conversation.category,
+          patience,
+          turnCount,
+          turnSummaries: previousContext?.turnSummaries,
+          recentMoves,
+          workHoursBlock,
+        };
+        const systemPrompt = buildSystemPrompt(promptConfig);
+  
+        const llmMessages = buildMessages(
+          systemPrompt,
+          windowedMessages.map((m) => ({ role: m.role, content: m.content }))
+        );
+  
+        // 3. Build tool definition
+        const toolDef = buildToolDefinition();
+  
+        // Capture input context for trace
+        Object.assign(traceData, {
+          previousStance: currentStance,
+          systemPrompt,
+          messagesArray: JSON.stringify(llmMessages),
+          modelId,
+          temperature: TEMPERATURE_ASSESSMENT,
+          maxTokens: 300,
+          disengagementCount,
+          stagnationCount: patience,
+        });
+  
+        // 4. CALL 1: LLM with tool available (low temp for consistent classification)
+        const llmStart = Date.now();
+        const call1 = await chatCompletion({
           messages: llmMessages,
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
@@ -669,29 +676,50 @@ export const respond = internalAction({
           tools: [toolDef],
           tool_choice: { type: "function", function: { name: "get_stance" } },
         });
-        call1Usage = addUsage(call1.usage, retry.usage);
-        const retryToolCall = retry.toolCalls?.[0];
-        if (retryToolCall && retryToolCall.function.name === "get_stance") {
-          toolCall = retryToolCall;
+  
+        let toolCall = call1.toolCalls?.[0];
+        let call1Usage = call1.usage;
+  
+        // Retry once if tool call missing (model occasionally skips despite tool_choice)
+        if (!toolCall || toolCall.function.name !== "get_stance") {
+          console.warn("LLM skipped tool — retrying (attempt 2)");
+          const retry = await chatCompletion({
+            messages: llmMessages,
+            modelId,
+            temperature: TEMPERATURE_ASSESSMENT,
+            maxTokens: 300,
+            tools: [toolDef],
+            tool_choice: { type: "function", function: { name: "get_stance" } },
+          });
+          call1Usage = addUsage(call1.usage, retry.usage);
+          const retryToolCall = retry.toolCalls?.[0];
+          if (retryToolCall && retryToolCall.function.name === "get_stance") {
+            toolCall = retryToolCall;
+          }
         }
-      }
-
-      // 5. BRANCH — only handle get_stance; other tool names treated as casual
-      if (toolCall && toolCall.function.name === "get_stance") {
-        // --- A) Tool called (scoring turn) ---
-        traceData.toolCalled = true;
-
-        // Parse tool arguments defensively
+  
+        // 5. Extract assessment — tool call or conservative fallback
         let rawAssessment: Record<string, unknown>;
-        try {
-          const raw = JSON.parse(toolCall.function.arguments);
-          rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
-        } catch {
-          rawAssessment = {};
+        let usedFallback = false;
+  
+        if (toolCall && toolCall.function.name === "get_stance") {
+          traceData.toolCalled = true;
+          // Parse tool arguments defensively
+          try {
+            const raw = JSON.parse(toolCall.function.arguments);
+            rawAssessment = typeof raw.assessment === "object" && raw.assessment !== null ? raw.assessment : {};
+          } catch {
+            rawAssessment = {};
+          }
+          traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
+        } else {
+          console.warn("LLM skipped tool call — using fallback assessment");
+          rawAssessment = FALLBACK_ASSESSMENT;
+          usedFallback = true;
+          traceData.toolCalled = false;
         }
-        traceData.toolArguments = JSON.stringify({ assessment: rawAssessment });
-
-        // Execute scoring
+  
+        // Execute scoring (always — fallback produces delta = 0)
         const stanceResult = executeGetStance(rawAssessment, {
           currentStance,
           disengagementCount,
@@ -701,7 +729,7 @@ export const respond = internalAction({
           turnCount,
           previousContext,
         });
-
+  
         // Build tool result for LLM (only public fields)
         const toolResultForLLM: Record<string, unknown> = {
           stance: stanceResult.stance,
@@ -710,12 +738,30 @@ export const respond = internalAction({
         };
         if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
         if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
-
+  
         const toolResultStr = JSON.stringify(toolResultForLLM);
         traceData.toolResult = toolResultStr;
-
+  
+        // Select memory nudge on turn 2+ if not yet stored
+        let memoryNudgeConversationId: Id<"conversations"> | null = null;
+  
+        if (
+          turnCount >= 2 &&
+          !stanceResult._persistedContext.memoryNudgeText &&
+          !stanceResult.closing
+        ) {
+          const nudge = selectMemoryNudge(pastConversations, stanceResult._category, userTimezone);
+          if (nudge) {
+            memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
+            stanceResult._persistedContext.memoryNudgeText = formatNudgePrompt(nudge);
+          }
+        }
+  
         // Select focused prompt for Call 2 when it matters
         // Closer always takes priority; opener only for normal scoring turns on turn 1
+        // Get nudge text — either just-selected or carried from a previous turn
+        const nudgeText = stanceResult._persistedContext.memoryNudgeText ?? null;
+
         let call2SystemPrompt: string;
         if (stanceResult.closing && stanceResult.verdict) {
           call2SystemPrompt = buildCloserPrompt({
@@ -725,43 +771,67 @@ export const respond = internalAction({
             verdict: stanceResult.verdict,
           });
         } else if (turnCount === 1 && stanceResult._decisionType.startsWith("normal")) {
+          // For opener, compute work hours fresh from the just-extracted price
+          const openerWorkHoursBlock = formatWorkHoursBlock(
+            computeWorkHours(stanceResult._estimatedPrice, userIncomeAmount, userIncomeType)
+          );
           call2SystemPrompt = buildOpenerPrompt({
             displayName: displayName ?? undefined,
             estimatedPrice: stanceResult._estimatedPrice,
             category: stanceResult._category,
+            workHoursBlock: openerWorkHoursBlock,
           });
         } else {
-          call2SystemPrompt = systemPrompt;
+          // Recompute work hours with current-turn price (avoids one-turn lag)
+          let call2Base = systemPrompt;
+          if (stanceResult._estimatedPrice && stanceResult._estimatedPrice !== priceForWorkHours) {
+            const updatedWorkHoursBlock = formatWorkHoursBlock(
+              computeWorkHours(stanceResult._estimatedPrice, userIncomeAmount, userIncomeType)
+            );
+            call2Base = buildSystemPrompt({ ...promptConfig, workHoursBlock: updatedWorkHoursBlock });
+          }
+          call2SystemPrompt = nudgeText
+            ? call2Base + "\n\n" + nudgeText
+            : call2Base;
         }
-
+  
         // Capture Call 2 prompt in trace when it differs from Call 1
         if (call2SystemPrompt !== systemPrompt) {
           traceData.call2SystemPrompt = call2SystemPrompt;
         }
-
-        // Build messages for call 2: selected system prompt + conversation + tool call + tool result
+  
+        // Build messages for call 2
         const conversationMsgs = buildConversationMessages(
           windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
-        const call2Messages: ChatMessage[] = [
-          { role: "system", content: call2SystemPrompt },
-          ...conversationMsgs,
-          {
-            role: "assistant",
-            content: null,
-            tool_calls: [toolCall],
-          },
-          {
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: toolResultStr,
-          },
-        ];
-
+        let call2Messages: ChatMessage[];
+        if (usedFallback) {
+          // No tool call to include — append guidance to system prompt
+          call2Messages = [
+            { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
+            ...conversationMsgs,
+          ];
+        } else {
+          call2Messages = [
+            { role: "system", content: call2SystemPrompt },
+            ...conversationMsgs,
+            {
+              role: "assistant",
+              content: null,
+              tool_calls: [toolCall!],
+            },
+            {
+              role: "tool",
+              tool_call_id: toolCall!.id,
+              content: toolResultStr,
+            },
+          ];
+        }
+  
         // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
         const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
         const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
-
+  
         const call2 = await chatCompletion({
           messages: call2Messages,
           modelId,
@@ -772,14 +842,14 @@ export const respond = internalAction({
             tool_choice: { type: "function", function: { name: "closing_response" } },
           } : {}),
         });
-
+  
         const durationMs = Date.now() - llmStart;
         const totalUsage = addUsage(call1Usage, call2.usage);
-
+  
         let responseText: string;
         let excuse: string | undefined;
         let verdictTagline: string | undefined;
-
+  
         if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
           try {
             const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
@@ -794,34 +864,33 @@ export const respond = internalAction({
         } else {
           responseText = call2.content ?? "";
         }
-
+  
         if (!responseText) {
           throw new Error("Call 2 returned empty content");
         }
-
+  
         // Capture trace data
         const sanitizedForTrace = sanitizeAssessment(rawAssessment);
-
+  
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
-          estimatedCostUsd: estimateCost(totalUsage),
           rawScores: JSON.stringify(sanitizedForTrace),
           sanitizedScores: JSON.stringify(stanceResult._persistedContext),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
           parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
-          decisionType: stanceResult._decisionType,
+          decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
           newStance: stanceResult.stance,
           category: stanceResult._category,
           estimatedPrice: stanceResult._estimatedPrice,
           disengagementCount: stanceResult._disengagementCount,
           stagnationCount: stanceResult._patience,
         });
-
+  
         // Persist context as lastAssessment JSON
         const lastAssessmentJson = JSON.stringify(stanceResult._persistedContext);
-
+  
         // Save based on decision type
         if (stanceResult._decisionType === "out-of-scope") {
           const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
@@ -867,59 +936,51 @@ export const respond = internalAction({
           );
           traceData.messageId = messageId;
         }
-
+  
+        // Increment memory reference count (only when nudge was used)
+        if (memoryNudgeConversationId) {
+          await ctx.runMutation(
+            internal.conversations.internalIncrementMemoryRef,
+            { conversationId: memoryNudgeConversationId }
+          );
+        }
+  
         await saveTraceQuietly();
-      } else {
-        // --- B) No tool call (casual turn) — safety net, should not fire with tool_choice: required ---
-        console.warn("LLM skipped tool despite tool_choice: required — falling back to casual path");
-        const durationMs = Date.now() - llmStart;
-        const responseText = call1.content ?? "";
-
-        traceData.toolCalled = false;
-
-        Object.assign(traceData, {
-          durationMs,
-          rawResponse: responseText,
-          tokenUsage: call1Usage,
-          estimatedCostUsd: estimateCost(call1Usage),
-          rawScores: "{}",
-          sanitizedScores: "{}",
-          scoringResult: "{}",
-          parsedResponse: JSON.stringify({ response: responseText }),
-          decisionType: "casual",
-          newStance: currentStance,
-          category: conversation.category ?? "other",
-          estimatedPrice: conversation.estimatedPrice,
-          disengagementCount,
-          stagnationCount: patience,
-        });
-
-        const messageId = await ctx.runMutation(internal.conversations.saveResponse, {
-          conversationId: args.conversationId,
-          content: responseText,
-        });
-        traceData.messageId = messageId;
-
-        await saveTraceQuietly();
+      } catch (error) {
+        console.error("LLM generation failed:", error);
+        if (traceData.rawResponse || traceData.toolCalled !== undefined) {
+          Object.assign(traceData, {
+            decisionType: "error",
+            error: String(error),
+            newStance: traceData.previousStance ?? "FIRM",
+            rawResponse: traceData.rawResponse ?? "",
+            parsedResponse: traceData.parsedResponse ?? "{}",
+            sanitizedScores: traceData.sanitizedScores ?? "{}",
+            rawScores: traceData.rawScores ?? "{}",
+            scoringResult: traceData.scoringResult ?? "{}",
+            disengagementCount: traceData.disengagementCount ?? 0,
+            stagnationCount: traceData.stagnationCount ?? 0,
+            tokenUsage: traceData.tokenUsage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+            durationMs: traceData.durationMs ?? 0,
+          });
+          await saveTraceQuietly();
+        }
+        throw error;
       }
-    } catch (error) {
-      console.error("LLM generation failed:", error);
-      if (traceData.rawResponse || traceData.toolCalled !== undefined) {
-        Object.assign(traceData, {
-          decisionType: "error",
-          error: String(error),
-          newStance: traceData.previousStance ?? "FIRM",
-          rawResponse: traceData.rawResponse ?? "",
-          parsedResponse: traceData.parsedResponse ?? "{}",
-          sanitizedScores: traceData.sanitizedScores ?? "{}",
-          rawScores: traceData.rawScores ?? "{}",
-          scoringResult: traceData.scoringResult ?? "{}",
-          disengagementCount: traceData.disengagementCount ?? 0,
-          stagnationCount: traceData.stagnationCount ?? 0,
-          tokenUsage: traceData.tokenUsage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          durationMs: traceData.durationMs ?? 0,
-        });
-        await saveTraceQuietly();
+    }
+
+    try {
+      await executeRespond(primaryModel);
+    } catch (primaryError) {
+      console.error(`Primary model (${primaryModel}) failed:`, primaryError);
+      if (fallbackModel && fallbackModel !== primaryModel) {
+        console.warn(`Retrying with fallback: ${fallbackModel}`);
+        try {
+          await executeRespond(fallbackModel);
+          return;
+        } catch (fallbackError) {
+          console.error(`Fallback (${fallbackModel}) also failed:`, fallbackError);
+        }
       }
       await ctx.runMutation(internal.conversations.setError, {
         conversationId: args.conversationId,

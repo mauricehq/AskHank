@@ -218,21 +218,62 @@ Call 2 prompt selection:
 - [x] Enhance history entries: show item name, verdict badge (denied/approved), price — instead of generic title
 
 ### 3c: "Saved $X" Counter ✅
-- [x] Running total stored per user in Convex (`savedTotal` on users table)
-- [x] Incremented when a conversation closes as denied and user provided an estimated price
-- [x] Displayed prominently in sidebar stats card
-- [ ] Hank asks for estimated price if user doesn't provide it
+- [x] Running total stored per user in Convex (`savedTotal` + `deniedCount` fields on users table)
+- [x] Incremented when a conversation closes as denied and user provided an estimated price (conditional increment in `saveResponseWithVerdict`)
+- [x] Displayed prominently on main screen (two-stat card in sidebar: `$saved` + `skipped`)
+- [x] Hank asks for estimated price if user doesn't provide it (system prompt instructs LLM to ask early)
 
-### 3d: Hank's Memory (Conversation Summaries)
-- [ ] Query last 20-30 conversation summaries for the user before each new conversation
-- [ ] Inject as structured YAML into system prompt (not JSON — YAML parses cleaner for LLM context, lesson from Hopshelf)
-- [ ] ~30-40 tokens per summary, ~1,000 tokens total for 30 conversations. Cheap.
-- [ ] Summary format per conversation: date, item, price, verdict, claim, key quote, context
-- [ ] LLM does the connecting — spots patterns, references past quotes, calls out repeat behavior
-- [ ] Category tracking: how many times user asked about similar items
-- [ ] Quote tracking: Hank throws the user's own words back at them
+### 3d: Hank's Memory ✅
 
-### ~~3e: User Dossier~~ → Deferred to v1.5
+**Original plan called for injecting 20-30 conversation summaries. Actual implementation is a targeted memory nudge system — lighter, cheaper, and more effective because Hank references ONE specific past conversation instead of drowning in context.**
+
+#### Memory Nudge System ✅
+- [x] Query past conversations for the user (`internalGetPastConversations`)
+- [x] `selectMemoryNudge()` picks ONE past conversation to reference — filters to same category, valid item, not "other"; sorts by lowest reference count then most recent
+- [x] `formatNudgePrompt()` injects structured YAML into system prompt (previous_item, price, date, their_claim)
+- [x] Nudge fires on turn 2+ during stance softening, persists across all subsequent turns
+- [x] `memoryReferenceCount` tracking — rotates which past conversation gets referenced so Hank doesn't repeat
+- [x] Timezone-aware relative dates ("a few days ago", "last week") using calendar-day boundaries in user's local time
+
+#### Category History ✅
+- [x] Count same-category conversations within 90-day window (additive to nudge — doesn't change which conversation is picked)
+- [x] `categoryHistory` on `MemoryNudge`: count, category, window label ("a couple weeks", "a couple months")
+- [x] Only included when count > 1 — no noise for first-time category visitors
+- [x] `formatNudgePrompt()` appends `category_history` YAML block when present
+- [x] Window labels use `daysToWindowLabel()` / `formatWindowLabel()` — distinct from point-in-time "ago" labels
+
+#### Not built (deferred to dossier in Phase 7)
+- [ ] Quote tracking: Hank throws the user's own words back at them — needs richer per-conversation data than what memory nudges store
+
+### 3e: Work-Hours Reframe ✅
+
+**The insight:** Telling someone a standing desk costs $350 is abstract. Telling them it costs 12.5 hours of their labor is visceral. Price-to-hours conversion is one of the most effective impulse killers — validated by Reddit users who built entire apps around this single mechanic.
+
+**How it works:**
+- [x] Optional salary/hourly rate input (onboarding + settings — annual salary or hourly rate)
+- [x] Stored on user record in Convex (`incomeAmount`, `incomeType` on users table — never shared, never displayed publicly)
+- [x] After-tax estimation: flat 25% effective tax rate, annual → hourly via 2080 hours/year
+- [x] When Hank knows the price and the user's rate, inject `work_hours:` YAML block into system prompt (after PRICE CONTEXT)
+- [x] Hank weaves it into the conversation naturally: "That's 12 hours of your life for a gadget you'll forget about."
+- [x] Anti-parroting directive: use once max, don't lead with it, never say their rate out loud
+
+**Implementation details:**
+- Pure computation in `convex/llm/workHours.ts` (no Convex imports) — `computeWorkHours()` + `formatWorkHoursBlock()`
+- Injected into `buildSystemPrompt()` (turn 2+) and `buildOpenerPrompt()` (turn 1 when price known)
+- Work hours recomputed after Call 1 scoring to avoid one-turn lag when price changes mid-conversation
+- `setIncome` / `clearIncome` mutations with auth checks, positive amount validation
+- Onboarding: segmented toggle (Annual Salary / Hourly Rate) + dollar input below name field, optional
+- Settings: inline-edit row between Display Name and Email, with "Remove income" link
+
+**Prompt injection format:**
+```yaml
+work_hours:
+  hourly_rate_net: 23.44
+  hours_equivalent: 21.3
+Use this ONCE max per conversation. Don't lead with it. Never say their rate out loud. Narrate in your voice — e.g. "That's 12 hours of your life for a gadget you'll forget about."
+```
+
+### ~~3f: User Dossier~~ → Deferred to v1.5
 Retention feature, not a launch feature. At launch there are zero conversations to build a dossier from. It gets valuable after 10-15 conversations per user — that's weeks of usage. Build it when early users have enough history for it to matter. See hank-scoring-engine.md for full dossier design.
 
 **Time:** 2-3 days.
@@ -279,7 +320,7 @@ Retention feature, not a launch feature. At launch there are zero conversations 
 - [x] Message appear animation (Hank's responses slide/fade in)
 - [x] Typing indicator animation
 - [x] Verdict reveal (denied = firm, approved = reluctant acknowledgment)
-- [ ] "Saved $X" counter tick-up animation (needs Phase 3c first)
+- [x] "Saved $X" counter tick-up animation (framer-motion useSpring + cascade entrance on stats page)
 - [x] Screen transitions
 - [x] Button press feedback
 
@@ -513,7 +554,7 @@ Only if web proves traction. Not before.
 | 0: Setup | ✅ Done | Project scaffolding |
 | 1: Auth | ✅ Done | Clerk auth (Google + Email/Password) |
 | 2: Hank's Voice | ✅ Done (2a-2g) | Chat UI, LLM, v3 scoring, voice tuned, anti-patterns, signature moves, dedicated opener/closer prompts, trace infrastructure |
-| 3: Persistence | Partial (3a-3c done) | Memory still pending |
+| 3: Persistence | ✅ Done (3a-3e) | Storage, history, saved counter, memory, work-hours reframe |
 | 4: Credits + Stripe | ✅ Done (4a-4c) | Credit system, Stripe payments, cost controls |
 | 5: Polish + Share | ✅ 5a done | Verdict card, roast card, landing content |
 | 6: Launch Prep | Not started | Legal, domain, content prep |
@@ -632,4 +673,4 @@ Tyler's prompt structure in `lib/advisor/prompts.ts` maps directly to Hank:
 2. ~~**Photo input in web v1?**~~ **Yes — proven.** Already built camera-based scanning for Hopshelf (Google Gemini Flash). Same approach for Hank.
 3. ~~**System prompt**~~ — Done. Lives in `convex/llm/prompt.ts`. Dynamic stance, JSON output, scoring guidelines.
 4. ~~**Credit reset timezone**~~ — No longer relevant. Starter pack model has no daily reset.
-5. **Conversation memory scope** — how many past conversations to inject as context? All of them gets expensive. Last 10? Last 30 days?
+5. ~~**Conversation memory scope**~~ — Resolved: memory nudge system picks ONE past conversation per session (same category, rotated by reference count). Category history counts same-category conversations within 90 days. Full conversation summaries deferred to dossier (Phase 7).

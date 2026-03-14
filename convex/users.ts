@@ -3,8 +3,8 @@ import { mutation, query } from "./_generated/server";
 import { STARTER_CREDITS } from "./lib/credits";
 
 export const store = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { timezone: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Called store without authentication");
@@ -17,10 +17,14 @@ export const store = mutation({
       .unique();
 
     if (user !== null) {
-      // Update existing user if profile changed
-      if (user.email !== identity.email) {
+      // Update existing user if profile or timezone changed
+      const needsPatch =
+        user.email !== identity.email ||
+        (args.timezone && user.timezone !== args.timezone);
+      if (needsPatch) {
         await ctx.db.patch(user._id, {
-          email: identity.email!,
+          ...(user.email !== identity.email ? { email: identity.email! } : {}),
+          ...(args.timezone && user.timezone !== args.timezone ? { timezone: args.timezone } : {}),
           updatedAt: Date.now(),
         });
       }
@@ -32,6 +36,7 @@ export const store = mutation({
       tokenIdentifier,
       email: identity.email!,
       role: "normal",
+      ...(args.timezone ? { timezone: args.timezone } : {}),
       updatedAt: Date.now(),
     });
 
@@ -73,6 +78,67 @@ export const setDisplayName = mutation({
   },
 });
 
+export const setIncome = mutation({
+  args: {
+    incomeAmount: v.number(),
+    incomeType: v.union(v.literal("hourly"), v.literal("annual")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Called setIncome without authentication");
+    }
+
+    if (args.incomeAmount <= 0) {
+      throw new Error("Income must be a positive number");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      incomeAmount: args.incomeAmount,
+      incomeType: args.incomeType,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const clearIncome = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Called clearIncome without authentication");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      incomeAmount: undefined,
+      incomeType: undefined,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const deleteAccount = mutation({
   args: {},
   handler: async (ctx) => {
@@ -90,6 +156,30 @@ export const deleteAccount = mutation({
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    // Delete conversations and their messages
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const conv of conversations) {
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+        .collect();
+      for (const msg of messages) {
+        await ctx.db.delete(msg._id);
+      }
+      // Delete LLM traces for this conversation
+      const traces = await ctx.db
+        .query("llmTraces")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+        .collect();
+      for (const trace of traces) {
+        await ctx.db.delete(trace._id);
+      }
+      await ctx.db.delete(conv._id);
     }
 
     // Delete credits row

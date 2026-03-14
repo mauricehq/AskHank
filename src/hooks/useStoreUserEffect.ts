@@ -35,9 +35,10 @@ export function useStoreUserEffect() {
     setSessionError(null);
 
     async function attemptStore() {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          await storeUser();
+          await storeUser({ timezone });
           if (!cancelled) setIsStoring(false);
           return; // success
         } catch (error) {
