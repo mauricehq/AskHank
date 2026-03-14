@@ -150,6 +150,27 @@ export const chargeSavedMethod = action({
   },
 });
 
+export const hasSavedPaymentMethod = action({
+  args: {},
+  handler: async (ctx): Promise<boolean> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return false;
+
+    const user = await ctx.runQuery(internal.credits.getUserByToken, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+    if (!user?.stripeCustomerId) return false;
+
+    const stripe = getStripe();
+    const methods = await stripe.paymentMethods.list({
+      customer: user.stripeCustomerId,
+      type: "card",
+      limit: 1,
+    });
+    return methods.data.length > 0;
+  },
+});
+
 export const createPortalSession = action({
   args: {},
   handler: async (ctx): Promise<{ url: string } | null> => {

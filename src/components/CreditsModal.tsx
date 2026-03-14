@@ -22,15 +22,21 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
   const credits = useQuery(api.credits.getBalance);
   const createCheckout = useAction(api.stripe.createCheckoutSession);
   const chargeSaved = useAction(api.stripe.chargeSavedMethod);
+  const checkSavedCard = useAction(api.stripe.hasSavedPaymentMethod);
+  const [hasSavedCard, setHasSavedCard] = useState(false);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
+  const [pendingPack, setPendingPack] = useState<PackId | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Reset state when modal opens; escape key closes
+  // Reset state when modal opens; check for saved card; escape key closes
   useEffect(() => {
     if (!open) return;
     setLoadingPack(null);
+    setPendingPack(null);
     setPurchaseSuccess(false);
+    setHasSavedCard(false);
+    checkSavedCard({}).then(setHasSavedCard).catch(() => {});
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -96,6 +102,55 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
             </div>
             <div className="h-1 w-full bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
           </>
+        ) : pendingPack ? (
+          <>
+            {/* Confirmation state */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-2">
+              <h3 className="text-lg font-bold text-text">Confirm Purchase</h3>
+              <button
+                onClick={() => setPendingPack(null)}
+                disabled={loadingPack !== null}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+                aria-label="Back"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="flex items-center justify-between rounded-2xl border border-accent/50 bg-accent/5 px-5 py-4">
+                <span className="text-sm font-bold text-text">
+                  {CREDIT_PACKS[pendingPack].credits} credits
+                </span>
+                <span className="text-base font-bold text-accent">
+                  {CREDIT_PACKS[pendingPack].priceLabel}
+                </span>
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setPendingPack(null)}
+                  disabled={loadingPack !== null}
+                  className="flex-1 rounded-xl border border-border bg-bg-surface px-4 py-3 text-sm font-semibold text-text-secondary hover:bg-bg-surface/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handlePurchase(pendingPack)}
+                  disabled={loadingPack !== null}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent/90 transition-colors"
+                >
+                  {loadingPack ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    "Confirm"
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="h-1 w-full bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
+          </>
         ) : (
           <>
             {/* Header */}
@@ -128,7 +183,7 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
               {PACKS.map((pack) => (
                 <button
                   key={pack.id}
-                  onClick={() => handlePurchase(pack.id)}
+                  onClick={() => hasSavedCard ? setPendingPack(pack.id) : handlePurchase(pack.id)}
                   disabled={loadingPack !== null}
                   className={`relative flex w-full items-center justify-between rounded-2xl border px-5 py-4 transition-colors active:scale-[0.98] ${
                     pack.highlight
