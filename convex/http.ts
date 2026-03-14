@@ -16,12 +16,16 @@ http.route({
         body,
         signature,
       });
+      return new Response(null, { status: 200 });
     } catch (error) {
       console.error("Webhook processing error:", error);
-      // Still return 200 to prevent Stripe retries on business logic errors
+      // Business logic errors (bad metadata, unknown events) are handled
+      // inside handleWebhook and return cleanly — they never reach here.
+      // Errors that propagate are signature failures or transient issues
+      // (DB outage, network), so return 500 to let Stripe retry.
+      // Idempotency guards in addCredits prevent duplicate grants on retry.
+      return new Response("Webhook processing failed", { status: 500 });
     }
-
-    return new Response(null, { status: 200 });
   }),
 });
 
