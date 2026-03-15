@@ -21,7 +21,7 @@ export function Hero() {
 
       <p className="relative mt-4 text-sm md:text-base text-text-secondary max-w-md leading-relaxed">
         Hank challenges your reasoning before you spend the money.
-        Think of him as the friend who&apos;s better with money than you are.
+        Think of him as the friend who&apos;s better with money than you.
       </p>
 
       <div className="relative mt-10 flex gap-3">
