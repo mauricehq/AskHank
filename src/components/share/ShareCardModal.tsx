@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { X, Download, Share2, Check, ExternalLink, Loader2 } from "lucide-react";
 import { VerdictShareCard } from "./VerdictShareCard";
 import { shareUrl } from "@/lib/cards/shareUrl";
 import type { VerdictCardData } from "@/lib/cards/types";
@@ -149,72 +150,112 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
 
   const isShareLoading = pendingAction === "share";
   const isDownloadLoading = pendingAction === "download";
+  const isDenied = cardData.verdict === "denied";
+  const accentColor = isDenied ? "#D4673A" : "#6B9E6F";
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Modal */}
-      <div
-        className="relative z-10 w-full max-w-[400px] mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Card preview */}
-        <div
-          className="w-full rounded-xl overflow-hidden"
-          style={{ aspectRatio: "4/5" }}
-        >
-          <VerdictShareCard data={cardData} />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mt-3 p-3 bg-red-950/40 border border-red-800/50 rounded-xl">
-            <p className="text-red-400 text-sm text-center">{error}</p>
+    <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+      {/* Scrollable content area with centering */}
+      <div className="min-h-[100dvh] flex items-center justify-center p-4 py-8">
+        <div className="relative w-full max-w-md sm:max-w-lg flex flex-col items-center animate-in zoom-in-95 duration-300">
+          {/* Card preview - aspect-[4/5] required for container queries to work */}
+          <div className="relative w-full aspect-[4/5]">
+            <VerdictShareCard data={cardData} />
           </div>
-        )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 mt-4">
+          {/* Error State */}
+          {error && (
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-900/20 border border-red-800/50 rounded-2xl w-full">
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            </div>
+          )}
+
+          {/* Action Buttons - z-20 ensures buttons render above card's massive shadow */}
+          <div className="relative z-20 flex gap-3 sm:gap-4 mt-5 sm:mt-8 w-full animate-in slide-in-from-bottom-4 duration-500 delay-150">
+            <button
+              onClick={handleShareLink}
+              disabled={pendingAction !== null}
+              className="group/share flex-1 flex items-center justify-center gap-2 py-4 sm:py-5 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-white font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+            >
+              {isShareLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : shareStatus ? (
+                <>
+                  <Check className="w-4 h-4" style={{ color: accentColor }} />
+                  <span style={{ color: accentColor }}>{shareStatus === "shared" ? "Shared" : "Copied"}</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4 group-hover/share:rotate-12 transition-transform" />
+                  Copy Link
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={pendingAction !== null}
+              className="group/dl flex-1 flex items-center justify-center gap-2 py-4 sm:py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
+              style={{
+                background: accentColor,
+                color: "#1A1714",
+                boxShadow: `0 20px 25px -5px ${accentColor}33`,
+              }}
+            >
+              {isDownloadLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : downloadStatus === "downloaded" ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Saved
+                </>
+              ) : downloadImageUrl ? (
+                <>
+                  <Download className="w-4 h-4 group-hover/dl:translate-y-0.5 transition-transform" />
+                  Save Image
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 group-hover/dl:translate-y-0.5 transition-transform" />
+                  Download PNG
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Helper Text */}
+          <p className="mt-3 sm:mt-4 text-center text-[10px] text-zinc-500 uppercase tracking-widest">
+            <span className="text-zinc-400">PNG</span> for Reddit, Instagram
+            {" \u2022 "}
+            <span className="text-zinc-400">Link</span> for Twitter, iMessage
+          </p>
+
+          {/* View Link - show after link shared */}
+          {shareStatus !== null || downloadImageUrl ? (
+            <a
+              href={cardUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-widest animate-in fade-in duration-300"
+            >
+              <ExternalLink className="w-3 h-3" />
+              View card page
+            </a>
+          ) : null}
+
+          {/* Close Button */}
           <button
-            onClick={handleShareLink}
-            disabled={pendingAction !== null}
-            className="flex-1 rounded-[10px] border border-accent text-accent px-4 py-2.5 text-sm font-semibold hover:bg-accent-soft disabled:opacity-50 transition-colors"
+            onClick={onClose}
+            className="mt-6 sm:mt-10 p-3 bg-zinc-900 border border-white/10 rounded-full hover:scale-110 transition-all shadow-lg"
           >
-            {isShareLoading
-              ? "..."
-              : shareStatus === "copied"
-                ? "Copied!"
-                : shareStatus === "shared"
-                  ? "Shared!"
-                  : "Copy link"}
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={pendingAction !== null}
-            className="flex-1 rounded-[10px] bg-accent text-user-text px-4 py-2.5 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 active:scale-[0.97] transition-all"
-          >
-            {isDownloadLoading
-              ? "Generating..."
-              : downloadStatus === "downloaded"
-                ? "Saved!"
-                : downloadImageUrl
-                  ? "Save image"
-                  : "Download PNG"}
+            <X className="w-6 h-6 text-zinc-400" />
           </button>
         </div>
-
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-bg-surface border border-border flex items-center justify-center text-text-secondary hover:text-text transition-colors"
-        >
-          &times;
-        </button>
       </div>
     </div>,
     document.body
