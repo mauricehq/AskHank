@@ -1003,7 +1003,7 @@ export const respond = internalAction({
             const call3 = await chatCompletion({
               messages: call3Messages,
               modelId,
-              temperature: 0.9,
+              temperature: TEMPERATURE_RESPONSE,
               maxTokens: 120,
             });
 
@@ -1012,7 +1012,7 @@ export const respond = internalAction({
             totalUsage = addUsage(totalUsage, call3.usage);
 
             if (rawSummary) {
-              const verdictSummary = cleanVerdictSummary(rawSummary).slice(0, 300);
+              const verdictSummary = cleanVerdictSummary(rawSummary);
               await ctx.runMutation(internal.conversations.patchVerdictSummary, {
                 conversationId: args.conversationId,
                 verdictSummary,
