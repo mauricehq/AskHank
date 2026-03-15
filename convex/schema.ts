@@ -50,6 +50,7 @@ export default defineSchema({
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
     excuse: v.optional(v.string()),
     verdictTagline: v.optional(v.string()),
+    verdictSummary: v.optional(v.string()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
@@ -178,6 +179,7 @@ export default defineSchema({
         category: v.optional(v.string()),
         excuse: v.string(),
         verdictTagline: v.optional(v.string()),
+        verdictSummary: v.optional(v.string()),
       }),
       v.object({
         bestQuote: v.string(),

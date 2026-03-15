@@ -12,6 +12,7 @@ const cardRegistry: Record<string, CardRegistryEntry> = {
       return `Hank says ${verdict} to ${data.item}`;
     },
     generateDescription: (data: VerdictCardData) => {
+      if (data.verdictSummary) return data.verdictSummary;
       if (data.verdictTagline) return data.verdictTagline;
       return data.verdict === "denied"
         ? `Hank shut down this purchase.`

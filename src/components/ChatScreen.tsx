@@ -23,7 +23,7 @@ interface ChatScreenProps {
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
   const { openCreditsModal } = useAppLayout();
-  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, category, excuse, verdictTagline, outOfCredits, thinkingSince } = useConversation();
+  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, category, excuse, verdictTagline, verdictSummary, outOfCredits, thinkingSince } = useConversation();
   const { isAdmin } = useUserAccess();
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
@@ -163,7 +163,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
               </div>
             )}
             {verdict && (
-              <VerdictCard verdict={verdict} item={item} estimatedPrice={estimatedPrice} category={category} excuse={excuse} verdictTagline={verdictTagline} conversationId={activeConversationId ?? undefined} onNewConversation={handleNewConversation} />
+              <VerdictCard verdict={verdict} item={item} estimatedPrice={estimatedPrice} category={category} excuse={excuse} verdictTagline={verdictTagline} verdictSummary={verdictSummary} conversationId={activeConversationId ?? undefined} onNewConversation={handleNewConversation} />
             )}
             <div ref={messagesEndRef} />
           </div>

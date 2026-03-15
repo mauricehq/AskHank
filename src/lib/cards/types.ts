@@ -5,6 +5,7 @@ export interface VerdictCardData {
   category?: string;
   excuse: string;
   verdictTagline?: string;
+  verdictSummary?: string;
 }
 
 export interface RoastCardData {

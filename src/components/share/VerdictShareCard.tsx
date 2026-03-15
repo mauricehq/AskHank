@@ -11,15 +11,18 @@ interface VerdictShareCardProps {
 }
 
 export function VerdictShareCard({ data }: VerdictShareCardProps) {
-  const { verdict, item, estimatedPrice, excuse } = data;
+  const { verdict, item, estimatedPrice, excuse, verdictSummary } = data;
   const isDenied = verdict === "denied";
 
   const priceLabel = estimatedPrice
     ? `$${estimatedPrice.toLocaleString()}`
     : null;
 
+  // Prefer verdictSummary over excuse for the insight box
+  const insightText = verdictSummary ?? excuse;
+
   // Calculate per-element text sizes based on content length
-  const sizes = getCardTextSizes(item, excuse);
+  const sizes = getCardTextSizes(item, insightText);
 
   // Only badge + excuse text change color per verdict
   const verdictColor = isDenied ? "#D4673A" : "#6B9E6F";
@@ -30,24 +33,24 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
       className="share-card-container w-full h-full card-radius border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,1)] overflow-hidden relative"
       style={{ background: "#1A1714" }}
     >
-      {/* Background Flair - 4 gradient layers (always brand orange) */}
+      {/* Background Flair - 4 gradient layers (always brand orange, dialed down) */}
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(to bottom right, rgba(${BRAND_RGB}, 0.20), transparent, transparent)`,
+          background: `linear-gradient(to bottom right, rgba(${BRAND_RGB}, 0.10), transparent, transparent)`,
         }}
       />
       <div
         className="absolute inset-0"
         style={{
-          background: `radial-gradient(circle at top right, rgba(${BRAND_RGB}, 0.15), transparent 60%)`,
+          background: `radial-gradient(circle at top right, rgba(${BRAND_RGB}, 0.08), transparent 60%)`,
         }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.3)_100%)]" />
       <div
         className="absolute bottom-0 inset-x-0 h-1/2"
         style={{
-          background: `linear-gradient(to top, rgba(${BRAND_RGB}, 0.05), transparent)`,
+          background: `linear-gradient(to top, rgba(${BRAND_RGB}, 0.03), transparent)`,
         }}
       />
 
@@ -179,7 +182,10 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
                   className={`font-light italic card-text-insight${sizeToClass(sizes.insightSize)}`}
                   style={{ color: "#E8E4DF" }}
                 >
-                  &ldquo;{excuse}&rdquo;
+                  {verdictSummary
+                    ? insightText
+                    : <>&ldquo;{insightText}&rdquo;</>
+                  }
                 </p>
               </div>
             </div>

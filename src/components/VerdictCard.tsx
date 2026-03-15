@@ -15,11 +15,12 @@ interface VerdictCardProps {
   category?: string;
   excuse?: string;
   verdictTagline?: string;
+  verdictSummary?: string;
   conversationId?: Id<"conversations">;
   onNewConversation: () => void;
 }
 
-export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, verdictTagline, conversationId, onNewConversation }: VerdictCardProps) {
+export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, verdictTagline, verdictSummary, conversationId, onNewConversation }: VerdictCardProps) {
   const isDenied = verdict.type === "denied";
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, v
     category,
     excuse: excuse ?? verdict.quote,
     verdictTagline,
+    verdictSummary,
   };
 
   return (
@@ -71,7 +73,10 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, v
           CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}{itemLabel}
         </div>
         <p className="text-[0.9rem] italic text-text-secondary mb-4">
-          &ldquo;{verdict.quote}&rdquo;
+          {verdictSummary
+            ? verdictSummary
+            : <>&ldquo;{verdict.quote}&rdquo;</>
+          }
         </p>
         <div className="flex items-center justify-center gap-3">
           <button

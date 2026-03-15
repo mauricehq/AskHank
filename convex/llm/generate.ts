@@ -5,7 +5,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
-import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
+import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition, buildVerdictSummaryPrompt } from "./prompt";
 import { extractRecentMoves } from "./moves";
 import { selectMemoryNudge, formatNudgePrompt } from "./memory";
 import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
@@ -899,6 +899,37 @@ export const respond = internalAction({
           });
           traceData.messageId = messageId;
         } else if (stanceResult.closing && stanceResult.verdict) {
+          // CALL 3: Generate verdict summary for share cards (non-fatal)
+          let verdictSummary: string | undefined;
+          try {
+            const summarySystemPrompt = buildVerdictSummaryPrompt({
+              item: stanceResult._item,
+              estimatedPrice: stanceResult._estimatedPrice,
+              category: stanceResult._category,
+              verdict: stanceResult.verdict,
+              closingLine: responseText,
+            });
+
+            const call3Messages: ChatMessage[] = [
+              { role: "system", content: summarySystemPrompt },
+              ...conversationMsgs,
+            ];
+
+            const call3 = await chatCompletion({
+              messages: call3Messages,
+              modelId,
+              temperature: 0.9,
+              maxTokens: 120,
+            });
+
+            const rawSummary = (call3.content ?? "").trim();
+            if (rawSummary) {
+              verdictSummary = rawSummary.slice(0, 300);
+            }
+          } catch (call3Error) {
+            console.error("Call 3 (verdict summary) failed (non-fatal):", call3Error);
+          }
+
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithVerdict,
             {
@@ -915,6 +946,7 @@ export const respond = internalAction({
               stagnationCount: stanceResult._patience,
               excuse,
               verdictTagline,
+              verdictSummary,
             }
           );
           traceData.messageId = messageId;

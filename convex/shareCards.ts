@@ -49,6 +49,7 @@ export const createVerdictCard = mutation({
         category: conversation.category,
         excuse: conversation.excuse ?? "",
         verdictTagline: conversation.verdictTagline,
+        verdictSummary: conversation.verdictSummary,
       },
       createdAt: Date.now(),
     });

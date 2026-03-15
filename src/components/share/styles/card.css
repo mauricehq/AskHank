@@ -148,12 +148,12 @@
 /* ===== Layout Structure ===== */
 
 /* Main content wrapper - column by default */
+/* No overflow:hidden here — the card-level container handles clipping */
 .card-main-content {
   display: flex;
   flex-direction: column;
   flex-grow: 1;
   justify-content: center;
-  overflow: hidden;
 }
 
 /* Item info section */
