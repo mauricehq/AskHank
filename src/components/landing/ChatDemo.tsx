@@ -425,13 +425,13 @@ export function ChatDemo() {
       </div>
 
       {/* Chat window */}
-      <div ref={ref} className="w-full max-w-3xl mx-auto relative">
+      <div ref={ref} className="w-full max-w-3xl lg:max-w-4xl mx-auto relative">
         {/* Ambient glow */}
-        <div className="absolute -inset-6 bg-accent/8 blur-[80px] rounded-full pointer-events-none" />
+        <div className="absolute -inset-6 lg:-inset-12 bg-accent/8 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none" />
 
-        <div className="relative bg-bg-surface rounded-3xl border border-border/60 overflow-hidden flex flex-col select-none shadow-[0_40px_80px_rgba(0,0,0,0.6)]">
+        <div className="relative bg-bg-surface rounded-3xl lg:rounded-[2.5rem] border border-border/60 overflow-hidden flex flex-col select-none shadow-[0_40px_80px_rgba(0,0,0,0.6)] lg:shadow-[0_60px_120px_rgba(0,0,0,0.8)]">
           {/* App chrome header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
+          <div className="flex items-center gap-3 px-4 py-3 lg:px-8 lg:py-5 border-b border-border/60">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-border/60" />
               <div className="w-3 h-3 rounded-full bg-border/60" />
@@ -441,7 +441,7 @@ export function ChatDemo() {
             <span className="font-mono text-xs text-text-secondary tracking-wide">Ask Hank</span>
           </div>
           {/* Messages area */}
-          <div ref={chatContainerRef} onWheel={handleUserScroll} onTouchMove={handleUserScroll} className="bg-bg p-5 md:p-7 space-y-0 h-[340px] md:h-[400px] overflow-y-scroll scrollbar-thin">
+          <div ref={chatContainerRef} onWheel={handleUserScroll} onTouchMove={handleUserScroll} className="bg-bg p-5 md:p-7 lg:p-8 space-y-0 h-[340px] md:h-[400px] lg:h-[440px] overflow-y-scroll scrollbar-thin">
             {visibleMessages.map((msg, index) => {
               const isHank = msg.role === "hank";
 
@@ -489,7 +489,7 @@ export function ChatDemo() {
           </div>
 
           {/* Static input bar (cosmetic) */}
-          <div aria-hidden="true" className="px-4 py-3 md:px-6 md:py-4 border-t border-border">
+          <div aria-hidden="true" className="px-4 py-3 md:px-6 md:py-4 lg:px-8 lg:py-5 border-t border-border">
             <div className="bg-input-bg rounded-xl border border-border px-4 py-3 flex items-center">
               <div className="text-text-secondary text-sm flex-1">
                 Tell Hank what you want to buy...
