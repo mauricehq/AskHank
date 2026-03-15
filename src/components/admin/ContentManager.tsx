@@ -112,7 +112,7 @@ export function ContentManager() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-text">
+                      <span className="capitalize truncate text-sm font-medium text-text">
                         {cut.item}
                       </span>
                       <span

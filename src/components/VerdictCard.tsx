@@ -66,7 +66,7 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSu
             isDenied ? "text-denied" : "text-approved"
           }`}
         >
-          CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}{itemLabel}
+          CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}<span className="capitalize">{itemLabel}</span>
         </div>
         <p className="text-[0.9rem] italic text-text-secondary mb-4">
           {verdictSummary

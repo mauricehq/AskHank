@@ -125,7 +125,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
           <div className="card-item-section">
             {/* Item name - hero with brand glow */}
             <h2
-              className={`font-black card-text-hero${sizeToClass(sizes.heroSize)}`}
+              className={`capitalize font-black card-text-hero${sizeToClass(sizes.heroSize)}`}
               style={{
                 color: "#FFFFFF",
                 filter: `drop-shadow(0 0 25px rgba(${BRAND_RGB}, 0.35))`,
