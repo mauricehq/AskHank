@@ -79,7 +79,9 @@ export async function POST(
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      `${request.headers.get("x-forwarded-proto") || "http"}://${request.headers.get("host") || "localhost:3000"}`;
     const renderUrl = `${baseUrl}/render/${cardType}/${token}?format=${format}`;
 
     const { buffer } = await captureScreenshot({

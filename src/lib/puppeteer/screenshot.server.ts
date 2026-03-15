@@ -30,49 +30,36 @@ interface ScreenshotResult {
   height: number;
 }
 
+const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
 async function getExecutablePath(): Promise<string> {
-  // Production (Vercel/Lambda): use @sparticuz/chromium
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  if (isServerless) {
     return await chromium.executablePath();
   }
 
-  // Local dev: use system Chrome
+  // Local dev: find system Chrome (renders with chromium.args for parity)
   const localPaths = [
-    // Explicit env var override
     process.env.CHROME_PATH,
-    // Windows
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
     process.env.LOCALAPPDATA + "\\Google\\Chrome\\Application\\chrome.exe",
-    // macOS
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    // Linux
     "/usr/bin/google-chrome",
     "/usr/bin/chromium-browser",
     "/usr/bin/chromium",
   ];
 
-  for (const path of localPaths) {
-    if (path && fs.existsSync(path)) return path;
+  for (const p of localPaths) {
+    if (p && fs.existsSync(p)) return p;
   }
 
-  throw new Error("Chrome executable not found. Install Chrome or set CHROME_PATH.");
+  throw new Error("Chrome not found. Install Chrome or set CHROME_PATH.");
 }
 
 async function launchBrowser(): Promise<Browser> {
-  const executablePath = await getExecutablePath();
-  const isProduction = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
-
   return puppeteer.launch({
-    executablePath,
-    args: isProduction
-      ? chromium.args
-      : [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-        ],
+    executablePath: await getExecutablePath(),
+    args: chromium.args,
     headless: true,
     defaultViewport: null,
   });
