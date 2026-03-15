@@ -23,7 +23,10 @@ export function Scorecard() {
 
   return (
     <div className="py-20 md:py-32 px-6" ref={ref}>
-      <SectionHeader label="Track Your Wins" />
+      <SectionHeader
+        label="The Cost of Impulse"
+        subhead="The average person spends $3,400 a year on things they didn't need. That's a vacation. An emergency fund. 114 hours at work — gone."
+      />
 
       <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Savings card */}
@@ -56,7 +59,7 @@ export function Scorecard() {
       </div>
 
       <p className="text-center text-text-secondary text-sm mt-8">
-        Every denied purchase adds to your total. The app pays for itself.
+        Every purchase Hank talks you out of adds to your total. The app pays for itself on day one.
       </p>
     </div>
   );

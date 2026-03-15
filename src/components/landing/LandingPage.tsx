@@ -20,13 +20,15 @@ export function LandingPage() {
         <section id="demo">
           <ChatDemo />
         </section>
-        <section id="how-it-works" className="bg-bg-surface">
+        <section className="bg-bg-surface">
+          <WhyHankWorks />
+        </section>
+        <section id="how-it-works">
           <HowItWorks />
         </section>
         <section className="bg-bg-surface">
           <Scorecard />
         </section>
-        <WhyHankWorks />
         <section id="pricing">
           <FreeToTry />
         </section>

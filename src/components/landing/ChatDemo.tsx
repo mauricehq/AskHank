@@ -375,7 +375,10 @@ export function ChatDemo() {
 
   return (
     <div className="py-20 md:py-32 px-4">
-      <SectionHeader label="What Hank Sounds Like" />
+      <SectionHeader
+        label="Sound Familiar?"
+        subhead="You've had this argument with yourself before. Except you always win."
+      />
 
       {/* Tab bar */}
       <div role="tablist" className="flex justify-center gap-3 sm:gap-6 mb-8 md:mb-12 px-2 flex-wrap">

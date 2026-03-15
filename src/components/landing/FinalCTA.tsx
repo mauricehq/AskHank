@@ -10,10 +10,11 @@ export function FinalCTA() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[250px] bg-accent/6 blur-[100px] rounded-full pointer-events-none" />
 
       <h2 className="relative text-4xl md:text-5xl font-bold tracking-tight">
-        Ask <span className="text-accent">Hank</span>
+        You already know you{" "}
+        <span className="text-accent">don&apos;t need it.</span>
       </h2>
       <p className="relative mt-4 text-text-secondary text-base md:text-lg">
-        Tell him what you want to buy.
+        Hank just makes sure you don&apos;t buy it.
       </p>
       <div className="relative mt-8">
         <Show when="signed-out">

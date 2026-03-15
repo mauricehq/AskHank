@@ -19,7 +19,7 @@ export function FreeToTry() {
           </span>
         </div>
         <p className="text-text-secondary text-[0.95rem] leading-relaxed">
-          Every impulse buying app charges you before you can try it.
+          An app that tells you not to spend money shouldn&apos;t charge you monthly.
           Hank lets you argue for free.
         </p>
         <p className="text-text text-lg font-semibold">

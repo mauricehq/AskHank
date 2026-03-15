@@ -10,9 +10,9 @@ const steps = [
   },
   {
     number: "02",
-    title: "Make your case.",
+    title: "He pushes back. You push back.",
     description:
-      "Hank pushes back. You push back harder. If your argument holds up, he'll come around.",
+      "If your argument holds up, he'll come around. Most don't.",
     icon: Swords,
   },
   {
@@ -27,7 +27,10 @@ const steps = [
 export function HowItWorks() {
   return (
     <div className="py-20 md:py-32 px-6">
-      <SectionHeader label="How It Works" />
+      <SectionHeader
+        label="It's Just a Conversation"
+        subhead="No spreadsheets. No tracking. No homework."
+      />
 
       <div className="max-w-5xl mx-auto relative">
         {/* Connecting line on desktop */}

@@ -22,13 +22,14 @@ const failures = [
 export function WhyHankWorks() {
   return (
     <div className="py-20 md:py-32 px-6">
-      <SectionHeader label="Why Hank Works" />
+      <SectionHeader label="You've Tried Everything Else" />
 
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16">
         {/* Left: explanation */}
         <div className="text-text-secondary text-[0.95rem] leading-relaxed space-y-4">
           <p>
-            Timers expire. Streaks are passive. Checklists are self-graded.
+            You&apos;ve tried the 24-hour rule. The no-buy challenge. The
+            spreadsheet. None of it stuck — because none of it pushed back.
           </p>
           <p>
             Hank makes you argue your case out loud. When you have to explain
@@ -61,7 +62,7 @@ export function WhyHankWorks() {
             <div>
               <div className="font-semibold text-text mb-1">Hank</div>
               <p className="text-sm text-text-secondary leading-relaxed">
-                A debate you have to win.
+                A debate you have to win. This app is the friction.
               </p>
             </div>
           </div>

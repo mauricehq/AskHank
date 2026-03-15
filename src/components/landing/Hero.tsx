@@ -11,16 +11,17 @@ export function Hero() {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-accent/6 blur-[100px] rounded-full pointer-events-none" />
 
       <h1 className="relative text-5xl md:text-7xl font-bold tracking-tight">
-        Ask <span className="text-accent">Hank</span>
+        About to buy something{" "}
+        <span className="text-accent">you don&apos;t need?</span>
       </h1>
 
       <p className="relative mt-6 text-lg md:text-xl text-text max-w-lg">
-        Tell him what you want to buy. He pushes back.
+        Ask Hank first.
       </p>
 
       <p className="relative mt-4 text-sm md:text-base text-text-secondary max-w-md leading-relaxed">
-        A spending guardrail disguised as an argument with a friend
-        who&apos;s better with money than you are.
+        Hank challenges your reasoning before you spend the money.
+        Think of him as the friend who&apos;s better with money than you are.
       </p>
 
       <div className="relative mt-10 flex gap-3">
