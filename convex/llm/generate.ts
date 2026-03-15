@@ -528,6 +528,19 @@ function addUsage(
   };
 }
 
+/** Extract closing_line from a Call 2 result, returning "" if not found. */
+function extractClosingLine(result: { content: string | null; toolCalls: { function: { name: string; arguments: string } }[] | null }): string {
+  if (result.toolCalls?.[0]?.function.name === "closing_response") {
+    try {
+      const parsed = JSON.parse(result.toolCalls[0].function.arguments);
+      if (typeof parsed.closing_line === "string" && parsed.closing_line) {
+        return parsed.closing_line;
+      }
+    } catch { /* bad JSON — fall through */ }
+  }
+  return result.content ?? "";
+}
+
 export const respond = internalAction({
   args: {
     conversationId: v.id("conversations"),
@@ -834,37 +847,49 @@ export const respond = internalAction({
         const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
         const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
   
-        const call2 = await chatCompletion({
+        const call2Params = {
           messages: call2Messages,
           modelId,
           temperature: TEMPERATURE_RESPONSE,
           maxTokens: 400,
           ...(closingTool ? {
             tools: [closingTool],
-            tool_choice: { type: "function", function: { name: "closing_response" } },
+            tool_choice: { type: "function" as const, function: { name: "closing_response" } },
           } : {}),
-        });
-  
+        };
+
+        const call2 = await chatCompletion(call2Params);
+
         let totalUsage = addUsage(call1Usage, call2.usage);
         let durationMs = Date.now() - llmStart;
 
         let responseText: string;
 
-        if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
-          try {
-            const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
-            responseText = typeof parsed.closing_line === "string" && parsed.closing_line
-              ? parsed.closing_line
-              : (call2.content ?? "");
-          } catch {
-            responseText = call2.content ?? "";
+        if (isClosingTurn) {
+          // Extract closing_line from tool call result
+          responseText = extractClosingLine(call2);
+
+          // Retry once if empty (mirrors Call 1 retry pattern)
+          if (!responseText) {
+            console.warn("Call 2 closing_line empty — retrying (attempt 2)");
+            const retry = await chatCompletion(call2Params);
+            totalUsage = addUsage(totalUsage, retry.usage);
+            durationMs = Date.now() - llmStart;
+            responseText = extractClosingLine(retry);
+          }
+
+          // Hardcoded fallback — better than an error state
+          if (!responseText) {
+            console.warn("Call 2 closing_line still empty after retry — using fallback");
+            responseText = stanceResult.verdict === "approved"
+              ? "Fine. Go buy it."
+              : "No.";
           }
         } else {
           responseText = call2.content ?? "";
-        }
-  
-        if (!responseText) {
-          throw new Error("Call 2 returned empty content");
+          if (!responseText) {
+            throw new Error("Call 2 returned empty content");
+          }
         }
   
         // Capture trace data
@@ -976,11 +1001,16 @@ export const respond = internalAction({
         }
   
         // Increment memory reference count (only when nudge was used)
+        // Non-fatal: message is already saved, don't error the turn over this
         if (memoryNudgeConversationId) {
-          await ctx.runMutation(
-            internal.conversations.internalIncrementMemoryRef,
-            { conversationId: memoryNudgeConversationId }
-          );
+          try {
+            await ctx.runMutation(
+              internal.conversations.internalIncrementMemoryRef,
+              { conversationId: memoryNudgeConversationId }
+            );
+          } catch (e) {
+            console.error("Failed to increment memory ref (non-fatal):", e);
+          }
         }
   
         await saveTraceQuietly();
