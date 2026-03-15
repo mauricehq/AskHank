@@ -123,6 +123,10 @@ export default defineSchema({
     // Call 2 prompt swap (opener/closer)
     call2SystemPrompt: v.optional(v.string()),
 
+    // Call 3 verdict summary trace
+    call3SystemPrompt: v.optional(v.string()),
+    call3RawResponse: v.optional(v.string()),
+
     // Tool calling (v2)
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),

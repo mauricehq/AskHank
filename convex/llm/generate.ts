@@ -509,6 +509,8 @@ type TraceData = Partial<{
   durationMs: number;
   error: string;
   call2SystemPrompt: string;
+  call3SystemPrompt: string;
+  call3RawResponse: string;
   toolCalled: boolean;
   toolArguments: string;
   toolResult: string;
@@ -843,9 +845,9 @@ export const respond = internalAction({
           } : {}),
         });
   
-        const durationMs = Date.now() - llmStart;
-        const totalUsage = addUsage(call1Usage, call2.usage);
-  
+        let totalUsage = addUsage(call1Usage, call2.usage);
+        let durationMs = Date.now() - llmStart;
+
         let responseText: string;
 
         if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
@@ -906,6 +908,8 @@ export const respond = internalAction({
               closingLine: responseText,
             });
 
+            traceData.call3SystemPrompt = summarySystemPrompt;
+
             const call3Messages: ChatMessage[] = [
               { role: "system", content: summarySystemPrompt },
               ...conversationMsgs,
@@ -919,12 +923,20 @@ export const respond = internalAction({
             });
 
             const rawSummary = (call3.content ?? "").trim();
+            traceData.call3RawResponse = rawSummary || "(empty)";
+            totalUsage = addUsage(totalUsage, call3.usage);
+
             if (rawSummary) {
               verdictSummary = rawSummary.slice(0, 300);
             }
           } catch (call3Error) {
             console.error("Call 3 (verdict summary) failed (non-fatal):", call3Error);
+            traceData.call3RawResponse = `ERROR: ${String(call3Error)}`;
           }
+
+          // Update timing + tokens to include Call 3
+          traceData.durationMs = Date.now() - llmStart;
+          traceData.tokenUsage = totalUsage;
 
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithVerdict,
