@@ -71,7 +71,11 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSu
         <p className="text-[0.9rem] italic text-text-secondary mb-4">
           {verdictSummary
             ? verdictSummary
-            : <>&ldquo;{verdict.quote}&rdquo;</>
+            : <span className="inline-flex items-center gap-1">
+                <span className="typing-dot h-1.5 w-1.5 rounded-full bg-text-secondary" />
+                <span className="typing-dot h-1.5 w-1.5 rounded-full bg-text-secondary [animation-delay:0.2s]" />
+                <span className="typing-dot h-1.5 w-1.5 rounded-full bg-text-secondary [animation-delay:0.4s]" />
+              </span>
           }
         </p>
         <div className="flex items-center justify-center gap-3">

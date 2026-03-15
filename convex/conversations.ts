@@ -388,6 +388,18 @@ export const insertTestMessage = internalMutation({
   },
 });
 
+export const patchVerdictSummary = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    verdictSummary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      verdictSummary: args.verdictSummary,
+    });
+  },
+});
+
 export const saveResponseWithVerdict = internalMutation({
   args: {
     conversationId: v.id("conversations"),

@@ -922,8 +922,28 @@ export const respond = internalAction({
           });
           traceData.messageId = messageId;
         } else if (stanceResult.closing && stanceResult.verdict) {
+          // Save closing line + verdict immediately (UI shows card right away)
+          const messageId = await ctx.runMutation(
+            internal.conversations.saveResponseWithVerdict,
+            {
+              conversationId: args.conversationId,
+              content: responseText,
+              verdict: stanceResult.verdict,
+              score: stanceResult.score,
+              stance: stanceResult.stance,
+              category: stanceResult._category,
+              estimatedPrice: stanceResult._estimatedPrice,
+              item: stanceResult._item,
+              lastAssessment: lastAssessmentJson,
+              disengagementCount: stanceResult._disengagementCount,
+              stagnationCount: stanceResult._patience,
+              verdictSummary: undefined,
+            }
+          );
+          traceData.messageId = messageId;
+
           // CALL 3: Generate verdict summary for share cards (non-fatal)
-          let verdictSummary: string | undefined;
+          // Runs after save so the user sees the closing line immediately
           try {
             const summarySystemPrompt = buildVerdictSummaryPrompt({
               item: stanceResult._item,
@@ -952,7 +972,11 @@ export const respond = internalAction({
             totalUsage = addUsage(totalUsage, call3.usage);
 
             if (rawSummary) {
-              verdictSummary = rawSummary.slice(0, 300);
+              const verdictSummary = rawSummary.slice(0, 300);
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary,
+              });
             }
           } catch (call3Error) {
             console.error("Call 3 (verdict summary) failed (non-fatal):", call3Error);
@@ -962,25 +986,6 @@ export const respond = internalAction({
           // Update timing + tokens to include Call 3
           traceData.durationMs = Date.now() - llmStart;
           traceData.tokenUsage = totalUsage;
-
-          const messageId = await ctx.runMutation(
-            internal.conversations.saveResponseWithVerdict,
-            {
-              conversationId: args.conversationId,
-              content: responseText,
-              verdict: stanceResult.verdict,
-              score: stanceResult.score,
-              stance: stanceResult.stance,
-              category: stanceResult._category,
-              estimatedPrice: stanceResult._estimatedPrice,
-              item: stanceResult._item,
-              lastAssessment: lastAssessmentJson,
-              disengagementCount: stanceResult._disengagementCount,
-              stagnationCount: stanceResult._patience,
-              verdictSummary,
-            }
-          );
-          traceData.messageId = messageId;
         } else {
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithScoring,
