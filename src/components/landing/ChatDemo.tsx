@@ -441,7 +441,7 @@ export function ChatDemo() {
             <span className="font-mono text-xs text-text-secondary tracking-wide">Ask Hank</span>
           </div>
           {/* Messages area */}
-          <div ref={chatContainerRef} onScroll={handleUserScroll} className="bg-bg p-5 md:p-7 space-y-0 h-[340px] md:h-[400px] overflow-y-scroll scrollbar-thin">
+          <div ref={chatContainerRef} onWheel={handleUserScroll} onTouchMove={handleUserScroll} className="bg-bg p-5 md:p-7 space-y-0 h-[340px] md:h-[400px] overflow-y-scroll scrollbar-thin">
             {visibleMessages.map((msg, index) => {
               const isHank = msg.role === "hank";
 
