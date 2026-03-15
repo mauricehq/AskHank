@@ -113,7 +113,7 @@ export function buildToolDefinition(): ToolDefinition {
               new_angle: {
                 type: "boolean",
                 description:
-                  "Did they introduce something new that hasn't come up before in this conversation? A new fact, perspective, or argument that advances their case. Repeating the same point in different words = false. Bringing up a genuinely new reason = true. On turn 1, default to true — everything is new.",
+                  "Did they introduce a new argument FOR the purchase that hasn't come up before? A new fact, perspective, or reason that advances their case for buying. Repeating the same point in different words = false. Bringing up a genuinely new purchase reason = true. On turn 1, default to true — everything is new. IMPORTANT: User surrender, agreement with Hank, or walking away ('forget it', 'you're right', 'I'll save my money') is NOT a new angle — set user_backed_down instead.",
               },
               emotional_reasoning: {
                 type: "boolean",
@@ -138,7 +138,7 @@ export function buildToolDefinition(): ToolDefinition {
               user_backed_down: {
                 type: "boolean",
                 description:
-                  "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it'. NOT for disengagement — those use is_non_answer.",
+                  "true if the user agrees with Hank, has changed their mind, or is walking away from the purchase — even partially. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'forget the watch', 'you convinced me', 'I'll save my money'. If the user stops arguing FOR the purchase and shifts to agreeing, that's backing down. NOT for disengagement — those use is_non_answer.",
               },
               is_directed_question: {
                 type: "boolean",
@@ -201,7 +201,7 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 - Call get_stance on EVERY user message. No exceptions.
 - For casual chat, greetings, or non-purchase topics: set is_out_of_scope to true.
 - For non-answers or disengagement ("whatever", "fine", "lol"): set is_non_answer to true.
-- For user agreement/surrender ("yeah you're right", "I won't buy it"): set user_backed_down to true.
+- For user agreement/surrender ("yeah you're right", "I won't buy it", "forget it", "you convinced me"): set user_backed_down to true — NOT new_angle.
 - For purchase arguments: classify the debate quality fields based on THIS turn only.
 - Follow the guidance the tool returns.
 - Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
