@@ -31,39 +31,140 @@ export default async function RenderPage({ params, searchParams }: Props) {
     return <div>Card not found</div>;
   }
 
-  const isOg = format === "og";
-  const width = isOg ? 1200 : 1080;
-  const height = isOg ? 630 : 1350;
+  const data = card.data as VerdictCardData;
+  const isDenied = data.verdict === "denied";
+  const accentRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
 
+  if (format === "og") {
+    return (
+      <OgLayout accentRgb={accentRgb}>
+        {cardType === "verdict" && <VerdictShareCard data={data} />}
+      </OgLayout>
+    );
+  }
+
+  return (
+    <DownloadLayout accentRgb={accentRgb}>
+      {cardType === "verdict" && <VerdictShareCard data={data} />}
+    </DownloadLayout>
+  );
+}
+
+/**
+ * Download format: 1080x1350 (4:5 portrait for Instagram/Reddit)
+ *
+ * Card fills the canvas with 40px padding on all sides.
+ * Container queries make the card scale proportionally.
+ * Portrait aspect ratio keeps the vertical layout.
+ */
+function DownloadLayout({
+  children,
+  accentRgb,
+}: {
+  children: React.ReactNode;
+  accentRgb: string;
+}) {
   return (
     <div
       style={{
-        width,
-        height,
+        width: 1080,
+        height: 1350,
         background: "#1A1714",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         position: "relative",
         overflow: "hidden",
+        padding: 40,
       }}
     >
-      {/* Subtle gradient glow */}
+      {/* Positioned glow orb - top right */}
+      <div
+        style={{
+          position: "absolute",
+          top: -200,
+          right: -200,
+          width: 600,
+          height: 600,
+          background: `radial-gradient(circle, rgba(${accentRgb}, 0.08) 0%, transparent 70%)`,
+          borderRadius: "50%",
+        }}
+      />
+      {/* Positioned glow orb - bottom left */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: -150,
+          left: -150,
+          width: 500,
+          height: 500,
+          background: `radial-gradient(circle, rgba(${accentRgb}, 0.05) 0%, transparent 70%)`,
+          borderRadius: "50%",
+        }}
+      />
+      {/* Card fills available space - container queries handle scaling */}
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          zIndex: 10,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * OG format: 1200x630 (landscape for Twitter/Facebook/LinkedIn)
+ *
+ * Card fills the canvas with 40px padding on all sides.
+ * Landscape aspect ratio (1.9:1) triggers the card's landscape layout
+ * via container query @container (min-aspect-ratio: 3/2).
+ * Content rearranges horizontally with item info on left, insight on right.
+ */
+function OgLayout({
+  children,
+  accentRgb,
+}: {
+  children: React.ReactNode;
+  accentRgb: string;
+}) {
+  return (
+    <div
+      style={{
+        width: 1200,
+        height: 630,
+        background: "#1A1714",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        overflow: "hidden",
+        padding: 40,
+      }}
+    >
+      {/* Subtle background flair - ellipse gradient */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: isOg
-            ? "radial-gradient(ellipse at 50% 50%, rgba(198, 90, 46, 0.06) 0%, transparent 70%)"
-            : "radial-gradient(ellipse at 50% 70%, rgba(198, 90, 46, 0.06) 0%, transparent 60%)",
+          background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(${accentRgb}, 0.06) 0%, transparent 50%)`,
           pointerEvents: "none",
         }}
       />
-      {/* Card with padding */}
+      {/* Card fills available space - container queries handle layout switch */}
       <div
         style={{
-          position: "absolute",
-          inset: 40,
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          zIndex: 10,
         }}
       >
-        {cardType === "verdict" && <VerdictShareCard data={card.data as VerdictCardData} />}
+        {children}
       </div>
     </div>
   );
