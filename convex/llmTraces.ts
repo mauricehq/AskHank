@@ -78,6 +78,8 @@ export const debugDump = internalQuery({
         } : null,
         persistedContext,
         call2SystemPrompt: t.call2SystemPrompt ?? null,
+        call3SystemPrompt: t.call3SystemPrompt ?? null,
+        call3RawResponse: t.call3RawResponse ?? null,
         tokens: t.tokenUsage?.totalTokens ?? null,
         durationMs: t.durationMs,
       };
