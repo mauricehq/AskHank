@@ -5,6 +5,7 @@ import { Hero } from "./Hero";
 import { ChatDemo } from "./ChatDemo";
 import { HowItWorks } from "./HowItWorks";
 import { Scorecard } from "./Scorecard";
+import { AiComparison } from "./AiComparison";
 import { WhyHankWorks } from "./WhyHankWorks";
 import { FreeToTry } from "./FreeToTry";
 import { FairWarning } from "./FairWarning";
@@ -21,15 +22,18 @@ export function LandingPage() {
           <ChatDemo />
         </section>
         <section className="bg-bg-surface">
+          <AiComparison />
+        </section>
+        <section>
           <WhyHankWorks />
         </section>
-        <section id="how-it-works">
+        <section id="how-it-works" className="bg-bg-surface">
           <HowItWorks />
         </section>
-        <section className="bg-bg-surface">
+        <section>
           <Scorecard />
         </section>
-        <section id="pricing">
+        <section id="pricing" className="bg-bg-surface">
           <FreeToTry />
         </section>
         <FairWarning />
