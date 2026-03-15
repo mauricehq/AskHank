@@ -92,19 +92,19 @@ export function Navbar() {
           </Show>
         </div>
 
-        {/* Right: mobile auth */}
-        <div className="md:hidden">
+        {/* Right: mobile auth — lightweight button only, CTA goes in hamburger menu */}
+        <div className="md:hidden flex items-center">
           <Show when="signed-out">
-            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-              <button className="rounded-[10px] bg-accent px-3 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
-                Try it free
+            <SignInButton mode="modal" forceRedirectUrl="/conversations">
+              <button className="rounded-[10px] border border-border bg-transparent px-4 py-1.5 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
+                Sign in
               </button>
-            </SignUpButton>
+            </SignInButton>
           </Show>
           <Show when="signed-in">
             <Link
               href="/conversations"
-              className="rounded-[10px] bg-accent px-3 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+              className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
             >
               Open Hank
             </Link>
@@ -127,14 +127,14 @@ export function Navbar() {
           ))}
           <hr className="border-border" />
           <Show when="signed-out">
-            <SignInButton mode="modal" forceRedirectUrl="/conversations">
+            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-text-secondary hover:text-text font-medium text-left"
+                className="bg-accent text-user-text px-4 py-3 rounded-[10px] font-bold text-center"
               >
-                Sign in
+                Try it free
               </button>
-            </SignInButton>
+            </SignUpButton>
           </Show>
         </div>
       )}

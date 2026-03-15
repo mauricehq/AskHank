@@ -367,6 +367,10 @@ export function ChatDemo() {
     setActiveIndex(index);
   }
 
+  function handleUserScroll() {
+    if (autoCycleEnabled) setAutoCycleEnabled(false);
+  }
+
   const visibleMessages = currentConversation.messages.slice(0, visibleCount);
 
   return (
@@ -418,11 +422,11 @@ export function ChatDemo() {
       </div>
 
       {/* Chat window */}
-      <div ref={ref} className="w-full max-w-2xl mx-auto relative">
+      <div ref={ref} className="w-full max-w-3xl mx-auto relative">
         {/* Ambient glow */}
         <div className="absolute -inset-6 bg-accent/8 blur-[80px] rounded-full pointer-events-none" />
 
-        <div className="relative bg-bg-surface rounded-2xl border border-border/60 overflow-hidden flex flex-col select-none shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+        <div className="relative bg-bg-surface rounded-3xl border border-border/60 overflow-hidden flex flex-col select-none shadow-[0_40px_80px_rgba(0,0,0,0.6)]">
           {/* App chrome header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
             <div className="flex gap-1.5">
@@ -434,7 +438,7 @@ export function ChatDemo() {
             <span className="font-mono text-xs text-text-secondary tracking-wide">Ask Hank</span>
           </div>
           {/* Messages area */}
-          <div ref={chatContainerRef} className="bg-bg p-4 md:p-6 space-y-0 min-h-[340px] md:min-h-[400px] max-h-[500px] overflow-y-auto">
+          <div ref={chatContainerRef} onScroll={handleUserScroll} className="bg-bg p-5 md:p-7 space-y-0 h-[340px] md:h-[400px] overflow-y-scroll scrollbar-thin">
             {visibleMessages.map((msg, index) => {
               const isHank = msg.role === "hank";
 
@@ -448,7 +452,7 @@ export function ChatDemo() {
                       <div className="font-mono text-[0.7rem] font-bold uppercase tracking-wide text-accent mb-1">
                         Hank
                       </div>
-                      <div className="break-words rounded-2xl rounded-bl-[4px] border border-border bg-hank-bubble px-4 py-3 text-[0.95rem] leading-[1.5] text-hank-text shadow">
+                      <div className="break-words rounded-2xl rounded-bl-[4px] border border-border bg-hank-bubble px-4 py-3 text-base leading-[1.5] text-hank-text shadow">
                         {msg.content}
                       </div>
                     </div>
@@ -462,7 +466,7 @@ export function ChatDemo() {
                   className="animate-message-in flex justify-end mb-6"
                 >
                   <div className="max-w-[85%]">
-                    <div className="break-words rounded-2xl rounded-br-[4px] bg-user-bubble px-4 py-3 text-[0.95rem] leading-[1.5] text-user-text">
+                    <div className="break-words rounded-2xl rounded-br-[4px] bg-user-bubble px-4 py-3 text-base leading-[1.5] text-user-text">
                       {msg.content}
                     </div>
                   </div>

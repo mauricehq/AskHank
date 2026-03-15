@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TrendingDown, Clock } from "lucide-react";
+import { Wallet, Clock } from "lucide-react";
 import { useInView } from "@/hooks/useInView";
 import { useCountUp } from "@/hooks/useCountUp";
 import { SectionHeader } from "./SectionHeader";
@@ -28,7 +28,7 @@ export function Scorecard() {
       <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Savings card */}
         <div className="bg-bg-card rounded-xl border border-border border-t-2 border-t-accent p-8 text-center">
-          <TrendingDown className="w-6 h-6 text-accent mx-auto mb-3" />
+          <Wallet className="w-6 h-6 text-accent mx-auto mb-3" />
           <p className="text-text-secondary text-sm mb-2">You&apos;ve saved</p>
           <div className="font-mono text-5xl font-bold text-text">
             ${Math.round(dollars).toLocaleString()}

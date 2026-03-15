@@ -15,7 +15,7 @@ export function LandingPage() {
   return (
     <>
       <Navbar />
-      <main>
+      <main className="overflow-x-hidden">
         <Hero />
         <section id="demo">
           <ChatDemo />
