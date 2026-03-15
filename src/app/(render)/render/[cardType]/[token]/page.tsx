@@ -32,19 +32,17 @@ export default async function RenderPage({ params, searchParams }: Props) {
   }
 
   const data = card.data as VerdictCardData;
-  const isDenied = data.verdict === "denied";
-  const accentRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
 
   if (format === "og") {
     return (
-      <OgLayout accentRgb={accentRgb}>
+      <OgLayout>
         {cardType === "verdict" && <VerdictShareCard data={data} />}
       </OgLayout>
     );
   }
 
   return (
-    <DownloadLayout accentRgb={accentRgb}>
+    <DownloadLayout>
       {cardType === "verdict" && <VerdictShareCard data={data} />}
     </DownloadLayout>
   );
@@ -57,13 +55,7 @@ export default async function RenderPage({ params, searchParams }: Props) {
  * Container queries make the card scale proportionally.
  * Portrait aspect ratio keeps the vertical layout.
  */
-function DownloadLayout({
-  children,
-  accentRgb,
-}: {
-  children: React.ReactNode;
-  accentRgb: string;
-}) {
+function DownloadLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
@@ -78,7 +70,7 @@ function DownloadLayout({
         padding: 40,
       }}
     >
-      {/* Positioned glow orb - top right */}
+      {/* Positioned glow orb - top right (brand orange) */}
       <div
         style={{
           position: "absolute",
@@ -86,11 +78,11 @@ function DownloadLayout({
           right: -200,
           width: 600,
           height: 600,
-          background: `radial-gradient(circle, rgba(${accentRgb}, 0.08) 0%, transparent 70%)`,
+          background: "radial-gradient(circle, rgba(212, 103, 58, 0.08) 0%, transparent 70%)",
           borderRadius: "50%",
         }}
       />
-      {/* Positioned glow orb - bottom left */}
+      {/* Positioned glow orb - bottom left (brand orange) */}
       <div
         style={{
           position: "absolute",
@@ -98,7 +90,7 @@ function DownloadLayout({
           left: -150,
           width: 500,
           height: 500,
-          background: `radial-gradient(circle, rgba(${accentRgb}, 0.05) 0%, transparent 70%)`,
+          background: "radial-gradient(circle, rgba(212, 103, 58, 0.05) 0%, transparent 70%)",
           borderRadius: "50%",
         }}
       />
@@ -125,13 +117,7 @@ function DownloadLayout({
  * via container query @container (min-aspect-ratio: 3/2).
  * Content rearranges horizontally with item info on left, insight on right.
  */
-function OgLayout({
-  children,
-  accentRgb,
-}: {
-  children: React.ReactNode;
-  accentRgb: string;
-}) {
+function OgLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
@@ -146,12 +132,12 @@ function OgLayout({
         padding: 40,
       }}
     >
-      {/* Subtle background flair - ellipse gradient */}
+      {/* Subtle background flair - ellipse gradient (brand orange) */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(${accentRgb}, 0.06) 0%, transparent 50%)`,
+          background: "radial-gradient(ellipse 80% 50% at 50% 50%, rgba(212, 103, 58, 0.06) 0%, transparent 50%)",
           pointerEvents: "none",
         }}
       />

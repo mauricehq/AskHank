@@ -150,8 +150,6 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
 
   const isShareLoading = pendingAction === "share";
   const isDownloadLoading = pendingAction === "download";
-  const isDenied = cardData.verdict === "denied";
-  const accentColor = isDenied ? "#D4673A" : "#6B9E6F";
 
   return createPortal(
     <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -184,8 +182,8 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
                 </>
               ) : shareStatus ? (
                 <>
-                  <Check className="w-4 h-4" style={{ color: accentColor }} />
-                  <span style={{ color: accentColor }}>{shareStatus === "shared" ? "Shared" : "Copied"}</span>
+                  <Check className="w-4 h-4 text-[#D4673A]" />
+                  <span className="text-[#D4673A]">{shareStatus === "shared" ? "Shared" : "Copied"}</span>
                 </>
               ) : (
                 <>
@@ -199,9 +197,9 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
               disabled={pendingAction !== null}
               className="group/dl flex-1 flex items-center justify-center gap-2 py-4 sm:py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
               style={{
-                background: accentColor,
+                background: "#D4673A",
                 color: "#1A1714",
-                boxShadow: `0 20px 25px -5px ${accentColor}33`,
+                boxShadow: "0 20px 25px -5px rgba(212, 103, 58, 0.2)",
               }}
             >
               {isDownloadLoading ? (

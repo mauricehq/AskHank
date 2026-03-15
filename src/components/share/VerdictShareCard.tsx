@@ -2,6 +2,10 @@ import type { VerdictCardData } from "@/lib/cards/types";
 import { getCardTextSizes, sizeToClass } from "@/lib/cards/cardDensity";
 import "./styles/card.css";
 
+// Brand orange — always used for card chrome (gradients, glow, divider, footer, icons)
+const BRAND_COLOR = "#D4673A";
+const BRAND_RGB = "212, 103, 58";
+
 interface VerdictShareCardProps {
   data: VerdictCardData;
 }
@@ -17,32 +21,33 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
   // Calculate per-element text sizes based on content length
   const sizes = getCardTextSizes(item, excuse);
 
-  const accentColor = isDenied ? "#D4673A" : "#6B9E6F";
-  const accentRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
+  // Only badge + excuse text change color per verdict
+  const verdictColor = isDenied ? "#D4673A" : "#6B9E6F";
+  const verdictRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
 
   return (
     <div
       className="share-card-container w-full h-full card-radius border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,1)] overflow-hidden relative"
       style={{ background: "#1A1714" }}
     >
-      {/* Background Flair - 4 gradient layers */}
+      {/* Background Flair - 4 gradient layers (always brand orange) */}
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(to bottom right, rgba(${accentRgb}, 0.20), transparent, transparent)`,
+          background: `linear-gradient(to bottom right, rgba(${BRAND_RGB}, 0.20), transparent, transparent)`,
         }}
       />
       <div
         className="absolute inset-0"
         style={{
-          background: `radial-gradient(circle at top right, rgba(${accentRgb}, 0.15), transparent 60%)`,
+          background: `radial-gradient(circle at top right, rgba(${BRAND_RGB}, 0.15), transparent 60%)`,
         }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.3)_100%)]" />
       <div
         className="absolute bottom-0 inset-x-0 h-1/2"
         style={{
-          background: `linear-gradient(to top, rgba(${accentRgb}, 0.05), transparent)`,
+          background: `linear-gradient(to top, rgba(${BRAND_RGB}, 0.05), transparent)`,
         }}
       />
 
@@ -65,20 +70,20 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
               ASK HANK
             </span>
           </div>
+          {/* Badge pill — verdict-colored */}
           <div
             className="flex items-center card-gap-sm card-badge-padding rounded-full"
             style={{
-              background: `rgba(${accentRgb}, 0.10)`,
-              border: `1px solid rgba(${accentRgb}, 0.30)`,
+              background: `rgba(${verdictRgb}, 0.10)`,
+              border: `1px solid rgba(${verdictRgb}, 0.30)`,
             }}
           >
-            {/* Badge icon */}
             {isDenied ? (
               <svg
                 className="card-icon-badge"
                 viewBox="0 0 14 14"
                 fill="none"
-                style={{ color: accentColor }}
+                style={{ color: verdictColor }}
               >
                 <path
                   d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5"
@@ -92,7 +97,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
                 className="card-icon-badge"
                 viewBox="0 0 14 14"
                 fill="none"
-                style={{ color: accentColor }}
+                style={{ color: verdictColor }}
               >
                 <path
                   d="M2.5 7.5L5.5 10.5L11.5 4.5"
@@ -105,7 +110,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
             )}
             <span
               className="card-text-badge font-black uppercase leading-none"
-              style={{ color: accentColor }}
+              style={{ color: verdictColor }}
             >
               {isDenied ? "DENIED" : "APPROVED"}
             </span>
@@ -116,12 +121,12 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
         <div className="card-main-content">
           {/* Item Info Section */}
           <div className="card-item-section">
-            {/* Item name - hero with glow */}
+            {/* Item name - hero with brand glow */}
             <h2
               className={`font-black card-text-hero${sizeToClass(sizes.heroSize)}`}
               style={{
                 color: "#FFFFFF",
-                filter: `drop-shadow(0 0 25px rgba(${accentRgb}, 0.35))`,
+                filter: `drop-shadow(0 0 25px rgba(${BRAND_RGB}, 0.35))`,
               }}
             >
               {item}
@@ -135,29 +140,34 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
             )}
           </div>
 
-          {/* Accent divider - hidden in landscape */}
+          {/* Brand divider - hidden in landscape */}
           <div
             className="card-divider"
-            style={{ background: `rgba(${accentRgb}, 0.30)` }}
+            style={{ background: `rgba(${BRAND_RGB}, 0.30)` }}
           />
 
-          {/* Insight Section - contained box with icon */}
+          {/* Insight Section - box border color changes per verdict */}
           <div className="card-insight-section">
-            <div className="card-insight-box bg-white/5 border border-white/10 shadow-inner">
+            <div
+              className="card-insight-box shadow-inner"
+              style={{
+                background: `rgba(${verdictRgb}, 0.05)`,
+                border: `1px solid rgba(${verdictRgb}, 0.20)`,
+              }}
+            >
               <div className="flex items-start card-insight-layout">
                 <div
                   className="card-icon-container flex items-center justify-center shrink-0"
                   style={{
-                    background: `rgba(${accentRgb}, 0.10)`,
-                    border: `1px solid rgba(${accentRgb}, 0.20)`,
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
                   }}
                 >
-                  {/* Quote mark SVG */}
                   <svg
                     className="card-icon-insight"
                     viewBox="0 0 24 24"
                     fill="none"
-                    style={{ color: accentColor }}
+                    style={{ color: "rgba(255, 255, 255, 0.20)" }}
                   >
                     <path
                       d="M11 7.5V14H7.5C7.5 15.933 9.067 17.5 11 17.5V19.5C7.964 19.5 5.5 17.036 5.5 14V7.5H11ZM18.5 7.5V14H15C15 15.933 16.567 17.5 18.5 17.5V19.5C15.464 19.5 13 17.036 13 14V7.5H18.5Z"
@@ -180,7 +190,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
         <div className="flex justify-between items-end flex-shrink-0">
           <span
             className="card-text-footer font-bold"
-            style={{ color: accentColor }}
+            style={{ color: BRAND_COLOR }}
           >
             askhank.app
           </span>
