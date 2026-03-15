@@ -993,6 +993,8 @@ export const respond = internalAction({
 
             traceData.call3SystemPrompt = summarySystemPrompt;
 
+            // conversationMsgs was built before Call 2, so the closing line
+            // only appears in the system prompt, not in the messages array.
             const call3Messages: ChatMessage[] = [
               { role: "system", content: summarySystemPrompt },
               ...conversationMsgs,
