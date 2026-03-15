@@ -153,6 +153,88 @@ export function buildToolDefinition(): ToolDefinition {
   };
 }
 
+// --- Dedicated assessment prompt (Call 1 only) ---
+
+interface AssessmentPromptConfig {
+  stance?: Stance;
+  disengagementCount?: number;
+  estimatedPrice?: number;
+  category?: string;
+  patience?: number;
+  turnCount?: number;
+  turnSummaries?: TurnSummary[];
+  previousItem?: string;
+  previousIntent?: string;
+  lastChallengeTopic?: string;
+}
+
+export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): string {
+  const {
+    stance = "FIRM",
+    disengagementCount = 0,
+    estimatedPrice,
+    category,
+    patience = 0,
+    turnCount = 1,
+  } = config;
+
+  const sections = [
+    // Context
+    `You are a purchase assessment classifier. Turn ${turnCount}. Current stance: ${stance}.${
+      estimatedPrice && estimatedPrice > 0
+        ? ` Item costs ~$${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}.`
+        : " Price unknown."
+    }`,
+
+    // Tool directive
+    `CALL THE get_stance TOOL. No text. No reasoning. No commentary. Tool call ONLY.`,
+  ];
+
+  // Previous context (turn 2+)
+  if (config.previousItem || config.previousIntent || config.lastChallengeTopic) {
+    const lines: string[] = ["PREVIOUS CONTEXT:"];
+    if (config.previousItem) lines.push(`  item: ${config.previousItem}`);
+    if (config.previousIntent) lines.push(`  intent: ${config.previousIntent}`);
+    if (config.lastChallengeTopic) lines.push(`  last_challenge_topic: ${config.lastChallengeTopic}`);
+    sections.push(lines.join("\n"));
+  }
+
+  // Debate progress
+  if (config.turnSummaries && config.turnSummaries.length > 0) {
+    const summaryLines = config.turnSummaries.map((s) => {
+      const qualifiers: string[] = [];
+      if (s.addressed) qualifiers.push(s.evidence ? "strong counter" : "addressed without hard evidence");
+      else qualifiers.push("didn't address challenge");
+      const topicSuffix = s.topic ? ` on '${s.topic}'` : "";
+      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")}${topicSuffix}`;
+    });
+    sections.push(`DEBATE PROGRESS:\n${summaryLines.join("\n")}`);
+  }
+
+  // Out of scope
+  sections.push(
+    `OUT OF SCOPE (set is_out_of_scope=true): investment advice, medical purchases, insurance, business expenses. Gifts and family purchases are IN scope.`
+  );
+
+  // Disengagement context
+  if (disengagementCount >= 1) {
+    sections.push(
+      `DISENGAGEMENT: ${disengagementCount} consecutive non-answer${disengagementCount > 1 ? "s" : ""}.`
+    );
+  }
+
+  // Patience context
+  if (patience >= 8) {
+    sections.push(`PATIENCE: Critical — one more weak turn closes this.`);
+  } else if (patience >= 6) {
+    sections.push(`PATIENCE: Running thin.`);
+  } else if (patience >= 4) {
+    sections.push(`PATIENCE: Waning.`);
+  }
+
+  return sections.join("\n\n");
+}
+
 export function buildSystemPrompt(config: PromptConfig = {}): string {
   const {
     displayName,
@@ -192,19 +274,9 @@ You're talking to ${userName}.`,
 
 6. Be dry, not mean. Observant, witty, slightly disappointed. Not angry, not condescending, not preachy.
 
-7. Your current stance is ${stance}. You CANNOT move to a softer stance without calling the get_stance tool. ${STANCE_INSTRUCTIONS[stance]}
+7. Your current stance is ${stance}. ${STANCE_INSTRUCTIONS[stance]}
 
 CRITICAL: You do not decide when to concede. The scoring system decides. You follow the stance you are given. If your stance is not CONCEDE, you must NOT concede regardless of what the user says.`,
-
-    // Tool usage
-    `TOOL USAGE:
-- Call get_stance on EVERY user message. No exceptions.
-- For casual chat, greetings, or non-purchase topics: set is_out_of_scope to true.
-- For non-answers or disengagement ("whatever", "fine", "lol"): set is_non_answer to true.
-- For user agreement/surrender ("yeah you're right", "I won't buy it", "forget it", "you convinced me"): set user_backed_down to true — NOT new_angle.
-- For purchase arguments: classify the debate quality fields based on THIS turn only.
-- Follow the guidance the tool returns.
-- Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
 
     // Voice examples
     `EXAMPLES of how you sound:
@@ -241,8 +313,8 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 
     // Format rules
     `FORMAT RULES:
-- 1-3 sentences max. Be concise.
-- No markdown, no bullet points, no numbered lists.
+- Your response is plain text. 1-3 sentences. No JSON. No markdown.
+- No bullet points, no numbered lists.
 - No quotation marks around your response. Just plain text.
 - Use periods, not question marks, for rhetorical points. "You already have one." not "Don't you already have one?"
 - Ask one probing question per response to keep the conversation going.
@@ -278,7 +350,8 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
       const qualifiers: string[] = [];
       if (s.addressed) qualifiers.push(s.evidence ? "strong counter" : "addressed without hard evidence");
       else qualifiers.push("didn't address challenge");
-      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")} on '${s.topic}'`;
+      const topicSuffix = s.topic ? ` on '${s.topic}'` : "";
+      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")}${topicSuffix}`;
     });
 
     sections.push(
@@ -373,7 +446,7 @@ Rules:
 - Observation, not interview. You're not filling out a form.
 - One sentence of pushback + one probing question. That's it. 2 sentences max.
 - No markdown. No emojis. No asterisk actions. No quotation marks around your response.
-- Follow the guidance from the tool result.
+- Follow the guidance in the SCORING section.
 
 Good openers:
 - $200 on a pressure washer. You have a hose.
@@ -430,7 +503,7 @@ Rules:
 - 1-2 sentences max. This is a mic drop, not a speech.
 - No markdown. No emojis. No asterisk actions. No quotation marks around your response.
 - Do NOT ask a follow-up question. The conversation is over.
-- Follow the guidance from the tool result — it tells you what to reference.
+- Follow the guidance in the SCORING section — it tells you what to reference.
 - Use the closing_response tool to deliver your response.
 
 ${verdictRules}`;
@@ -483,6 +556,10 @@ RULES:
 - Never start with "I".
 - Max 280 characters. Plain text only.
 - This goes on a share card — make it quotable and standalone.
+- Output ONLY the summary text. No labels, headers, or prefixes (e.g. "Share card verdict:", "Verdict:", "Summary:").
+- No markdown formatting. No bold, italics, or bullet points.
+- No quotation marks wrapping the entire response.
+- Do NOT echo or repeat the closing line. Write something NEW.
 
 ${verdictRules}
 

@@ -5,7 +5,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
-import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition, buildVerdictSummaryPrompt } from "./prompt";
+import { buildSystemPrompt, buildAssessmentPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition, buildVerdictSummaryPrompt } from "./prompt";
 import { extractRecentMoves } from "./moves";
 import { selectMemoryNudge, formatNudgePrompt } from "./memory";
 import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
@@ -528,6 +528,42 @@ function addUsage(
   };
 }
 
+/** Strip labels, markdown, and wrapping quotes from verdict summary LLM output. */
+function cleanVerdictSummary(raw: string): string {
+  let cleaned = raw;
+  // Strip markdown bold/italic markers
+  cleaned = cleaned.replace(/\*{1,3}/g, "");
+  // Strip label prefixes (e.g. "Share card verdict:", "Verdict summary:")
+  cleaned = cleaned.replace(/^.*?verdict[^:]*:\s*/i, "");
+  // Strip wrapping quotes
+  cleaned = cleaned.replace(/^[""\u201C]|[""\u201D]$/g, "").trim();
+  return cleaned;
+}
+
+/** Build a structured SCORING YAML block for Call 2 system prompt. */
+function buildScoringBlock(
+  stanceResult: GetStanceResult,
+  sanitized: TurnAssessment,
+): string {
+  const lines: string[] = [
+    "SCORING:",
+    `  stance: ${stanceResult.stance}`,
+    `  guidance: ${stanceResult.guidance}`,
+  ];
+  if (stanceResult.verdict) {
+    lines.push(`  verdict: ${stanceResult.verdict}`);
+  }
+  lines.push(
+    "  assessment:",
+    `    challenge_addressed: ${sanitized.challenge_addressed}`,
+    `    evidence_provided: ${sanitized.evidence_provided}`,
+    `    new_angle: ${sanitized.new_angle}`,
+    `    emotional_reasoning: ${sanitized.emotional_reasoning}`,
+    `    topic: ${sanitized.challenge_topic || "(none)"}`,
+  );
+  return lines.join("\n");
+}
+
 /** Extract closing_line from a Call 2 result, returning "" if not found. */
 function extractClosingLine(result: { content: string | null; toolCalls: { function: { name: string; arguments: string } }[] | null }): string {
   if (result.toolCalls?.[0]?.function.name === "closing_response") {
@@ -659,42 +695,63 @@ export const respond = internalAction({
           recentMoves,
           workHoursBlock,
         };
+
+        // Extract previous context fields for assessment prompt
+        const lastChallengeTopic = previousContext?.turnSummaries?.length
+          ? previousContext.turnSummaries[previousContext.turnSummaries.length - 1].topic
+          : undefined;
+
+        // Call 1: assessment-only prompt (no voice/format guidance)
+        const assessmentPrompt = buildAssessmentPrompt({
+          stance: currentStance,
+          disengagementCount,
+          estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
+          category: previousContext?.category ?? conversation.category,
+          patience,
+          turnCount,
+          turnSummaries: previousContext?.turnSummaries,
+          previousItem: previousContext?.item,
+          previousIntent: previousContext?.intent,
+          lastChallengeTopic: lastChallengeTopic || undefined,
+        });
+
+        // Call 2: response-only prompt (no tool instructions)
         const systemPrompt = buildSystemPrompt(promptConfig);
-  
+
         const llmMessages = buildMessages(
-          systemPrompt,
+          assessmentPrompt,
           windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
-  
+
         // 3. Build tool definition
         const toolDef = buildToolDefinition();
-  
+
         // Capture input context for trace
         Object.assign(traceData, {
           previousStance: currentStance,
-          systemPrompt,
+          systemPrompt: assessmentPrompt,
           messagesArray: JSON.stringify(llmMessages),
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
-          maxTokens: 300,
+          maxTokens: 500,
           disengagementCount,
           stagnationCount: patience,
         });
-  
+
         // 4. CALL 1: LLM with tool available (low temp for consistent classification)
         const llmStart = Date.now();
         const call1 = await chatCompletion({
           messages: llmMessages,
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
-          maxTokens: 300,
+          maxTokens: 500,
           tools: [toolDef],
           tool_choice: { type: "function", function: { name: "get_stance" } },
         });
-  
+
         let toolCall = call1.toolCalls?.[0];
         let call1Usage = call1.usage;
-  
+
         // Retry once if tool call missing (model occasionally skips despite tool_choice)
         if (!toolCall || toolCall.function.name !== "get_stance") {
           console.warn("LLM skipped tool — retrying (attempt 2)");
@@ -702,7 +759,7 @@ export const respond = internalAction({
             messages: llmMessages,
             modelId,
             temperature: TEMPERATURE_ASSESSMENT,
-            maxTokens: 300,
+            maxTokens: 500,
             tools: [toolDef],
             tool_choice: { type: "function", function: { name: "get_stance" } },
           });
@@ -715,8 +772,7 @@ export const respond = internalAction({
   
         // 5. Extract assessment — tool call or conservative fallback
         let rawAssessment: Record<string, unknown>;
-        let usedFallback = false;
-  
+
         if (toolCall && toolCall.function.name === "get_stance") {
           traceData.toolCalled = true;
           // Parse tool arguments defensively
@@ -730,7 +786,6 @@ export const respond = internalAction({
         } else {
           console.warn("LLM skipped tool call — using fallback assessment");
           rawAssessment = FALLBACK_ASSESSMENT;
-          usedFallback = true;
           traceData.toolCalled = false;
         }
   
@@ -744,17 +799,20 @@ export const respond = internalAction({
           turnCount,
           previousContext,
         });
-  
-        // Build tool result for LLM (only public fields)
-        const toolResultForLLM: Record<string, unknown> = {
+
+        // Sanitize assessment early — used for both scoring block and trace
+        const sanitizedAssessment = sanitizeAssessment(rawAssessment);
+
+        // Build scoring block for Call 2 system prompt
+        const scoringBlock = buildScoringBlock(stanceResult, sanitizedAssessment);
+
+        const toolResultStr = JSON.stringify({
           stance: stanceResult.stance,
           score: stanceResult.score,
           guidance: stanceResult.guidance,
-        };
-        if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
-        if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
-  
-        const toolResultStr = JSON.stringify(toolResultForLLM);
+          ...(stanceResult.verdict ? { verdict: stanceResult.verdict } : {}),
+          ...(stanceResult.closing ? { closing: stanceResult.closing } : {}),
+        });
         traceData.toolResult = toolResultStr;
   
         // Select memory nudge on turn 2+ if not yet stored
@@ -810,38 +868,20 @@ export const respond = internalAction({
             : call2Base;
         }
   
-        // Capture Call 2 prompt in trace when it differs from Call 1
-        if (call2SystemPrompt !== systemPrompt) {
-          traceData.call2SystemPrompt = call2SystemPrompt;
-        }
-  
-        // Build messages for call 2
+        // Append scoring block to Call 2 system prompt
+        call2SystemPrompt += "\n\n" + scoringBlock;
+
+        // Always capture Call 2 prompt — prompts always differ now (assessment vs response)
+        traceData.call2SystemPrompt = call2SystemPrompt;
+
+        // Build messages for Call 2 — unified path: scoring block in system prompt
         const conversationMsgs = buildConversationMessages(
           windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
-        let call2Messages: ChatMessage[];
-        if (usedFallback) {
-          // No tool call to include — append guidance to system prompt
-          call2Messages = [
-            { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
-            ...conversationMsgs,
-          ];
-        } else {
-          call2Messages = [
-            { role: "system", content: call2SystemPrompt },
-            ...conversationMsgs,
-            {
-              role: "assistant",
-              content: null,
-              tool_calls: [toolCall!],
-            },
-            {
-              role: "tool",
-              tool_call_id: toolCall!.id,
-              content: toolResultStr,
-            },
-          ];
-        }
+        const call2Messages: ChatMessage[] = [
+          { role: "system", content: call2SystemPrompt },
+          ...conversationMsgs,
+        ];
   
         // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
         const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
@@ -893,17 +933,15 @@ export const respond = internalAction({
         }
   
         // Capture trace data
-        const sanitizedForTrace = sanitizeAssessment(rawAssessment);
-  
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
-          rawScores: JSON.stringify(sanitizedForTrace),
+          rawScores: JSON.stringify(sanitizedAssessment),
           sanitizedScores: JSON.stringify(stanceResult._persistedContext),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
           parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
-          decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
+          decisionType: stanceResult._decisionType + (traceData.toolCalled === false ? " (fallback)" : ""),
           newStance: stanceResult.stance,
           category: stanceResult._category,
           estimatedPrice: stanceResult._estimatedPrice,
@@ -972,7 +1010,7 @@ export const respond = internalAction({
             totalUsage = addUsage(totalUsage, call3.usage);
 
             if (rawSummary) {
-              const verdictSummary = rawSummary.slice(0, 300);
+              const verdictSummary = cleanVerdictSummary(rawSummary).slice(0, 300);
               await ctx.runMutation(internal.conversations.patchVerdictSummary, {
                 conversationId: args.conversationId,
                 verdictSummary,
