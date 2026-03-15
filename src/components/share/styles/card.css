@@ -54,7 +54,7 @@
   font-size: clamp(14px, 4.7cqmin, 36px);
 }
 
-/* Insight/excuse text: 24px at 512px = 4.7% */
+/* Insight text: 24px at 512px = 4.7% */
 .card-text-insight {
   font-size: clamp(14px, 4.7cqmin, 36px);
   line-height: 1.4;
@@ -161,7 +161,7 @@
   text-align: left;
 }
 
-/* Insight/excuse section */
+/* Insight section */
 .card-insight-section {
   text-align: left;
 }
@@ -256,7 +256,7 @@
   letter-spacing: -0.03em;
 }
 
-/* Insight text (excuse) variants */
+/* Insight text variants */
 .card-text-insight-compact {
   font-size: clamp(12px, 4cqmin, 30px);
   line-height: 1.35;

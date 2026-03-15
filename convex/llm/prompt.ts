@@ -515,19 +515,11 @@ export function buildClosingToolDefinition(): ToolDefinition {
       description: "Deliver your closing line with structured metadata for the verdict card.",
       parameters: {
         type: "object",
-        required: ["closing_line", "excuse", "verdict_tagline"],
+        required: ["closing_line"],
         properties: {
           closing_line: {
             type: "string",
             description: "Your closing line. 1-2 sentences. The mic drop.",
-          },
-          excuse: {
-            type: "string",
-            description: "The user's core purchase argument distilled to under 10 words, as if they said it.",
-          },
-          verdict_tagline: {
-            type: "string",
-            description: "Your 2-4 word Hank-voice summary. Dry and punchy.",
           },
         },
       },

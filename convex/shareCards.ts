@@ -47,8 +47,6 @@ export const createVerdictCard = mutation({
         item: conversation.item ?? "Unknown item",
         estimatedPrice: conversation.estimatedPrice,
         category: conversation.category,
-        excuse: conversation.excuse ?? "",
-        verdictTagline: conversation.verdictTagline,
         verdictSummary: conversation.verdictSummary,
       },
       createdAt: Date.now(),

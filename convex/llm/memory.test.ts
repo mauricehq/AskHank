@@ -9,7 +9,6 @@ function makeConversation(overrides: {
   item?: string;
   category?: string;
   estimatedPrice?: number;
-  excuse?: string;
   memoryReferenceCount?: number;
   daysAgo?: number;
 }): PastConversation {
@@ -208,7 +207,6 @@ describe("formatNudgePrompt", () => {
     conversationId: "conv_123",
     item: "headphones",
     estimatedPrice: 550,
-    excuse: "I listen to music all day",
     dateLabel: "a few days ago",
   };
 
@@ -233,28 +231,15 @@ describe("formatNudgePrompt", () => {
     expect(result).not.toContain("price:");
   });
 
-  it("includes their_claim when excuse present", () => {
-    const result = formatNudgePrompt(baseNudge);
-    expect(result).toContain('their_claim: "I listen to music all day"');
-  });
-
-  it("omits their_claim when excuse is undefined", () => {
-    const nudge = { ...baseNudge, excuse: undefined };
-    const result = formatNudgePrompt(nudge);
-    expect(result).not.toContain("their_claim");
-  });
-
-  it("sanitizes double quotes in item and excuse", () => {
+  it("sanitizes double quotes in item", () => {
     const nudge: MemoryNudge = {
       conversationId: "conv_456",
       item: 'He said "buy it"',
       estimatedPrice: 100,
-      excuse: 'She said "you need this"',
       dateLabel: "a few days ago",
     };
     const result = formatNudgePrompt(nudge);
     expect(result).toContain("He said 'buy it'");
-    expect(result).toContain("She said 'you need this'");
   });
 
   it("includes category_history block when present", () => {

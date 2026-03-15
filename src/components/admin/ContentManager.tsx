@@ -218,9 +218,9 @@ export function ContentManager() {
                       </div>
                     );
                   })}
-                  {cut.verdictTagline && (
+                  {cut.verdictSummary && (
                     <div className="pt-1 text-xs italic text-text-secondary">
-                      &ldquo;{cut.verdictTagline}&rdquo;
+                      {cut.verdictSummary}
                     </div>
                   )}
                 </div>

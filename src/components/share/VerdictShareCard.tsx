@@ -11,20 +11,19 @@ interface VerdictShareCardProps {
 }
 
 export function VerdictShareCard({ data }: VerdictShareCardProps) {
-  const { verdict, item, estimatedPrice, excuse, verdictSummary } = data;
+  const { verdict, item, estimatedPrice, verdictSummary } = data;
   const isDenied = verdict === "denied";
 
   const priceLabel = estimatedPrice
     ? `$${estimatedPrice.toLocaleString()}`
     : null;
 
-  // Prefer verdictSummary over excuse for the insight box
-  const insightText = verdictSummary ?? excuse;
+  const insightText = verdictSummary ?? "";
 
   // Calculate per-element text sizes based on content length
   const sizes = getCardTextSizes(item, insightText);
 
-  // Only badge + excuse text change color per verdict
+  // Only badge + insight text change color per verdict
   const verdictColor = isDenied ? "#D4673A" : "#6B9E6F";
   const verdictRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
 
@@ -150,46 +149,45 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
           />
 
           {/* Insight Section - box border color changes per verdict */}
-          <div className="card-insight-section">
-            <div
-              className="card-insight-box shadow-inner"
-              style={{
-                background: `rgba(${verdictRgb}, 0.05)`,
-                border: `1px solid rgba(${verdictRgb}, 0.20)`,
-              }}
-            >
-              <div className="flex items-start card-insight-layout">
-                <div
-                  className="card-icon-container flex items-center justify-center shrink-0"
-                  style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                  }}
-                >
-                  <svg
-                    className="card-icon-insight"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    style={{ color: "rgba(255, 255, 255, 0.20)" }}
+          {insightText && (
+            <div className="card-insight-section">
+              <div
+                className="card-insight-box shadow-inner"
+                style={{
+                  background: `rgba(${verdictRgb}, 0.05)`,
+                  border: `1px solid rgba(${verdictRgb}, 0.20)`,
+                }}
+              >
+                <div className="flex items-start card-insight-layout">
+                  <div
+                    className="card-icon-container flex items-center justify-center shrink-0"
+                    style={{
+                      background: "rgba(255, 255, 255, 0.05)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                    }}
                   >
-                    <path
-                      d="M11 7.5V14H7.5C7.5 15.933 9.067 17.5 11 17.5V19.5C7.964 19.5 5.5 17.036 5.5 14V7.5H11ZM18.5 7.5V14H15C15 15.933 16.567 17.5 18.5 17.5V19.5C15.464 19.5 13 17.036 13 14V7.5H18.5Z"
-                      fill="currentColor"
-                    />
-                  </svg>
+                    <svg
+                      className="card-icon-insight"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      style={{ color: "rgba(255, 255, 255, 0.20)" }}
+                    >
+                      <path
+                        d="M11 7.5V14H7.5C7.5 15.933 9.067 17.5 11 17.5V19.5C7.964 19.5 5.5 17.036 5.5 14V7.5H11ZM18.5 7.5V14H15C15 15.933 16.567 17.5 18.5 17.5V19.5C15.464 19.5 13 17.036 13 14V7.5H18.5Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <p
+                    className={`font-light italic card-text-insight${sizeToClass(sizes.insightSize)}`}
+                    style={{ color: "#E8E4DF" }}
+                  >
+                    {insightText}
+                  </p>
                 </div>
-                <p
-                  className={`font-light italic card-text-insight${sizeToClass(sizes.insightSize)}`}
-                  style={{ color: "#E8E4DF" }}
-                >
-                  {verdictSummary
-                    ? insightText
-                    : <>&ldquo;{insightText}&rdquo;</>
-                  }
-                </p>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}

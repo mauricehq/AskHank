@@ -99,7 +99,7 @@ Go to **Admin -> Content** tab to:
 - `conversationId` — links back to the source conversation
 - `token` — UUID for the public URL (server-generated)
 - `messages` — condensed message array `[{role, content}]`
-- `item`, `estimatedPrice`, `category`, `verdict`, `verdictTagline` — denormalized from the conversation so the replay page needs only one unauthenticated query
+- `item`, `estimatedPrice`, `category`, `verdict`, `verdictSummary` — denormalized from the conversation so the replay page needs only one unauthenticated query
 
 ### Security
 

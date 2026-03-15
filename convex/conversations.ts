@@ -325,7 +325,6 @@ export const internalGetPastConversations = internalQuery({
         category: c.category,
         estimatedPrice: c.estimatedPrice,
         verdict: c.verdict,
-        excuse: c.excuse,
         createdAt: c.createdAt,
         memoryReferenceCount: c.memoryReferenceCount,
       }));
@@ -402,8 +401,6 @@ export const saveResponseWithVerdict = internalMutation({
     lastAssessment: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
-    excuse: v.optional(v.string()),
-    verdictTagline: v.optional(v.string()),
     verdictSummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -424,8 +421,6 @@ export const saveResponseWithVerdict = internalMutation({
       lastAssessment: args.lastAssessment,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
-      excuse: args.excuse,
-      verdictTagline: args.verdictTagline,
       verdictSummary: args.verdictSummary,
       thinkingSince: undefined,
     });

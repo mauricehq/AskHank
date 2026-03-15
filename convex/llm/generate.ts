@@ -847,17 +847,13 @@ export const respond = internalAction({
         const totalUsage = addUsage(call1Usage, call2.usage);
   
         let responseText: string;
-        let excuse: string | undefined;
-        let verdictTagline: string | undefined;
-  
+
         if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
           try {
             const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
             responseText = typeof parsed.closing_line === "string" && parsed.closing_line
               ? parsed.closing_line
               : (call2.content ?? "");
-            excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
-            verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
           } catch {
             responseText = call2.content ?? "";
           }
@@ -944,8 +940,6 @@ export const respond = internalAction({
               lastAssessment: lastAssessmentJson,
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._patience,
-              excuse,
-              verdictTagline,
               verdictSummary,
             }
           );

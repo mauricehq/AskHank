@@ -13,14 +13,12 @@ interface VerdictCardProps {
   item?: string;
   estimatedPrice?: number;
   category?: string;
-  excuse?: string;
-  verdictTagline?: string;
   verdictSummary?: string;
   conversationId?: Id<"conversations">;
   onNewConversation: () => void;
 }
 
-export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, verdictTagline, verdictSummary, conversationId, onNewConversation }: VerdictCardProps) {
+export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSummary, conversationId, onNewConversation }: VerdictCardProps) {
   const isDenied = verdict.type === "denied";
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
@@ -51,8 +49,6 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, excuse, v
     item: item ?? "Unknown item",
     estimatedPrice,
     category,
-    excuse: excuse ?? verdict.quote,
-    verdictTagline,
     verdictSummary,
   };
 

@@ -7,7 +7,6 @@ export interface PastConversation {
   item?: string;
   category?: string;
   estimatedPrice?: number;
-  excuse?: string;
   createdAt: number;
   memoryReferenceCount?: number;
 }
@@ -16,7 +15,6 @@ export interface MemoryNudge {
   conversationId: string;
   item: string;
   estimatedPrice?: number;
-  excuse?: string;
   dateLabel: string;
   categoryHistory?: {
     count: number;
@@ -85,7 +83,6 @@ export function selectMemoryNudge(
     conversationId: pick._id,
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
-    excuse: pick.excuse,
     dateLabel: formatRelativeDate(pick.createdAt, now, timezone),
     categoryHistory,
   };
@@ -103,9 +100,6 @@ export function formatNudgePrompt(nudge: MemoryNudge): string {
     lines.push(`  price: $${nudge.estimatedPrice}`);
   }
   lines.push(`  date: "${nudge.dateLabel}"`);
-  if (nudge.excuse) {
-    lines.push(`  their_claim: "${sanitizeForYaml(nudge.excuse).replace(/\.+$/, "")}"`);
-  }
   if (nudge.categoryHistory) {
     lines.push("  category_history:");
     lines.push(`    count: ${nudge.categoryHistory.count}`);

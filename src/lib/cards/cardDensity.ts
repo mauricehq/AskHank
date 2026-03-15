@@ -9,7 +9,7 @@ export type TextSize = "normal" | "compact" | "tight";
 
 export interface CardTextSizes {
   heroSize: TextSize; // Item name
-  insightSize: TextSize; // Excuse/reason
+  insightSize: TextSize; // Insight text
 }
 
 /**
@@ -22,11 +22,11 @@ function getHeroSize(item: string): TextSize {
 }
 
 /**
- * Get the appropriate size class for the insight/excuse text.
+ * Get the appropriate size class for the insight text.
  */
-function getInsightSize(excuse: string): TextSize {
-  if (excuse.length > 220) return "tight";
-  if (excuse.length > 160) return "compact";
+function getInsightSize(insightText: string): TextSize {
+  if (insightText.length > 220) return "tight";
+  if (insightText.length > 160) return "compact";
   return "normal";
 }
 
@@ -36,11 +36,11 @@ function getInsightSize(excuse: string): TextSize {
  */
 export function getCardTextSizes(
   item: string,
-  excuse: string = "",
+  insightText: string = "",
 ): CardTextSizes {
   return {
     heroSize: getHeroSize(item),
-    insightSize: getInsightSize(excuse),
+    insightSize: getInsightSize(insightText),
   };
 }
 

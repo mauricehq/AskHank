@@ -3,8 +3,6 @@ export interface VerdictCardData {
   item: string;
   estimatedPrice?: number;
   category?: string;
-  excuse: string;
-  verdictTagline?: string;
   verdictSummary?: string;
 }
 

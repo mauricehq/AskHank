@@ -48,8 +48,6 @@ export default defineSchema({
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
-    excuse: v.optional(v.string()),
-    verdictTagline: v.optional(v.string()),
     verdictSummary: v.optional(v.string()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
@@ -156,7 +154,7 @@ export default defineSchema({
     estimatedPrice: v.optional(v.number()),
     category: v.optional(v.string()),
     verdict: v.union(v.literal("approved"), v.literal("denied")),
-    verdictTagline: v.optional(v.string()),
+    verdictSummary: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_token", ["token"])
@@ -177,8 +175,6 @@ export default defineSchema({
         item: v.string(),
         estimatedPrice: v.optional(v.number()),
         category: v.optional(v.string()),
-        excuse: v.string(),
-        verdictTagline: v.optional(v.string()),
         verdictSummary: v.optional(v.string()),
       }),
       v.object({
