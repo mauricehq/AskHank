@@ -1,11 +1,14 @@
 import { Bot, Flame, Swords, ThumbsUp } from "lucide-react";
 import { SectionHeader } from "./SectionHeader";
 
+const USER_PROMPT =
+  "I want to buy a $350 espresso machine. My Keurig works fine but I feel like I deserve better coffee.";
+
 const GENERIC_RESPONSE =
-  "That sounds like a great investment! A quality espresso machine can save you money on coffee shop visits in the long run. Here are some top-rated models to consider...";
+  "You absolutely deserve great coffee! A $350 espresso machine is a wonderful investment in your daily routine. Here are some top-rated models in that price range...";
 
 const HANK_RESPONSE =
-  "$900 on a machine that'll sit next to the other appliances you swore you'd use daily. What are you making coffee with now?";
+  "A $350 espresso machine for a Keurig person. That's like buying a Ferrari to drive to your desk job.";
 
 const BULLETS = [
   {
@@ -33,7 +36,7 @@ export function AiComparison() {
       {/* Shared question bubble */}
       <div className="flex justify-center mb-8 md:mb-12">
         <div className="rounded-2xl rounded-br-[4px] bg-user-bubble px-5 py-3 text-base leading-[1.5] text-user-text max-w-md">
-          I want to buy a $900 espresso machine
+          {USER_PROMPT}
         </div>
       </div>
 
