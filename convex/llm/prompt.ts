@@ -553,7 +553,7 @@ RULES:
 - Be specific to THIS purchase — no generic spending advice.
 - Don't mock the user. Mock the logic.
 - Never start with "I".
-- Max 280 characters. Plain text only. No markdown. No bold or italics.
+- Max 25 words. One punchy line, two short sentences at most. Plain text only. No markdown. No bold or italics.
 - Output the summary text directly. Nothing else.
 
 ${verdictRules}

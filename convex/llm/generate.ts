@@ -1003,12 +1003,37 @@ export const respond = internalAction({
               messages: call3Messages,
               modelId,
               temperature: TEMPERATURE_RESPONSE,
-              maxTokens: 120,
+              maxTokens: 80,
             });
 
             let rawSummary = (call3.content ?? "").trim();
             traceData.call3RawResponse = rawSummary || "(empty)";
             totalUsage = addUsage(totalUsage, call3.usage);
+
+            // Retry if too long (over 25 words) — nudge for brevity
+            if (rawSummary && rawSummary.split(/\s+/).length > 25) {
+              console.warn(`Call 3 verdict too long (${rawSummary.split(/\s+/).length} words), retrying shorter`);
+              try {
+                const call3Shorter = await chatCompletion({
+                  messages: [
+                    ...call3Messages,
+                    { role: "assistant", content: rawSummary },
+                    { role: "user", content: "Shorter. One sentence max." },
+                  ],
+                  modelId,
+                  temperature: TEMPERATURE_RESPONSE,
+                  maxTokens: 80,
+                });
+                const shorterSummary = (call3Shorter.content ?? "").trim();
+                if (shorterSummary) {
+                  rawSummary = shorterSummary;
+                  traceData.call3RawResponse += ` -> (shortened) ${shorterSummary}`;
+                }
+                totalUsage = addUsage(totalUsage, call3Shorter.usage);
+              } catch (shortenErr) {
+                console.warn("Call 3 shorten retry failed, using original:", shortenErr);
+              }
+            }
 
             // Retry with fallback model if primary returned empty
             if (!rawSummary && fallbackModel && fallbackModel !== modelId) {
@@ -1018,7 +1043,7 @@ export const respond = internalAction({
                   messages: call3Messages,
                   modelId: fallbackModel,
                   temperature: TEMPERATURE_RESPONSE,
-                  maxTokens: 120,
+                  maxTokens: 80,
                 });
                 rawSummary = (call3Retry.content ?? "").trim();
                 traceData.call3RawResponse = rawSummary
