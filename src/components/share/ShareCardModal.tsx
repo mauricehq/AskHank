@@ -115,7 +115,7 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
     // Step 2: If image is ready, download immediately (fresh user gesture — iOS safe)
     if (downloadImageUrl) {
       try {
-        await downloadFromUrl(downloadImageUrl, `askhank-${token}.png`);
+        await downloadFromUrl(downloadImageUrl, `askhank-${token}.jpg`);
         setDownloadStatus("downloaded");
         setTimeout(() => setDownloadStatus(null), 2000);
       } catch (err) {
@@ -220,7 +220,7 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
               ) : (
                 <>
                   <Download className="w-4 h-4 group-hover/dl:translate-y-0.5 transition-transform" />
-                  Download PNG
+                  Download Image
                 </>
               )}
             </button>
@@ -228,7 +228,7 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
 
           {/* Helper Text */}
           <p className="mt-3 sm:mt-4 text-center text-[10px] text-zinc-500 uppercase tracking-widest">
-            <span className="text-zinc-400">PNG</span> for Reddit, Instagram
+            <span className="text-zinc-400">Image</span> for Reddit, Instagram
             {" \u2022 "}
             <span className="text-zinc-400">Link</span> for Twitter, iMessage
           </p>
@@ -274,7 +274,7 @@ async function downloadFromUrl(url: string, filename: string): Promise<void> {
   // Mobile: use Web Share API for native "Save to Photos" experience
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile && navigator.share && navigator.canShare) {
-    const file = new File([blob], filename, { type: "image/png" });
+    const file = new File([blob], filename, { type: "image/jpeg" });
     if (navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file] });
       return;

@@ -99,9 +99,9 @@ export async function POST(
     }
 
     // Upload to Vercel Blob
-    const blob = await put(`cards/${format}/${token}.png`, buffer, {
+    const blob = await put(`cards/${format}/${token}.jpg`, buffer, {
       access: "public",
-      contentType: "image/png",
+      contentType: "image/jpeg",
     });
 
     // Save URL to shareCards table

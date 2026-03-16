@@ -116,7 +116,8 @@ export async function captureScreenshot(options: ScreenshotOptions): Promise<Scr
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
     const buffer = await page.screenshot({
-      type: "png",
+      type: "jpeg",
+      quality: 90,
       clip: {
         x: 0,
         y: 0,
