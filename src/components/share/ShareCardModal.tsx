@@ -115,7 +115,8 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
     // Step 2: If image is ready, download immediately (fresh user gesture — iOS safe)
     if (downloadImageUrl) {
       try {
-        await downloadFromUrl(downloadImageUrl, `askhank-${token}.jpg`);
+        const slug = cardData.item.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        await downloadFromUrl(downloadImageUrl, `askhank-${slug}.jpg`);
         setDownloadStatus("downloaded");
         setTimeout(() => setDownloadStatus(null), 2000);
       } catch (err) {

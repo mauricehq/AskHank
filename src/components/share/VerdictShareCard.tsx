@@ -77,7 +77,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
   const productBlock = (
     <div>
       <h2
-        className={`font-bold card-text-product${sizeToClass(sizes.heroSize)}`}
+        className={`font-bold capitalize card-text-product${sizeToClass(sizes.heroSize)}`}
         style={{ color: COLOR.text, letterSpacing: "-0.02em", lineHeight: "1.2" }}
       >
         {item}
@@ -144,7 +144,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
   return (
     <div
       className="share-card-container w-full h-full card-radius overflow-hidden relative"
-      style={{ background: COLOR.bg }}
+      style={{ background: COLOR.bg, border: `1px solid rgba(255, 255, 255, 0.07)` }}
     >
       {/* Warm radial glow */}
       <div

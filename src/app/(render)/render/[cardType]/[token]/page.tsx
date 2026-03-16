@@ -61,7 +61,7 @@ function DownloadLayout({ children }: { children: React.ReactNode }) {
       style={{
         width: 1080,
         height: 1350,
-        background: "#1A1714",
+        background: "#110F0D",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -123,7 +123,7 @@ function OgLayout({ children }: { children: React.ReactNode }) {
       style={{
         width: 1200,
         height: 630,
-        background: "#1A1714",
+        background: "#110F0D",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
