@@ -65,15 +65,16 @@ async function launchBrowser(): Promise<Browser> {
   });
 }
 
-const ALLOWED_HOSTS = ["localhost", "127.0.0.1", "askhank.app"];
+const ALLOWED_HOSTS = new Set(["localhost", "127.0.0.1", "askhank.app"]);
 
 function isAllowedUrl(url: string): boolean {
   const parsed = new URL(url);
-  return (
-    ALLOWED_HOSTS.includes(parsed.hostname) ||
-    parsed.hostname.endsWith(".askhank.app") ||
-    parsed.hostname.endsWith(".vercel.app")
-  );
+  if (ALLOWED_HOSTS.has(parsed.hostname)) return true;
+  if (parsed.hostname.endsWith(".askhank.app")) return true;
+  // Allow the specific Vercel deployment URL (e.g., "my-app-abc123.vercel.app")
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl && parsed.hostname === vercelUrl) return true;
+  return false;
 }
 
 export async function captureScreenshot(options: ScreenshotOptions): Promise<ScreenshotResult> {
