@@ -49,6 +49,7 @@ export default defineSchema({
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
     verdictSummary: v.optional(v.string()),
+    shareScore: v.optional(v.number()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
@@ -180,6 +181,8 @@ export default defineSchema({
         estimatedPrice: v.optional(v.number()),
         category: v.optional(v.string()),
         verdictSummary: v.optional(v.string()),
+        shareScore: v.optional(v.number()),
+        // Legacy — kept so old share cards pass schema validation
         score: v.optional(v.number()),
         thresholdMultiplier: v.optional(v.number()),
       }),

@@ -126,3 +126,27 @@ export function computePriceModifier(price: number | undefined): number {
   return clamp(1.0 + 0.3 * Math.log(price / 100), 0.6, 1.5);
 }
 
+// --- Share card debate strength score ---
+
+export function computeShareScore(
+  score: number,
+  thresholdMultiplier: number,
+  turnSummaries: TurnSummary[],
+): number {
+  const threshold = 43 * thresholdMultiplier;
+  const progressRatio = clamp(score / threshold, 0, 1.3);
+
+  const debateTurns = turnSummaries.slice(1);
+  const debateTurnCount = debateTurns.length;
+  const engagementRatio = Math.min(debateTurnCount, 5) / 5;
+
+  const addressedCount = debateTurns.filter(t => t.addressed).length;
+  const evidenceCount = debateTurns.filter(t => t.evidence).length;
+  const totalDebate = Math.max(debateTurnCount, 1);
+  const qualityScore = (addressedCount / totalDebate) * 0.65
+                     + (evidenceCount / totalDebate) * 0.35;
+
+  const raw = progressRatio * 50 + engagementRatio * 20 + qualityScore * 20;
+  return Math.round(clamp(raw, 5, 99));
+}
+

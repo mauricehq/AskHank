@@ -1,5 +1,4 @@
 import type { VerdictCardData } from "@/lib/cards/types";
-import { computeDisplayPercent } from "@/lib/cards/scoreDisplay";
 import { getCardTextSizes, sizeToClass } from "@/lib/cards/cardDensity";
 import "./styles/card.css";
 
@@ -27,7 +26,7 @@ interface VerdictShareCardProps {
 }
 
 export function VerdictShareCard({ data }: VerdictShareCardProps) {
-  const { verdict, item, estimatedPrice, verdictSummary, score, thresholdMultiplier } = data;
+  const { verdict, item, estimatedPrice, verdictSummary, shareScore } = data;
   const isDenied = verdict === "denied";
 
   const priceLabel = estimatedPrice
@@ -40,10 +39,7 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
   const accent = isDenied ? COLOR.denied : COLOR.approved;
   const accentRgb = isDenied ? COLOR.deniedRgb : COLOR.approvedRgb;
 
-  const hasScore = score != null && thresholdMultiplier != null;
-  const displayPercent = hasScore
-    ? computeDisplayPercent(score, thresholdMultiplier)
-    : 0;
+  const hasScore = shareScore != null;
 
   // Shared fragments rendered identically in both layouts
   const logoBlock = (
@@ -124,13 +120,13 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
           className="card-text-score-value"
           style={{ color: accent, fontFamily: FONT_MONO, fontWeight: 500 }}
         >
-          {score} / 100
+          {shareScore} / 100
         </span>
       </div>
       <div className="card-score-track" style={{ background: COLOR.track }}>
         <div
           className="card-score-fill"
-          style={{ width: `${displayPercent}%`, background: accent }}
+          style={{ width: `${shareScore}%`, background: accent }}
         />
       </div>
     </div>

@@ -19,6 +19,7 @@ import {
   determineStance,
   applyStanceGuardrails,
   computePriceModifier,
+  computeShareScore,
   type TurnAssessment,
   type TurnSummary,
   type Stance,
@@ -960,6 +961,13 @@ export const respond = internalAction({
           });
           traceData.messageId = messageId;
         } else if (stanceResult.closing && stanceResult.verdict) {
+          // Compute debate strength score for share cards
+          const shareScore = computeShareScore(
+            stanceResult.score,
+            stanceResult._scoringResult.thresholdMultiplier,
+            stanceResult._persistedContext.turnSummaries,
+          );
+
           // Save closing line + verdict immediately (UI shows card right away)
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithVerdict,
@@ -976,6 +984,7 @@ export const respond = internalAction({
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._patience,
               verdictSummary: undefined,
+              shareScore,
             }
           );
           traceData.messageId = messageId;

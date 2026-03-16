@@ -4,8 +4,7 @@ export interface VerdictCardData {
   estimatedPrice?: number;
   category?: string;
   verdictSummary?: string;
-  score?: number;
-  thresholdMultiplier?: number;
+  shareScore?: number;
 }
 
 export interface RoastCardData {

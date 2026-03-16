@@ -414,6 +414,7 @@ export const saveResponseWithVerdict = internalMutation({
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdictSummary: v.optional(v.string()),
+    shareScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -434,6 +435,7 @@ export const saveResponseWithVerdict = internalMutation({
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
       verdictSummary: args.verdictSummary,
+      shareScore: args.shareScore,
       thinkingSince: undefined,
     });
 
