@@ -12,8 +12,16 @@ import { SectionHeader } from "./SectionHeader";
 interface Message {
   role: "user" | "hank";
   content: string;
-  delay: number;
-  typingDuration?: number;
+}
+
+/** Time to read a message before the next one appears (~220ms/word). */
+function readingTime(text: string, minMs = 1500): number {
+  return Math.max(minMs, text.split(/\s+/).length * 220);
+}
+
+/** Duration of typing indicator before Hank's message reveals (~80ms/word, min 1000ms). */
+function typingTime(text: string): number {
+  return Math.max(1000, text.split(/\s+/).length * 80);
 }
 
 interface DemoConversation {
@@ -37,37 +45,11 @@ const CONVERSATIONS: DemoConversation[] = [
     verdict: "denied",
     verdictQuote: "You folded faster than a lawn chair at a discount shoe sale.",
     messages: [
-      {
-        role: "user",
-        content:
-          "Found some running shoes marked down from $300 to $180. 40% off, seems like a steal.",
-        delay: 0,
-      },
-      {
-        role: "hank",
-        content:
-          "$180 shoes because they were $300. You keep receipts like trophies for purchases you never actually use.",
-        delay: 800,
-        typingDuration: 1500,
-      },
-      {
-        role: "user",
-        content:
-          "No but 40% off doesn't come around often. I'd be losing money NOT buying them.",
-        delay: 1200,
-      },
-      {
-        role: "hank",
-        content:
-          "$180 is still $180. You'll wear them twice before they join the graveyard of \"good deals\" in your closet.",
-        delay: 800,
-        typingDuration: 1800,
-      },
-      {
-        role: "user",
-        content: "ok fine you win",
-        delay: 1500,
-      },
+      { role: "user", content: "Found some running shoes marked down from $300 to $180. 40% off, seems like a steal." },
+      { role: "hank", content: "$180 shoes because they were $300. You keep receipts like trophies for purchases you never actually use." },
+      { role: "user", content: "No but 40% off doesn't come around often. I'd be losing money NOT buying them." },
+      { role: "hank", content: "$180 is still $180. You'll wear them twice before they join the graveyard of \"good deals\" in your closet." },
+      { role: "user", content: "ok fine you win" },
     ],
   },
   {
@@ -79,45 +61,12 @@ const CONVERSATIONS: DemoConversation[] = [
     verdict: "approved",
     verdictQuote: "You've actually thought this through.",
     messages: [
-      {
-        role: "user",
-        content:
-          "Looking at buying a pressure washer to wash my car. Around $200.",
-        delay: 0,
-      },
-      {
-        role: "hank",
-        content:
-          "You already wash your car without one. What's wrong with the hose and bucket method?",
-        delay: 800,
-        typingDuration: 1200,
-      },
-      {
-        role: "user",
-        content:
-          "I wash every 2 weeks, Montreal winters destroy the paint. Grit gets stuck like glue.",
-        delay: 1200,
-      },
-      {
-        role: "hank",
-        content:
-          "A pressure washer won't stop winter from happening. How many car washes would $200 buy at the touchless place down the road?",
-        delay: 800,
-        typingDuration: 1800,
-      },
-      {
-        role: "user",
-        content:
-          "Around 10, not even a full winter. And I have my own garage so I don't freeze outside.",
-        delay: 1500,
-      },
-      {
-        role: "hank",
-        content:
-          "Alright, fine. Winter in Montreal is a warzone and you've actually thought this through. Just promise me you'll use it more than once a season.",
-        delay: 800,
-        typingDuration: 2000,
-      },
+      { role: "user", content: "Looking at buying a pressure washer to wash my car. Around $200." },
+      { role: "hank", content: "You already wash your car without one. What's wrong with the hose and bucket method?" },
+      { role: "user", content: "I wash every 2 weeks, Montreal winters destroy the paint. Grit gets stuck like glue." },
+      { role: "hank", content: "A pressure washer won't stop winter from happening. How many car washes would $200 buy at the touchless place down the road?" },
+      { role: "user", content: "Around 10, not even a full winter. And I have my own garage so I don't freeze outside." },
+      { role: "hank", content: "Alright, fine. Winter in Montreal is a warzone and you've actually thought this through. Just promise me you'll use it more than once a season." },
     ],
   },
   {
@@ -129,36 +78,11 @@ const CONVERSATIONS: DemoConversation[] = [
     verdict: "denied",
     verdictQuote: "Happiness isn't stored in pumpkin chai wax.",
     messages: [
-      {
-        role: "user",
-        content:
-          "I want to buy some scented candles, $45 from this brand I saw on TikTok.",
-        delay: 0,
-      },
-      {
-        role: "hank",
-        content:
-          "TikTok told you to want these. TikTok also told you to want the last thing you barely used. What's different this time?",
-        delay: 800,
-        typingDuration: 1500,
-      },
-      {
-        role: "user",
-        content: "But it makes me happy. Self care is important.",
-        delay: 1200,
-      },
-      {
-        role: "hank",
-        content:
-          "You're confusing self-care with retail therapy. Happiness isn't stored in pumpkin chai wax. You know this.",
-        delay: 800,
-        typingDuration: 1800,
-      },
-      {
-        role: "user",
-        content: "ugh fine whatever",
-        delay: 1500,
-      },
+      { role: "user", content: "I want to buy some scented candles, $45 from this brand I saw on TikTok." },
+      { role: "hank", content: "TikTok told you to want these. TikTok also told you to want the last thing you barely used. What's different this time?" },
+      { role: "user", content: "But it makes me happy. Self care is important." },
+      { role: "hank", content: "You're confusing self-care with retail therapy. Happiness isn't stored in pumpkin chai wax. You know this." },
+      { role: "user", content: "ugh fine whatever" },
     ],
   },
   {
@@ -170,43 +94,12 @@ const CONVERSATIONS: DemoConversation[] = [
     verdict: "denied",
     verdictQuote: "You're not upgrading, you're just shopping with extra steps.",
     messages: [
-      {
-        role: "user",
-        content: "I want a new 4K gaming monitor. About $800.",
-        delay: 0,
-      },
-      {
-        role: "hank",
-        content: "What's your current monitor failing at, exactly?",
-        delay: 800,
-        typingDuration: 1000,
-      },
-      {
-        role: "user",
-        content:
-          "It's only 1080p and I play competitive shooters. The clarity difference at 4K is huge.",
-        delay: 1200,
-      },
-      {
-        role: "hank",
-        content:
-          "A 1080p monitor worked fine for years. Now suddenly it's holding you back, right when shiny new 4K screens hit the market. Convenient timing.",
-        delay: 800,
-        typingDuration: 1800,
-      },
-      {
-        role: "user",
-        content:
-          "It's 5 years old and has ghosting issues. Games have gotten more demanding too.",
-        delay: 1500,
-      },
-      {
-        role: "hank",
-        content:
-          "Last week it was $180 running shoes on sale. Now it's an $800 monitor. You're not upgrading, you're just shopping with extra steps.",
-        delay: 800,
-        typingDuration: 2000,
-      },
+      { role: "user", content: "I want a new 4K gaming monitor. About $800." },
+      { role: "hank", content: "What's your current monitor failing at, exactly?" },
+      { role: "user", content: "It's only 1080p and I play competitive shooters. The clarity difference at 4K is huge." },
+      { role: "hank", content: "A 1080p monitor worked fine for years. Now suddenly it's holding you back, right when shiny new 4K screens hit the market. Convenient timing." },
+      { role: "user", content: "It's 5 years old and has ghosting issues. Games have gotten more demanding too." },
+      { role: "hank", content: "Last week it was $180 running shoes on sale. Now it's an $800 monitor. You're not upgrading, you're just shopping with extra steps." },
     ],
   },
 ];
@@ -225,6 +118,23 @@ function DemoTypingIndicator() {
           <span className="typing-dot h-2 w-2 rounded-full bg-text-secondary" />
           <span className="typing-dot h-2 w-2 rounded-full bg-text-secondary [animation-delay:0.2s]" />
           <span className="typing-dot h-2 w-2 rounded-full bg-text-secondary [animation-delay:0.4s]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// User typing indicator
+// ---------------------------------------------------------------------------
+function DemoUserTypingIndicator() {
+  return (
+    <div className="animate-message-in flex justify-end mb-6">
+      <div className="max-w-[85%]">
+        <div className="flex items-center gap-1 rounded-2xl rounded-br-[4px] bg-user-bubble px-4 py-3 w-fit">
+          <span className="typing-dot h-2 w-2 rounded-full bg-user-text/50" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-user-text/50 [animation-delay:0.2s]" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-user-text/50 [animation-delay:0.4s]" />
         </div>
       </div>
     </div>
@@ -276,6 +186,7 @@ export function ChatDemo() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [isUserTyping, setIsUserTyping] = useState(false);
   const [conversationDone, setConversationDone] = useState(false);
   const [showVerdict, setShowVerdict] = useState(false);
   const [autoCycleEnabled, setAutoCycleEnabled] = useState(true);
@@ -289,7 +200,7 @@ export function ChatDemo() {
   useEffect(() => {
     const el = chatContainerRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [visibleCount, isTyping, showVerdict]);
+  }, [visibleCount, isTyping, isUserTyping, showVerdict]);
 
   // Play through current conversation's messages
   useEffect(() => {
@@ -297,6 +208,7 @@ export function ChatDemo() {
 
     setVisibleCount(0);
     setIsTyping(false);
+    setIsUserTyping(false);
     setConversationDone(false);
     setShowVerdict(false);
     setShowProgress(false);
@@ -317,21 +229,46 @@ export function ChatDemo() {
     let elapsed = 0;
 
     messages.forEach((msg, i) => {
-      elapsed += msg.delay;
+      if (i > 0) {
+        const prev = messages[i - 1];
+        // After the first user message, show typing quickly (700ms);
+        // otherwise give full reading time for the previous message.
+        const pause =
+          i === 1 && prev.role === "user"
+            ? 700
+            : readingTime(prev.content, i <= 2 ? 1200 : 1500);
+        elapsed += pause;
+      }
 
-      if (msg.role === "hank" && msg.typingDuration) {
-        const typingStart = elapsed;
-        schedule(() => setIsTyping(true), typingStart);
-
-        elapsed += msg.typingDuration;
-        const revealAt = elapsed;
+      if (msg.role === "hank") {
+        // Show typing dots immediately when previous message appeared
+        const prev = messages[i - 1];
+        const pause =
+          i === 1 && prev.role === "user"
+            ? 700
+            : readingTime(prev.content, i <= 2 ? 1200 : 1500);
+        schedule(() => setIsTyping(true), elapsed - pause);
+        elapsed += typingTime(msg.content);
         schedule(() => {
           setIsTyping(false);
           setVisibleCount(i + 1);
-        }, revealAt);
+        }, elapsed);
+      } else if (i === 0) {
+        // First message appears instantly, no typing indicator
+        schedule(() => setVisibleCount(i + 1), elapsed);
       } else {
-        const revealAt = elapsed;
-        schedule(() => setVisibleCount(i + 1), revealAt);
+        // Show user typing dots immediately (reading pause already elapsed above)
+        // userDotsStart = elapsed minus the full reading pause we just added
+        const prev = messages[i - 1];
+        const pause =
+          i === 1 && prev.role === "user"
+            ? 700
+            : readingTime(prev.content, i <= 2 ? 1200 : 1500);
+        schedule(() => setIsUserTyping(true), elapsed - pause);
+        schedule(() => {
+          setIsUserTyping(false);
+          setVisibleCount(i + 1);
+        }, elapsed);
       }
     });
 
@@ -480,6 +417,7 @@ export function ChatDemo() {
             })}
 
             {isTyping && <DemoTypingIndicator />}
+            {isUserTyping && <DemoUserTypingIndicator />}
 
             {showVerdict && (
               <DemoVerdict
