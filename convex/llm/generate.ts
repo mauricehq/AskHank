@@ -1027,7 +1027,7 @@ export const respond = internalAction({
                   messages: [
                     ...call3Messages,
                     { role: "assistant", content: rawSummary },
-                    { role: "user", content: "Shorter. One sentence max." },
+                    { role: "system", content: "Too long. Rewrite in one sentence, max 25 words. Output the summary text only." },
                   ],
                   modelId,
                   temperature: TEMPERATURE_RESPONSE,
