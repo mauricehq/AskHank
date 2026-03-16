@@ -34,7 +34,7 @@ async function insertCut(
     estimatedPrice: conversation.estimatedPrice,
     category: conversation.category,
     verdict: conversation.verdict,
-    verdictTagline: conversation.verdictTagline,
+    verdictSummary: conversation.verdictSummary,
     createdAt: Date.now(),
   });
 
@@ -116,7 +116,7 @@ export const getByToken = query({
       estimatedPrice: cut.estimatedPrice,
       category: cut.category,
       verdict: cut.verdict,
-      verdictTagline: cut.verdictTagline,
+      verdictSummary: cut.verdictSummary,
     };
   },
 });
@@ -164,7 +164,6 @@ export const internalListConversations = internalQuery({
       estimatedPrice: c.estimatedPrice,
       category: c.category,
       verdict: c.verdict,
-      verdictTagline: c.verdictTagline,
       createdAt: c.createdAt,
     }));
   },

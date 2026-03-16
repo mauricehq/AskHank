@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskHank — Share Card v2 Mockup</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400;1,9..40,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0F0D0B;
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      gap: 2rem;
+      min-height: 100vh;
+    }
+
+    .page-title {
+      color: #9A9A9A;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      text-align: center;
+    }
+
+    .page-title span { color: #C65A2E; }
+
+    .cards-row {
+      display: flex;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* ─── Share Card Shell ─── */
+    .share-card {
+      width: 380px;
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      background: #1A1714;
+    }
+
+    .share-card-inner {
+      padding: 1.75rem 1.75rem 1.5rem;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* Subtle warm gradient overlay */
+    .share-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 30% 0%, rgba(198, 90, 46, 0.08) 0%, transparent 60%);
+      z-index: 0;
+    }
+
+    /* ─── Header Row ─── */
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.75rem;
+    }
+
+    .card-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: #C65A2E;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-logo-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: #F4EFEA;
+    }
+
+    .card-logo-text {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #F4EFEA;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .card-logo-text span { color: #C65A2E; }
+
+    /* ─── STAMP — The Visual Hero ─── */
+    .stamp {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0.5rem 0 1.5rem;
+      position: relative;
+    }
+
+    .stamp-badge {
+      font-size: 3.2rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1;
+      position: relative;
+    }
+
+    .stamp-badge.denied {
+      color: #C65A2E;
+    }
+
+    .stamp-badge.approved {
+      color: #6B9E6F;
+    }
+
+    /* Stamp border lines */
+    .stamp-frame {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      margin-top: 0.35rem;
+    }
+
+    .stamp-line {
+      flex: 1;
+      height: 2px;
+    }
+
+    .stamp-line.denied { background: #C65A2E; }
+    .stamp-line.approved { background: #6B9E6F; }
+
+    .stamp-icon {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .stamp-icon.denied { color: #C65A2E; }
+    .stamp-icon.approved { color: #6B9E6F; }
+
+    .stamp-icon strong.denied { color: #C65A2E; }
+    .stamp-icon strong.approved { color: #6B9E6F; }
+
+    /* ─── Product Info ─── */
+    .product-section {
+      margin-bottom: 1.25rem;
+    }
+
+    .product-name {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #F4EFEA;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 0.3rem;
+    }
+
+    .product-price {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: #C65A2E;
+    }
+
+    /* ─── Quote ─── */
+    .quote-section {
+      background: rgba(42, 37, 32, 0.6);
+      border: 1px solid rgba(61, 55, 50, 0.8);
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .quote-text {
+      font-size: 0.95rem;
+      font-style: italic;
+      color: #D4CFC8;
+      line-height: 1.55;
+    }
+
+    /* ─── Argument Score ─── */
+    .score-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .score-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.45rem;
+    }
+
+    .score-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #9A9A9A;
+    }
+
+    .score-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .score-value.denied { color: #C65A2E; }
+    .score-value.approved { color: #6B9E6F; }
+
+    .score-bar {
+      width: 100%;
+      height: 6px;
+      background: #2A2520;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .score-fill.denied { background: #C65A2E; }
+    .score-fill.approved { background: #6B9E6F; }
+
+    /* ─── Footer ─── */
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 1rem;
+      border-top: 1px solid #2A2520;
+    }
+
+    .footer-tagline {
+      font-size: 0.65rem;
+      color: #7A7A7A;
+      max-width: 55%;
+      line-height: 1.4;
+    }
+
+    .footer-url {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #C65A2E;
+    }
+
+    /* ─── Labels beneath cards ─── */
+    .card-label {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      color: #7A7A7A;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .card-wrapper {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Comparison banner ─── */
+    .comparison {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      color: #7A7A7A;
+      font-size: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .comparison span {
+      color: #C65A2E;
+      font-weight: 600;
+    }
+
+    /* ═══════════════════════════════════════════ */
+    /* OG IMAGE — 1200×630 landscape              */
+    /* ═══════════════════════════════════════════ */
+
+    .og-card {
+      width: 750px;       /* scaled down from 1200 for display */
+      height: 394px;      /* maintains 1200:630 ratio */
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      background: #1A1714;
+    }
+
+    .og-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(198, 90, 46, 0.08) 0%, transparent 60%);
+      z-index: 0;
+    }
+
+    .og-card-approved::before {
+      background: radial-gradient(ellipse at 20% 50%, rgba(107, 158, 111, 0.06) 0%, transparent 60%);
+    }
+
+    .og-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      height: 100%;
+      padding: 2.5rem;
+      gap: 2.5rem;
+    }
+
+    /* ─── OG Left Panel ─── */
+    .og-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 240px;
+      flex-shrink: 0;
+    }
+
+    .og-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .og-stamp-badge {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .og-stamp-badge.denied { color: #C65A2E; }
+    .og-stamp-badge.approved { color: #6B9E6F; }
+
+    .og-stamp-sub {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0.35rem;
+    }
+
+    .og-stamp-sub.denied { color: #C65A2E; }
+    .og-stamp-sub.approved { color: #6B9E6F; }
+
+    .og-tagline {
+      font-size: 0.7rem;
+      color: #7A7A7A;
+      margin-top: auto;
+    }
+
+    /* ─── OG Divider ─── */
+    .og-divider {
+      width: 2px;
+      align-self: stretch;
+      flex-shrink: 0;
+    }
+
+    .og-divider.denied { background: linear-gradient(to bottom, transparent, #C65A2E 30%, #C65A2E 70%, transparent); }
+    .og-divider.approved { background: linear-gradient(to bottom, transparent, #6B9E6F 30%, #6B9E6F 70%, transparent); }
+
+    /* ─── OG Right Panel ─── */
+    .og-right {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .og-product {
+      margin-bottom: 1.5rem;
+    }
+
+    .og-product-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #F4EFEA;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 0.2rem;
+    }
+
+    .og-product-price {
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #C65A2E;
+    }
+
+    .og-quote {
+      background: rgba(42, 37, 32, 0.6);
+      border: 1px solid rgba(61, 55, 50, 0.8);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .og-quote .quote-text {
+      font-size: 0.9rem;
+    }
+
+    .og-score-section {
+      margin-bottom: 0;
+    }
+
+    .og-bottom {
+      margin-top: auto;
+    }
+
+    .og-url {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #C65A2E;
+      margin-top: 0.75rem;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-title">Share Card <span>v2</span> — Mockup</div>
+
+  <div class="cards-row">
+
+    <!-- ═══ DENIED CARD ═══ -->
+    <div class="card-wrapper">
+      <div class="share-card">
+        <div class="share-card-inner">
+
+          <!-- Header -->
+          <div class="card-header">
+            <div class="card-logo">
+              <div class="card-logo-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+              </div>
+              <div class="card-logo-text">Ask <span>Hank</span></div>
+            </div>
+          </div>
+
+          <!-- STAMP -->
+          <div class="stamp">
+            <div class="stamp-badge denied">DENIED</div>
+            <div class="stamp-frame">
+              <div class="stamp-line denied"></div>
+              <div class="stamp-icon denied">Hank says no</div>
+              <div class="stamp-line denied"></div>
+            </div>
+          </div>
+
+          <!-- Product -->
+          <div class="product-section">
+            <div class="product-name">iPhone</div>
+            <div class="product-price">$1,000</div>
+          </div>
+
+          <!-- Quote -->
+          <div class="quote-section">
+            <div class="quote-text">"Wanting a phone that looks like Halloween decor isn't a financial strategy. Keep scrolling."</div>
+          </div>
+
+          <!-- Score -->
+          <div class="score-section">
+            <div class="score-header">
+              <div class="score-label">Your case</div>
+              <div class="score-value denied">23 / 100</div>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill denied" style="width: 23%;"></div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="card-footer">
+            <div class="footer-tagline">Ask before buying</div>
+            <div class="footer-url">askhank.app</div>
+          </div>
+
+        </div>
+      </div>
+      <div class="card-label">Denied — low score</div>
+    </div>
+
+    <!-- ═══ APPROVED CARD ═══ -->
+    <div class="card-wrapper">
+      <div class="share-card" style="--card-accent: #6B9E6F;">
+        <!-- Green tint for approved -->
+        <style>
+          .share-card:nth-of-type(2)::before {
+            background: radial-gradient(ellipse at 30% 0%, rgba(107, 158, 111, 0.06) 0%, transparent 60%);
+          }
+        </style>
+        <div class="share-card-inner">
+
+          <!-- Header -->
+          <div class="card-header">
+            <div class="card-logo">
+              <div class="card-logo-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+              </div>
+              <div class="card-logo-text">Ask <span>Hank</span></div>
+            </div>
+          </div>
+
+          <!-- STAMP -->
+          <div class="stamp">
+            <div class="stamp-badge approved">APPROVED</div>
+            <div class="stamp-frame">
+              <div class="stamp-line approved"></div>
+              <div class="stamp-icon approved">Hank says yes</div>
+              <div class="stamp-line approved"></div>
+            </div>
+          </div>
+
+          <!-- Product -->
+          <div class="product-section">
+            <div class="product-name">Sony WH-1000XM5 Headphones</div>
+            <div class="product-price">$350</div>
+          </div>
+
+          <!-- Quote -->
+          <div class="quote-section">
+            <div class="quote-text">"The commute threat got me. Buy the damn headphones."</div>
+          </div>
+
+          <!-- Score -->
+          <div class="score-section">
+            <div class="score-header">
+              <div class="score-label">Your case</div>
+              <div class="score-value approved">82 / 100</div>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill approved" style="width: 82%;"></div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="card-footer">
+            <div class="footer-tagline">Ask before buying</div>
+            <div class="footer-url">askhank.app</div>
+          </div>
+
+        </div>
+      </div>
+      <div class="card-label">Approved — high score</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- OG IMAGE VARIANTS (1200×630 landscape)     -->
+  <!-- ═══════════════════════════════════════════ -->
+
+  <div class="page-title" style="margin-top: 3rem;">OG Image <span>1200×630</span> — Landscape</div>
+
+  <!-- ─── OG: DENIED ─── -->
+  <div class="card-wrapper">
+    <div class="og-card">
+      <div class="og-inner">
+
+        <!-- Left: Stamp + branding -->
+        <div class="og-left">
+          <div class="og-logo">
+            <div class="card-logo-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            </div>
+            <div class="card-logo-text">Ask <span>Hank</span></div>
+          </div>
+          <div class="og-stamp-badge denied">DENIED</div>
+          <div class="og-stamp-sub denied">Hank says no</div>
+          <div class="og-tagline">Ask before buying</div>
+        </div>
+
+        <!-- Divider -->
+        <div class="og-divider denied"></div>
+
+        <!-- Right: Product + quote + score -->
+        <div class="og-right">
+          <div class="og-product">
+            <div class="og-product-name">iPhone</div>
+            <div class="og-product-price">$1,000</div>
+          </div>
+          <div class="og-quote">
+            <div class="quote-text">"Wanting a phone that looks like Halloween decor isn't a financial strategy. Keep scrolling."</div>
+          </div>
+          <div class="og-bottom">
+            <div class="og-score-section">
+              <div class="score-header">
+                <div class="score-label">Your case</div>
+                <div class="score-value denied">23 / 100</div>
+              </div>
+              <div class="score-bar">
+                <div class="score-fill denied" style="width: 23%;"></div>
+              </div>
+            </div>
+            <div class="og-url">askhank.app</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-label">OG Image — Denied</div>
+  </div>
+
+  <!-- ─── OG: APPROVED ─── -->
+  <div class="card-wrapper">
+    <div class="og-card og-card-approved">
+      <div class="og-inner">
+
+        <!-- Left: Stamp + branding -->
+        <div class="og-left">
+          <div class="og-logo">
+            <div class="card-logo-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            </div>
+            <div class="card-logo-text">Ask <span>Hank</span></div>
+          </div>
+          <div class="og-stamp-badge approved">APPROVED</div>
+          <div class="og-stamp-sub approved">Hank says yes</div>
+          <div class="og-tagline">Ask before buying</div>
+        </div>
+
+        <!-- Divider -->
+        <div class="og-divider approved"></div>
+
+        <!-- Right: Product + quote + score -->
+        <div class="og-right">
+          <div class="og-product">
+            <div class="og-product-name">Sony WH-1000XM5 Headphones</div>
+            <div class="og-product-price">$350</div>
+          </div>
+          <div class="og-quote">
+            <div class="quote-text">"The commute threat got me. Buy the damn headphones."</div>
+          </div>
+          <div class="og-bottom">
+            <div class="og-score-section">
+              <div class="score-header">
+                <div class="score-label">Your case</div>
+                <div class="score-value approved">82 / 100</div>
+              </div>
+              <div class="score-bar">
+                <div class="score-fill approved" style="width: 82%;"></div>
+              </div>
+            </div>
+            <div class="og-url">askhank.app</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-label">OG Image — Approved</div>
+  </div>
+
+</body>
+</html>

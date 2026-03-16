@@ -8,7 +8,7 @@ interface ReplayCut {
   estimatedPrice?: number;
   category?: string;
   verdict: "approved" | "denied";
-  verdictTagline?: string;
+  verdictSummary?: string;
 }
 
 type PlaybackState =
@@ -119,7 +119,7 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
         {/* Item header */}
         <div className="mb-4 text-center">
           <div className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-            {cut.item}{priceLabel}
+            <span className="capitalize">{cut.item}</span>{priceLabel}
           </div>
         </div>
 
@@ -187,11 +187,11 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
                   isDenied ? "text-denied" : "text-approved"
                 }`}
               >
-                CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}: {cut.item}{cut.estimatedPrice ? ` ($${cut.estimatedPrice.toLocaleString()})` : ""}
+                CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}: <span className="capitalize">{cut.item}</span>{cut.estimatedPrice ? ` ($${cut.estimatedPrice.toLocaleString()})` : ""}
               </div>
-              {cut.verdictTagline && (
+              {cut.verdictSummary && (
                 <p className="text-[0.9rem] italic text-text-secondary">
-                  &ldquo;{cut.verdictTagline}&rdquo;
+                  {cut.verdictSummary}
                 </p>
               )}
             </div>

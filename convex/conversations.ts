@@ -325,7 +325,7 @@ export const internalGetPastConversations = internalQuery({
         category: c.category,
         estimatedPrice: c.estimatedPrice,
         verdict: c.verdict,
-        excuse: c.excuse,
+        verdictSummary: c.verdictSummary,
         createdAt: c.createdAt,
         memoryReferenceCount: c.memoryReferenceCount,
       }));
@@ -389,6 +389,18 @@ export const insertTestMessage = internalMutation({
   },
 });
 
+export const patchVerdictSummary = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    verdictSummary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      verdictSummary: args.verdictSummary,
+    });
+  },
+});
+
 export const saveResponseWithVerdict = internalMutation({
   args: {
     conversationId: v.id("conversations"),
@@ -402,8 +414,8 @@ export const saveResponseWithVerdict = internalMutation({
     lastAssessment: v.optional(v.string()),
     disengagementCount: v.number(),
     stagnationCount: v.number(),
-    excuse: v.optional(v.string()),
-    verdictTagline: v.optional(v.string()),
+    verdictSummary: v.optional(v.string()),
+    shareScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -423,8 +435,8 @@ export const saveResponseWithVerdict = internalMutation({
       lastAssessment: args.lastAssessment,
       disengagementCount: args.disengagementCount,
       stagnationCount: args.stagnationCount,
-      excuse: args.excuse,
-      verdictTagline: args.verdictTagline,
+      verdictSummary: args.verdictSummary,
+      shareScore: args.shareScore,
       thinkingSince: undefined,
     });
 

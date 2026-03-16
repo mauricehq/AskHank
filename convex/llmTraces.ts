@@ -33,6 +33,7 @@ export const debugDump = internalQuery({
       const persistedContext = safeJsonParse(t.sanitizedScores);
       const scoring = safeJsonParse(t.scoringResult);
       const toolArgs = safeJsonParse(t.toolArguments);
+      const toolResult = safeJsonParse(t.toolResult);
 
       // Find user message that triggered this trace and hank's response
       let userMessage: string | null = null;
@@ -53,14 +54,17 @@ export const debugDump = internalQuery({
         turn: i + 1,
         userMessage,
         hankResponse,
-        stance: `${t.previousStance} → ${t.newStance}`,
-        decisionType: t.decisionType,
-        runningScore: scoring?.runningScore ?? null,
-        delta: scoring?.delta ?? null,
-        thresholdMultiplier: scoring?.thresholdMultiplier ?? null,
-        priceModifier: scoring?.priceModifier ?? null,
-        estimatedPrice: t.estimatedPrice ?? null,
-        category: t.category ?? null,
+
+        // --- Call 1: Assessment ---
+        call1: {
+          systemPrompt: t.systemPrompt,
+          model: t.modelId,
+          temperature: t.temperature,
+          maxTokens: t.maxTokens,
+          toolCalled: t.toolCalled ?? null,
+        },
+
+        // --- Assessment result ---
         assessment: assessment?.item ? {
           item: assessment.item,
           intent: assessment.intent,
@@ -76,8 +80,36 @@ export const debugDump = internalQuery({
           user_backed_down: assessment.user_backed_down ?? toolArgs?.assessment?.user_backed_down,
           is_directed_question: assessment.is_directed_question ?? toolArgs?.assessment?.is_directed_question,
         } : null,
+
+        // --- Scoring ---
+        scoring: {
+          stance: `${t.previousStance} → ${t.newStance}`,
+          decisionType: t.decisionType,
+          runningScore: scoring?.runningScore ?? null,
+          delta: scoring?.delta ?? null,
+          thresholdMultiplier: scoring?.thresholdMultiplier ?? null,
+          priceModifier: scoring?.priceModifier ?? null,
+          estimatedPrice: t.estimatedPrice ?? null,
+          category: t.category ?? null,
+          guidance: toolResult?.guidance ?? null,
+          verdict: toolResult?.verdict ?? null,
+        },
+
+        // --- Call 2: Response ---
+        call2: {
+          systemPrompt: t.call2SystemPrompt ?? null,
+        },
+
+        // --- Call 3: Verdict summary (closing turns only) ---
+        call3: (t.call3SystemPrompt || t.call3RawResponse) ? {
+          systemPrompt: t.call3SystemPrompt ?? null,
+          rawResponse: t.call3RawResponse ?? null,
+        } : null,
+
+        // --- Context ---
         persistedContext,
-        call2SystemPrompt: t.call2SystemPrompt ?? null,
+
+        // --- Metrics ---
         tokens: t.tokenUsage?.totalTokens ?? null,
         durationMs: t.durationMs,
       };
@@ -113,6 +145,8 @@ export const saveTrace = internalMutation({
     }),
     durationMs: v.number(),
     call2SystemPrompt: v.optional(v.string()),
+    call3SystemPrompt: v.optional(v.string()),
+    call3RawResponse: v.optional(v.string()),
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),

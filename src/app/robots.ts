@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/conversations", "/admin", "/settings", "/stats"],
+      disallow: ["/conversations", "/admin", "/settings", "/stats", "/card/", "/render/"],
     },
     sitemap: "https://askhank.app/sitemap.xml",
   };

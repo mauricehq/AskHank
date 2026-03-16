@@ -5,7 +5,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { chatCompletion, type ChatMessage } from "./openrouter";
-import { buildSystemPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition } from "./prompt";
+import { buildSystemPrompt, buildAssessmentPrompt, buildMessages, buildConversationMessages, buildToolDefinition, buildOpenerPrompt, buildCloserPrompt, buildClosingToolDefinition, buildVerdictSummaryPrompt } from "./prompt";
 import { extractRecentMoves } from "./moves";
 import { selectMemoryNudge, formatNudgePrompt } from "./memory";
 import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
@@ -19,6 +19,7 @@ import {
   determineStance,
   applyStanceGuardrails,
   computePriceModifier,
+  computeShareScore,
   type TurnAssessment,
   type TurnSummary,
   type Stance,
@@ -509,6 +510,8 @@ type TraceData = Partial<{
   durationMs: number;
   error: string;
   call2SystemPrompt: string;
+  call3SystemPrompt: string;
+  call3RawResponse: string;
   toolCalled: boolean;
   toolArguments: string;
   toolResult: string;
@@ -524,6 +527,55 @@ function addUsage(
     completionTokens: a.completionTokens + b.completionTokens,
     totalTokens: a.totalTokens + b.totalTokens,
   };
+}
+
+/** Strip labels, markdown, and wrapping quotes from verdict summary LLM output. */
+function cleanVerdictSummary(raw: string): string {
+  let cleaned = raw;
+  // Strip markdown bold/italic markers
+  cleaned = cleaned.replace(/\*{1,3}/g, "");
+  // Strip label prefixes (e.g. "Share card verdict:", "Verdict summary:")
+  cleaned = cleaned.replace(/^.*?verdict[^:]*:\s*/i, "");
+  // Strip wrapping quotes
+  cleaned = cleaned.replace(/^[""\u201C]|[""\u201D]$/g, "").trim();
+  return cleaned;
+}
+
+/** Build a structured SCORING YAML block for Call 2 system prompt. */
+function buildScoringBlock(
+  stanceResult: GetStanceResult,
+  sanitized: TurnAssessment,
+): string {
+  const lines: string[] = [
+    "SCORING:",
+    `  stance: ${stanceResult.stance}`,
+    `  guidance: ${stanceResult.guidance}`,
+  ];
+  if (stanceResult.verdict) {
+    lines.push(`  verdict: ${stanceResult.verdict}`);
+  }
+  lines.push(
+    "  assessment:",
+    `    challenge_addressed: ${sanitized.challenge_addressed}`,
+    `    evidence_provided: ${sanitized.evidence_provided}`,
+    `    new_angle: ${sanitized.new_angle}`,
+    `    emotional_reasoning: ${sanitized.emotional_reasoning}`,
+    `    topic: ${sanitized.challenge_topic || "(none)"}`,
+  );
+  return lines.join("\n");
+}
+
+/** Extract closing_line from a Call 2 result, returning "" if not found. */
+function extractClosingLine(result: { content: string | null; toolCalls: { function: { name: string; arguments: string } }[] | null }): string {
+  if (result.toolCalls?.[0]?.function.name === "closing_response") {
+    try {
+      const parsed = JSON.parse(result.toolCalls[0].function.arguments);
+      if (typeof parsed.closing_line === "string" && parsed.closing_line) {
+        return parsed.closing_line;
+      }
+    } catch { /* bad JSON — fall through */ }
+  }
+  return result.content ?? "";
 }
 
 export const respond = internalAction({
@@ -644,42 +696,63 @@ export const respond = internalAction({
           recentMoves,
           workHoursBlock,
         };
+
+        // Extract previous context fields for assessment prompt
+        const lastChallengeTopic = previousContext?.turnSummaries?.length
+          ? previousContext.turnSummaries[previousContext.turnSummaries.length - 1].topic
+          : undefined;
+
+        // Call 1: assessment-only prompt (no voice/format guidance)
+        const assessmentPrompt = buildAssessmentPrompt({
+          stance: currentStance,
+          disengagementCount,
+          estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
+          category: previousContext?.category ?? conversation.category,
+          patience,
+          turnCount,
+          turnSummaries: previousContext?.turnSummaries,
+          previousItem: previousContext?.item,
+          previousIntent: previousContext?.intent,
+          lastChallengeTopic: lastChallengeTopic || undefined,
+        });
+
+        // Call 2: response-only prompt (no tool instructions)
         const systemPrompt = buildSystemPrompt(promptConfig);
-  
+
         const llmMessages = buildMessages(
-          systemPrompt,
+          assessmentPrompt,
           windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
-  
+
         // 3. Build tool definition
         const toolDef = buildToolDefinition();
-  
+
         // Capture input context for trace
         Object.assign(traceData, {
           previousStance: currentStance,
-          systemPrompt,
+          systemPrompt: assessmentPrompt,
           messagesArray: JSON.stringify(llmMessages),
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
-          maxTokens: 300,
+          maxTokens: 500,
           disengagementCount,
           stagnationCount: patience,
         });
-  
+
         // 4. CALL 1: LLM with tool available (low temp for consistent classification)
         const llmStart = Date.now();
         const call1 = await chatCompletion({
           messages: llmMessages,
           modelId,
           temperature: TEMPERATURE_ASSESSMENT,
-          maxTokens: 300,
+          maxTokens: 500,
           tools: [toolDef],
           tool_choice: { type: "function", function: { name: "get_stance" } },
         });
-  
+
         let toolCall = call1.toolCalls?.[0];
         let call1Usage = call1.usage;
-  
+
         // Retry once if tool call missing (model occasionally skips despite tool_choice)
         if (!toolCall || toolCall.function.name !== "get_stance") {
           console.warn("LLM skipped tool — retrying (attempt 2)");
@@ -687,7 +760,7 @@ export const respond = internalAction({
             messages: llmMessages,
             modelId,
             temperature: TEMPERATURE_ASSESSMENT,
-            maxTokens: 300,
+            maxTokens: 500,
             tools: [toolDef],
             tool_choice: { type: "function", function: { name: "get_stance" } },
           });
@@ -700,8 +773,7 @@ export const respond = internalAction({
   
         // 5. Extract assessment — tool call or conservative fallback
         let rawAssessment: Record<string, unknown>;
-        let usedFallback = false;
-  
+
         if (toolCall && toolCall.function.name === "get_stance") {
           traceData.toolCalled = true;
           // Parse tool arguments defensively
@@ -715,7 +787,6 @@ export const respond = internalAction({
         } else {
           console.warn("LLM skipped tool call — using fallback assessment");
           rawAssessment = FALLBACK_ASSESSMENT;
-          usedFallback = true;
           traceData.toolCalled = false;
         }
   
@@ -729,17 +800,20 @@ export const respond = internalAction({
           turnCount,
           previousContext,
         });
-  
-        // Build tool result for LLM (only public fields)
-        const toolResultForLLM: Record<string, unknown> = {
+
+        // Sanitize assessment early — used for both scoring block and trace
+        const sanitizedAssessment = sanitizeAssessment(rawAssessment);
+
+        // Build scoring block for Call 2 system prompt
+        const scoringBlock = buildScoringBlock(stanceResult, sanitizedAssessment);
+
+        const toolResultStr = JSON.stringify({
           stance: stanceResult.stance,
           score: stanceResult.score,
           guidance: stanceResult.guidance,
-        };
-        if (stanceResult.verdict) toolResultForLLM.verdict = stanceResult.verdict;
-        if (stanceResult.closing) toolResultForLLM.closing = stanceResult.closing;
-  
-        const toolResultStr = JSON.stringify(toolResultForLLM);
+          ...(stanceResult.verdict ? { verdict: stanceResult.verdict } : {}),
+          ...(stanceResult.closing ? { closing: stanceResult.closing } : {}),
+        });
         traceData.toolResult = toolResultStr;
   
         // Select memory nudge on turn 2+ if not yet stored
@@ -795,92 +869,80 @@ export const respond = internalAction({
             : call2Base;
         }
   
-        // Capture Call 2 prompt in trace when it differs from Call 1
-        if (call2SystemPrompt !== systemPrompt) {
-          traceData.call2SystemPrompt = call2SystemPrompt;
-        }
-  
-        // Build messages for call 2
+        // Append scoring block to Call 2 system prompt
+        call2SystemPrompt += "\n\n" + scoringBlock;
+
+        // Always capture Call 2 prompt — prompts always differ now (assessment vs response)
+        traceData.call2SystemPrompt = call2SystemPrompt;
+
+        // Build messages for Call 2 — unified path: scoring block in system prompt
         const conversationMsgs = buildConversationMessages(
           windowedMessages.map((m) => ({ role: m.role, content: m.content }))
         );
-        let call2Messages: ChatMessage[];
-        if (usedFallback) {
-          // No tool call to include — append guidance to system prompt
-          call2Messages = [
-            { role: "system", content: call2SystemPrompt + "\n\nSCORING: " + toolResultStr },
-            ...conversationMsgs,
-          ];
-        } else {
-          call2Messages = [
-            { role: "system", content: call2SystemPrompt },
-            ...conversationMsgs,
-            {
-              role: "assistant",
-              content: null,
-              tool_calls: [toolCall!],
-            },
-            {
-              role: "tool",
-              tool_call_id: toolCall!.id,
-              content: toolResultStr,
-            },
-          ];
-        }
+        const call2Messages: ChatMessage[] = [
+          { role: "system", content: call2SystemPrompt },
+          ...conversationMsgs,
+        ];
   
         // CALL 2: LLM generates response using stance guidance (higher temp for voice variety)
         const isClosingTurn = !!(stanceResult.closing && stanceResult.verdict);
         const closingTool = isClosingTurn ? buildClosingToolDefinition() : undefined;
   
-        const call2 = await chatCompletion({
+        const call2Params = {
           messages: call2Messages,
           modelId,
           temperature: TEMPERATURE_RESPONSE,
           maxTokens: 400,
           ...(closingTool ? {
             tools: [closingTool],
-            tool_choice: { type: "function", function: { name: "closing_response" } },
+            tool_choice: { type: "function" as const, function: { name: "closing_response" } },
           } : {}),
-        });
-  
-        const durationMs = Date.now() - llmStart;
-        const totalUsage = addUsage(call1Usage, call2.usage);
-  
+        };
+
+        const call2 = await chatCompletion(call2Params);
+
+        let totalUsage = addUsage(call1Usage, call2.usage);
+        let durationMs = Date.now() - llmStart;
+
         let responseText: string;
-        let excuse: string | undefined;
-        let verdictTagline: string | undefined;
-  
-        if (isClosingTurn && call2.toolCalls?.[0]?.function.name === "closing_response") {
-          try {
-            const parsed = JSON.parse(call2.toolCalls[0].function.arguments);
-            responseText = typeof parsed.closing_line === "string" && parsed.closing_line
-              ? parsed.closing_line
-              : (call2.content ?? "");
-            excuse = typeof parsed.excuse === "string" && parsed.excuse.length > 0 ? parsed.excuse.slice(0, 60) : undefined;
-            verdictTagline = typeof parsed.verdict_tagline === "string" && parsed.verdict_tagline.length > 0 ? parsed.verdict_tagline.slice(0, 30) : undefined;
-          } catch {
-            responseText = call2.content ?? "";
+
+        if (isClosingTurn) {
+          // Extract closing_line from tool call result
+          responseText = extractClosingLine(call2);
+
+          // Retry once if empty (mirrors Call 1 retry pattern)
+          if (!responseText) {
+            console.warn("Call 2 closing_line empty — retrying (attempt 2)");
+            const retry = await chatCompletion(call2Params);
+            totalUsage = addUsage(totalUsage, retry.usage);
+            durationMs = Date.now() - llmStart;
+            responseText = extractClosingLine(retry);
+          }
+
+          // Hardcoded fallback — better than an error state
+          if (!responseText) {
+            console.warn("Call 2 closing_line still empty after retry — using fallback");
+            responseText = stanceResult.verdict === "approved"
+              ? "Fine. Go buy it."
+              : "No.";
           }
         } else {
           responseText = call2.content ?? "";
-        }
-  
-        if (!responseText) {
-          throw new Error("Call 2 returned empty content");
+          if (!responseText) {
+            throw new Error("Call 2 returned empty content");
+          }
         }
   
         // Capture trace data
-        const sanitizedForTrace = sanitizeAssessment(rawAssessment);
-  
         Object.assign(traceData, {
           durationMs,
           rawResponse: responseText,
           tokenUsage: totalUsage,
-          rawScores: JSON.stringify(sanitizedForTrace),
+          rawScores: JSON.stringify(sanitizedAssessment),
           sanitizedScores: JSON.stringify(stanceResult._persistedContext),
           scoringResult: JSON.stringify(stanceResult._scoringResult),
           parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
-          decisionType: stanceResult._decisionType + (usedFallback ? " (fallback)" : ""),
+          decisionType: stanceResult._decisionType + (traceData.toolCalled === false ? " (fallback)" : ""),
           newStance: stanceResult.stance,
           category: stanceResult._category,
           estimatedPrice: stanceResult._estimatedPrice,
@@ -899,6 +961,14 @@ export const respond = internalAction({
           });
           traceData.messageId = messageId;
         } else if (stanceResult.closing && stanceResult.verdict) {
+          // Compute debate strength score for share cards
+          const shareScore = computeShareScore(
+            stanceResult.score,
+            stanceResult._scoringResult.thresholdMultiplier,
+            stanceResult._persistedContext.turnSummaries,
+          );
+
+          // Save closing line + verdict immediately (UI shows card right away)
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithVerdict,
             {
@@ -913,11 +983,119 @@ export const respond = internalAction({
               lastAssessment: lastAssessmentJson,
               disengagementCount: stanceResult._disengagementCount,
               stagnationCount: stanceResult._patience,
-              excuse,
-              verdictTagline,
+              verdictSummary: undefined,
+              shareScore,
             }
           );
           traceData.messageId = messageId;
+
+          // CALL 3: Generate verdict summary for share cards (non-fatal)
+          // Runs after save so the user sees the closing line immediately
+          try {
+            const summarySystemPrompt = buildVerdictSummaryPrompt({
+              item: stanceResult._item,
+              estimatedPrice: stanceResult._estimatedPrice,
+              category: stanceResult._category,
+              verdict: stanceResult.verdict,
+            });
+
+            traceData.call3SystemPrompt = summarySystemPrompt;
+
+            // Append Hank's closing response so Call 3 sees the complete conversation.
+            const call3Messages: ChatMessage[] = [
+              { role: "system", content: summarySystemPrompt },
+              ...conversationMsgs,
+              { role: "assistant", content: responseText },
+            ];
+
+            const call3 = await chatCompletion({
+              messages: call3Messages,
+              modelId,
+              temperature: TEMPERATURE_RESPONSE,
+              maxTokens: 80,
+            });
+
+            let rawSummary = (call3.content ?? "").trim();
+            traceData.call3RawResponse = rawSummary || "(empty)";
+            totalUsage = addUsage(totalUsage, call3.usage);
+
+            // Retry if too long (over 25 words) — nudge for brevity
+            if (rawSummary && rawSummary.split(/\s+/).length > 25) {
+              console.warn(`Call 3 verdict too long (${rawSummary.split(/\s+/).length} words), retrying shorter`);
+              try {
+                const call3Shorter = await chatCompletion({
+                  messages: [
+                    ...call3Messages,
+                    { role: "assistant", content: rawSummary },
+                    { role: "system", content: "Too long. Rewrite in one sentence, max 25 words. Output the summary text only." },
+                  ],
+                  modelId,
+                  temperature: TEMPERATURE_RESPONSE,
+                  maxTokens: 80,
+                });
+                const shorterSummary = (call3Shorter.content ?? "").trim();
+                if (shorterSummary) {
+                  rawSummary = shorterSummary;
+                  traceData.call3RawResponse += ` -> (shortened) ${shorterSummary}`;
+                }
+                totalUsage = addUsage(totalUsage, call3Shorter.usage);
+              } catch (shortenErr) {
+                console.warn("Call 3 shorten retry failed, using original:", shortenErr);
+              }
+            }
+
+            // Retry with fallback model if primary returned empty
+            if (!rawSummary && fallbackModel && fallbackModel !== modelId) {
+              console.warn(`Call 3 empty from ${modelId}, retrying with fallback: ${fallbackModel}`);
+              try {
+                const call3Retry = await chatCompletion({
+                  messages: call3Messages,
+                  modelId: fallbackModel,
+                  temperature: TEMPERATURE_RESPONSE,
+                  maxTokens: 80,
+                });
+                rawSummary = (call3Retry.content ?? "").trim();
+                traceData.call3RawResponse = rawSummary
+                  ? `(fallback) ${rawSummary}`
+                  : "(fallback empty)";
+                totalUsage = addUsage(totalUsage, call3Retry.usage);
+              } catch (fallbackErr) {
+                console.error(`Call 3 fallback (${fallbackModel}) also failed:`, fallbackErr);
+                traceData.call3RawResponse = `(fallback error) ${String(fallbackErr)}`;
+              }
+            }
+
+            if (rawSummary) {
+              const verdictSummary = cleanVerdictSummary(rawSummary);
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary,
+              });
+            } else {
+              // Hard fallback: use Hank's closing line rather than infinite loading
+              console.warn("Call 3: all models failed/empty, using responseText as verdictSummary");
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary: cleanVerdictSummary(responseText),
+              });
+            }
+          } catch (call3Error) {
+            console.error("Call 3 (verdict summary) failed (non-fatal):", call3Error);
+            traceData.call3RawResponse = `ERROR: ${String(call3Error)}`;
+            // Hard fallback on outer error: use closing line
+            try {
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary: cleanVerdictSummary(responseText),
+              });
+            } catch (patchErr) {
+              console.error("Failed to save hard fallback verdictSummary:", patchErr);
+            }
+          }
+
+          // Update timing + tokens to include Call 3
+          traceData.durationMs = Date.now() - llmStart;
+          traceData.tokenUsage = totalUsage;
         } else {
           const messageId = await ctx.runMutation(
             internal.conversations.saveResponseWithScoring,
@@ -938,11 +1116,16 @@ export const respond = internalAction({
         }
   
         // Increment memory reference count (only when nudge was used)
+        // Non-fatal: message is already saved, don't error the turn over this
         if (memoryNudgeConversationId) {
-          await ctx.runMutation(
-            internal.conversations.internalIncrementMemoryRef,
-            { conversationId: memoryNudgeConversationId }
-          );
+          try {
+            await ctx.runMutation(
+              internal.conversations.internalIncrementMemoryRef,
+              { conversationId: memoryNudgeConversationId }
+            );
+          } catch (e) {
+            console.error("Failed to increment memory ref (non-fatal):", e);
+          }
         }
   
         await saveTraceQuietly();

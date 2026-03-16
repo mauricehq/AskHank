@@ -68,7 +68,7 @@ export function HistoryItem({ name, verdict, timeAgo, estimatedPrice, isActive, 
 
       {/* Name + time */}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[0.85rem] font-bold text-text">{name}</div>
+        <div className="capitalize truncate text-[0.85rem] font-bold text-text">{name}</div>
         <div className="text-[0.7rem] text-text-secondary">
           {estimatedPrice && estimatedPrice > 0 && (
             <><span className="font-semibold">${estimatedPrice.toLocaleString()}</span> · </>

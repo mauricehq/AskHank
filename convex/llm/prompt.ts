@@ -113,7 +113,7 @@ export function buildToolDefinition(): ToolDefinition {
               new_angle: {
                 type: "boolean",
                 description:
-                  "Did they introduce something new that hasn't come up before in this conversation? A new fact, perspective, or argument that advances their case. Repeating the same point in different words = false. Bringing up a genuinely new reason = true. On turn 1, default to true — everything is new.",
+                  "Did they introduce a new argument FOR the purchase that hasn't come up before? A new fact, perspective, or reason that advances their case for buying. Repeating the same point in different words = false. Bringing up a genuinely new purchase reason = true. On turn 1, default to true — everything is new. IMPORTANT: User surrender, agreement with Hank, or walking away ('forget it', 'you're right', 'I'll save my money') is NOT a new angle — set user_backed_down instead.",
               },
               emotional_reasoning: {
                 type: "boolean",
@@ -138,7 +138,7 @@ export function buildToolDefinition(): ToolDefinition {
               user_backed_down: {
                 type: "boolean",
                 description:
-                  "true if the user explicitly agrees they should not buy the item, has changed their mind, or is walking away from the purchase. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it'. NOT for disengagement — those use is_non_answer.",
+                  "true if the user agrees with Hank, has changed their mind, or is walking away from the purchase — even partially. Examples: 'yeah you're right', 'I probably shouldn't buy this', 'fine I won't get it', 'forget the watch', 'you convinced me', 'I'll save my money'. If the user stops arguing FOR the purchase and shifts to agreeing, that's backing down. NOT for disengagement — those use is_non_answer.",
               },
               is_directed_question: {
                 type: "boolean",
@@ -151,6 +151,88 @@ export function buildToolDefinition(): ToolDefinition {
       },
     },
   };
+}
+
+// --- Dedicated assessment prompt (Call 1 only) ---
+
+interface AssessmentPromptConfig {
+  stance?: Stance;
+  disengagementCount?: number;
+  estimatedPrice?: number;
+  category?: string;
+  patience?: number;
+  turnCount?: number;
+  turnSummaries?: TurnSummary[];
+  previousItem?: string;
+  previousIntent?: string;
+  lastChallengeTopic?: string;
+}
+
+export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): string {
+  const {
+    stance = "FIRM",
+    disengagementCount = 0,
+    estimatedPrice,
+    category,
+    patience = 0,
+    turnCount = 1,
+  } = config;
+
+  const sections = [
+    // Context
+    `You are a purchase assessment classifier. Turn ${turnCount}. Current stance: ${stance}.${
+      estimatedPrice && estimatedPrice > 0
+        ? ` Item costs ~$${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}.`
+        : " Price unknown."
+    }`,
+
+    // Tool directive
+    `CALL THE get_stance TOOL. No text. No reasoning. No commentary. Tool call ONLY.`,
+  ];
+
+  // Previous context (turn 2+)
+  if (config.previousItem || config.previousIntent || config.lastChallengeTopic) {
+    const lines: string[] = ["PREVIOUS CONTEXT:"];
+    if (config.previousItem) lines.push(`  item: ${config.previousItem}`);
+    if (config.previousIntent) lines.push(`  intent: ${config.previousIntent}`);
+    if (config.lastChallengeTopic) lines.push(`  last_challenge_topic: ${config.lastChallengeTopic}`);
+    sections.push(lines.join("\n"));
+  }
+
+  // Debate progress
+  if (config.turnSummaries && config.turnSummaries.length > 0) {
+    const summaryLines = config.turnSummaries.map((s) => {
+      const qualifiers: string[] = [];
+      if (s.addressed) qualifiers.push(s.evidence ? "strong counter" : "addressed without hard evidence");
+      else qualifiers.push("didn't address challenge");
+      const topicSuffix = s.topic ? ` on '${s.topic}'` : "";
+      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")}${topicSuffix}`;
+    });
+    sections.push(`DEBATE PROGRESS:\n${summaryLines.join("\n")}`);
+  }
+
+  // Out of scope
+  sections.push(
+    `OUT OF SCOPE (set is_out_of_scope=true): investment advice, medical purchases, insurance, business expenses. Gifts and family purchases are IN scope.`
+  );
+
+  // Disengagement context
+  if (disengagementCount >= 1) {
+    sections.push(
+      `DISENGAGEMENT: ${disengagementCount} consecutive non-answer${disengagementCount > 1 ? "s" : ""}.`
+    );
+  }
+
+  // Patience context
+  if (patience >= 8) {
+    sections.push(`PATIENCE: Critical — one more weak turn closes this.`);
+  } else if (patience >= 6) {
+    sections.push(`PATIENCE: Running thin.`);
+  } else if (patience >= 4) {
+    sections.push(`PATIENCE: Waning.`);
+  }
+
+  return sections.join("\n\n");
 }
 
 export function buildSystemPrompt(config: PromptConfig = {}): string {
@@ -192,19 +274,9 @@ You're talking to ${userName}.`,
 
 6. Be dry, not mean. Observant, witty, slightly disappointed. Not angry, not condescending, not preachy.
 
-7. Your current stance is ${stance}. You CANNOT move to a softer stance without calling the get_stance tool. ${STANCE_INSTRUCTIONS[stance]}
+7. Your current stance is ${stance}. ${STANCE_INSTRUCTIONS[stance]}
 
 CRITICAL: You do not decide when to concede. The scoring system decides. You follow the stance you are given. If your stance is not CONCEDE, you must NOT concede regardless of what the user says.`,
-
-    // Tool usage
-    `TOOL USAGE:
-- Call get_stance on EVERY user message. No exceptions.
-- For casual chat, greetings, or non-purchase topics: set is_out_of_scope to true.
-- For non-answers or disengagement ("whatever", "fine", "lol"): set is_non_answer to true.
-- For user agreement/surrender ("yeah you're right", "I won't buy it"): set user_backed_down to true.
-- For purchase arguments: classify the debate quality fields based on THIS turn only.
-- Follow the guidance the tool returns.
-- Your response is plain text. 1-3 sentences. No JSON. No markdown.`,
 
     // Voice examples
     `EXAMPLES of how you sound:
@@ -241,8 +313,8 @@ CRITICAL: You do not decide when to concede. The scoring system decides. You fol
 
     // Format rules
     `FORMAT RULES:
-- 1-3 sentences max. Be concise.
-- No markdown, no bullet points, no numbered lists.
+- Your response is plain text. 1-3 sentences. No JSON. No markdown.
+- No bullet points, no numbered lists.
 - No quotation marks around your response. Just plain text.
 - Use periods, not question marks, for rhetorical points. "You already have one." not "Don't you already have one?"
 - Ask one probing question per response to keep the conversation going.
@@ -278,7 +350,8 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
       const qualifiers: string[] = [];
       if (s.addressed) qualifiers.push(s.evidence ? "strong counter" : "addressed without hard evidence");
       else qualifiers.push("didn't address challenge");
-      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")} on '${s.topic}'`;
+      const topicSuffix = s.topic ? ` on '${s.topic}'` : "";
+      return `Turn ${s.turn}: ${s.delta >= 0 ? "+" : ""}${s.delta} — ${qualifiers.join(", ")}${topicSuffix}`;
     });
 
     sections.push(
@@ -373,7 +446,7 @@ Rules:
 - Observation, not interview. You're not filling out a form.
 - One sentence of pushback + one probing question. That's it. 2 sentences max.
 - No markdown. No emojis. No asterisk actions. No quotation marks around your response.
-- Follow the guidance from the tool result.
+- Follow the guidance in the SCORING section.
 
 Good openers:
 - $200 on a pressure washer. You have a hose.
@@ -430,10 +503,80 @@ Rules:
 - 1-2 sentences max. This is a mic drop, not a speech.
 - No markdown. No emojis. No asterisk actions. No quotation marks around your response.
 - Do NOT ask a follow-up question. The conversation is over.
-- Follow the guidance from the tool result — it tells you what to reference.
+- Follow the guidance in the SCORING section — it tells you what to reference.
 - Use the closing_response tool to deliver your response.
 
 ${verdictRules}`;
+}
+
+// --- Dedicated verdict summary prompt (Call 3, after closing) ---
+
+interface VerdictSummaryPromptConfig {
+  item?: string;
+  estimatedPrice?: number;
+  category?: string;
+  verdict: "approved" | "denied";
+}
+
+export function buildVerdictSummaryPrompt(config: VerdictSummaryPromptConfig): string {
+  const { item, estimatedPrice, category, verdict } = config;
+
+  const itemContext = item && item !== "unknown"
+    ? estimatedPrice && estimatedPrice > 0
+      ? `${item} ($${estimatedPrice})`
+      : item
+    : "their item";
+
+  const categoryNote = category && category !== "other" ? ` Category: ${category}.` : "";
+
+  const verdictRules = verdict === "approved"
+    ? `APPROVED RULES:
+- Be grudging. You lost. They earned it, but you're not happy about it.
+- Name the argument that forced your hand — in your own words, don't quote the user.
+- Add a caveat or warning — you're conceding, not celebrating.`
+    : `DENIED RULES:
+- Expose the core weakness in their case. What was the fatal flaw.
+- Reframe the purchase — show what it really was (emotional crutch, peer pressure, scroll-brain).
+- End with what they should do instead, if it's funny. Otherwise just land the punch.`;
+
+  return `You are Hank. You talk people out of buying things. Dry, observant, slightly disappointed — never preachy. You notice patterns. You're occasionally funny in a deadpan way.
+
+YOUR ONE JOB: Write a 1-2 sentence verdict that works on its own — readable by someone who never saw the conversation. Use the conversation to inform your verdict, but don't reference specific turns or quote the user directly.
+
+CONTEXT:
+- Item: ${itemContext}${categoryNote}
+- Verdict: ${verdict}
+- Your closing line is the last message in the conversation. Do NOT repeat or rephrase it.
+
+RULES:
+- Summarize YOUR reasoning, not the user's argument.
+- Be specific to THIS purchase — no generic spending advice.
+- Don't mock the user. Mock the logic.
+- Never start with "I".
+- Max 25 words. One punchy line, two short sentences at most. Plain text only. No markdown. No bold or italics.
+- Output the summary text directly. Nothing else.
+
+${verdictRules}
+
+GOOD EXAMPLES:
+- "Buying a $1,000 fridge to avoid a conversation with your wife isn't a kitchen upgrade — it's expensive avoidance. Talk to her instead."
+- "Three turns of 'but I want it' isn't a case. It's a loop. The headphones stay in the store."
+- "Four hundred dollars on a bag to carry the same phone and keys. The current bag works. The current bag stays."
+- "Thirty hours in similar games and a price-per-hour that beats most entertainment. Fine. Don't come back for the DLC."
+- "The salt argument actually landed. A pressure washer pays for itself if you're not hiring someone twice a year. Grudgingly approved."
+- "Nobody needs a $200 candle. Especially someone with a drawer full of candles they don't light."
+
+NEVER SOUND LIKE THIS:
+- "After careful consideration of the arguments presented..." (too formal)
+- "The user failed to provide sufficient justification..." (clinical)
+- "Purchase denied due to lack of evidence." (bureaucrat)
+- "I've decided to deny this purchase because..." (starts with "I")
+- "You shouldn't buy this." (generic)
+- "No! Bad! Don't buy that!" (too aggressive)
+- "Let me help you create a savings plan..." (too helpful/soft)
+- "I understand how you feel..." (sympathetic about impulse buying)
+- "Let's think about this purchase holistically..." (therapist)
+- "Have you considered whether this aligns with your values?" (life coach)`;
 }
 
 export function buildClosingToolDefinition(): ToolDefinition {
@@ -444,19 +587,11 @@ export function buildClosingToolDefinition(): ToolDefinition {
       description: "Deliver your closing line with structured metadata for the verdict card.",
       parameters: {
         type: "object",
-        required: ["closing_line", "excuse", "verdict_tagline"],
+        required: ["closing_line"],
         properties: {
           closing_line: {
             type: "string",
             description: "Your closing line. 1-2 sentences. The mic drop.",
-          },
-          excuse: {
-            type: "string",
-            description: "The user's core purchase argument distilled to under 10 words, as if they said it.",
-          },
-          verdict_tagline: {
-            type: "string",
-            description: "Your 2-4 word Hank-voice summary. Dry and punchy.",
           },
         },
       },

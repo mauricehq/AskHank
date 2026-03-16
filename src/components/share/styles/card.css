@@ -1,0 +1,333 @@
+/**
+ * Share Card v2 — Container Query CSS
+ *
+ * Uses CSS Container Queries for proportional scaling.
+ * Portrait (default): cqmin-based sizing
+ * Landscape (min-aspect-ratio: 3/2): cqw-based, two-panel layout
+ * Very wide (min-aspect-ratio: 1.8/1): additional OG image tweaks
+ */
+
+/* ===== Container Setup ===== */
+.share-card-container {
+  container-type: size;
+  container-name: card;
+  width: 100%;
+  height: 100%;
+}
+
+/* Border radius: capped at 48px */
+.card-radius {
+  border-radius: clamp(16px, 5.2cqmin, 48px);
+}
+
+/* ===== Layout Modes ===== */
+
+/* Full-bleed inner wrapper */
+.card-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Portrait: visible by default */
+.card-portrait {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 7cqmin;
+  gap: 3.5cqmin;
+}
+
+/* Landscape: hidden by default */
+.card-landscape {
+  display: none;
+}
+
+/* ===== Typography — Portrait (cqmin) ===== */
+
+.card-text-logo {
+  font-size: clamp(12px, 3.2cqmin, 28px);
+}
+
+.card-text-stamp {
+  font-size: clamp(36px, 13cqmin, 160px);
+  line-height: 1;
+}
+
+.card-stamp-sub {
+  font-size: clamp(9px, 2.5cqmin, 22px);
+  letter-spacing: 0.1em;
+}
+
+.card-text-product {
+  font-size: clamp(22px, 7.5cqmin, 90px);
+}
+
+.card-text-price {
+  font-size: clamp(13px, 4.2cqmin, 36px);
+}
+
+.card-text-quote {
+  font-size: clamp(12px, 4.2cqmin, 34px);
+  line-height: 1.45;
+}
+
+.card-text-score-label {
+  font-size: clamp(8px, 2.2cqmin, 18px);
+}
+
+.card-text-score-value {
+  font-size: clamp(9px, 2.5cqmin, 20px);
+}
+
+.card-text-tagline {
+  font-size: clamp(8px, 2cqmin, 16px);
+  line-height: 1.4;
+}
+
+.card-text-url {
+  font-size: clamp(9px, 2.5cqmin, 20px);
+}
+
+/* ===== Icons ===== */
+
+.card-icon-logo {
+  width: max(16px, 4.7cqmin);
+  height: max(16px, 4.7cqmin);
+}
+
+/* ===== Spacing ===== */
+
+.card-gap-sm {
+  gap: max(4px, 1.6cqmin);
+}
+
+.card-mt-price {
+  margin-top: max(4px, 1cqmin);
+}
+
+/* ===== Stamp ===== */
+
+.card-stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-stamp-frame {
+  display: flex;
+  align-items: center;
+  gap: max(6px, 2cqmin);
+  width: 100%;
+  margin-top: max(2px, 0.7cqmin);
+}
+
+.card-stamp-line {
+  flex: 1;
+  height: 2px;
+}
+
+/* ===== Quote Box ===== */
+
+.card-quote-box {
+  padding: max(10px, 2.5cqmin);
+  border-radius: max(8px, 2cqmin);
+}
+
+/* ===== Score ===== */
+
+.card-score-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-score-header {
+  margin-bottom: max(4px, 1cqmin);
+}
+
+.card-score-track {
+  width: 100%;
+  height: max(4px, 1.2cqmin);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.card-score-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* ===== Footer (portrait only) ===== */
+
+.card-footer-portrait {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: max(8px, 2.5cqmin);
+}
+
+/* ===== Per-Element Size Variants ===== */
+
+/* Product name variants */
+.card-text-product-compact {
+  font-size: clamp(18px, 5.8cqmin, 72px);
+}
+.card-text-product-tight {
+  font-size: clamp(15px, 4.5cqmin, 58px);
+}
+
+/* Quote variants */
+.card-text-quote-compact {
+  font-size: clamp(11px, 3.5cqmin, 28px);
+  line-height: 1.45;
+}
+.card-text-quote-tight {
+  font-size: clamp(10px, 3cqmin, 24px);
+  line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════ */
+/* LANDSCAPE — min-aspect-ratio: 3/2          */
+/* ═══════════════════════════════════════════ */
+
+@container card (min-aspect-ratio: 3/2) {
+  /* Swap layouts */
+  .card-portrait {
+    display: none;
+  }
+
+  .card-landscape {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    padding: 5.5cqh 5cqw;
+    gap: 4cqw;
+  }
+
+  /* Left panel */
+  .card-ls-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .card-ls-stamp-area {
+    display: flex;
+    flex-direction: column;
+    margin-top: max(8px, 2cqh);
+  }
+
+  /* Vertical divider */
+  .card-ls-divider {
+    width: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  /* Right panel */
+  .card-ls-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
+    gap: 3cqh;
+  }
+
+  .card-ls-url {
+    margin-top: max(4px, 1.5cqh);
+  }
+
+  /* Typography — landscape (cqw) */
+  .card-text-logo {
+    font-size: clamp(12px, 2.2cqw, 28px);
+  }
+
+  .card-text-stamp {
+    font-size: clamp(36px, 8cqw, 120px);
+  }
+
+  .card-stamp-sub {
+    font-size: clamp(9px, 1.5cqw, 20px);
+  }
+
+  .card-text-product {
+    font-size: clamp(18px, 4cqw, 60px);
+  }
+
+  .card-text-price {
+    font-size: clamp(12px, 2.2cqw, 28px);
+  }
+
+  .card-text-quote {
+    font-size: clamp(11px, 2.2cqw, 24px);
+    line-height: 1.5;
+  }
+
+  .card-text-score-label {
+    font-size: clamp(8px, 1.4cqw, 16px);
+  }
+
+  .card-text-score-value {
+    font-size: clamp(9px, 1.6cqw, 18px);
+  }
+
+  .card-text-tagline {
+    font-size: clamp(8px, 1.3cqw, 14px);
+  }
+
+  .card-text-url {
+    font-size: clamp(9px, 1.5cqw, 18px);
+  }
+
+  /* Icons — landscape */
+  .card-icon-logo {
+    width: max(16px, 3.5cqw);
+    height: max(16px, 3.5cqw);
+  }
+
+  /* Score track */
+  .card-score-track {
+    height: max(4px, 1cqh);
+  }
+
+  /* Quote box */
+  .card-quote-box {
+    padding: max(10px, 2cqw);
+    border-radius: max(8px, 1.5cqw);
+  }
+
+  /* Size variants — landscape */
+  .card-text-product-compact {
+    font-size: clamp(16px, 3.2cqw, 48px);
+  }
+  .card-text-product-tight {
+    font-size: clamp(14px, 2.6cqw, 40px);
+  }
+
+  .card-text-quote-compact {
+    font-size: clamp(10px, 1.9cqw, 20px);
+  }
+  .card-text-quote-tight {
+    font-size: clamp(9px, 1.6cqw, 18px);
+  }
+}
+
+/* Very wide (OG 1.9:1) — tighter quote scaling */
+@container card (min-aspect-ratio: 1.8/1) {
+  .card-text-quote {
+    font-size: clamp(10px, 1.9cqw, 22px);
+  }
+  .card-text-quote-compact {
+    font-size: clamp(9px, 1.6cqw, 18px);
+  }
+  .card-text-quote-tight {
+    font-size: clamp(8px, 1.4cqw, 16px);
+  }
+  .card-quote-box {
+    padding: max(8px, 1.6cqw);
+  }
+}

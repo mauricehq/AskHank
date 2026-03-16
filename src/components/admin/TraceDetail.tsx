@@ -157,11 +157,44 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
       </CollapsibleSection>
 
       {/* System Prompt */}
-      <CollapsibleSection title="System Prompt">
+      <CollapsibleSection title="Call 1 — System Prompt">
         <pre className="max-h-[300px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
           {trace.systemPrompt}
         </pre>
       </CollapsibleSection>
+
+      {/* Call 2 System Prompt (shown when it differs from Call 1) */}
+      {trace.call2SystemPrompt && (
+        <CollapsibleSection title="Call 2 — System Prompt">
+          <pre className="max-h-[300px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
+            {trace.call2SystemPrompt}
+          </pre>
+        </CollapsibleSection>
+      )}
+
+      {/* Call 3 — Verdict Summary (only on closing turns) */}
+      {trace.call3RawResponse && (
+        <CollapsibleSection title="Call 3 — Verdict Summary" defaultOpen>
+          {trace.call3SystemPrompt && (
+            <div className="mb-2">
+              <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
+                System Prompt
+              </div>
+              <pre className="max-h-[200px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
+                {trace.call3SystemPrompt}
+              </pre>
+            </div>
+          )}
+          <div>
+            <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
+              Raw Response
+            </div>
+            <pre className="max-h-[200px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
+              {trace.call3RawResponse}
+            </pre>
+          </div>
+        </CollapsibleSection>
+      )}
 
       {/* Messages Array */}
       <CollapsibleSection title="Messages Array">

@@ -83,7 +83,6 @@ export const listConversations = query({
       estimatedPrice: c.estimatedPrice,
       item: c.item,
       verdict: c.verdict,
-      verdictTagline: c.verdictTagline,
       createdAt: c.createdAt,
     }));
   },

@@ -9,7 +9,8 @@ function makeConversation(overrides: {
   item?: string;
   category?: string;
   estimatedPrice?: number;
-  excuse?: string;
+  verdict?: "approved" | "denied";
+  verdictSummary?: string;
   memoryReferenceCount?: number;
   daysAgo?: number;
 }): PastConversation {
@@ -28,7 +29,7 @@ describe("selectMemoryNudge", () => {
 
   it("returns null when no category match", () => {
     const result = selectMemoryNudge(
-      [makeConversation({ item: "Headphones", category: "electronics" })],
+      [makeConversation({ item: "Headphones", category: "electronics", verdict: "denied" })],
       "furniture",
       undefined,
       NOW
@@ -38,7 +39,7 @@ describe("selectMemoryNudge", () => {
 
   it("returns null when current category is 'other'", () => {
     const result = selectMemoryNudge(
-      [makeConversation({ item: "Gadget", category: "other" })],
+      [makeConversation({ item: "Gadget", category: "other", verdict: "denied" })],
       "other",
       undefined,
       NOW
@@ -47,8 +48,8 @@ describe("selectMemoryNudge", () => {
   });
 
   it("picks category match over non-match", () => {
-    const match = makeConversation({ _id: "match", item: "Laptop", category: "electronics" });
-    const noMatch = makeConversation({ _id: "no-match", item: "Couch", category: "furniture" });
+    const match = makeConversation({ _id: "match", item: "Laptop", category: "electronics", verdict: "denied" });
+    const noMatch = makeConversation({ _id: "no-match", item: "Couch", category: "furniture", verdict: "denied" });
     const result = selectMemoryNudge([noMatch, match], "electronics", undefined, NOW);
     expect(result).not.toBeNull();
     expect(result!.conversationId).toBe("match");
@@ -60,6 +61,7 @@ describe("selectMemoryNudge", () => {
       _id: "high",
       item: "Headphones",
       category: "electronics",
+      verdict: "denied",
       memoryReferenceCount: 3,
       daysAgo: 1,
     });
@@ -67,6 +69,7 @@ describe("selectMemoryNudge", () => {
       _id: "low",
       item: "Laptop",
       category: "electronics",
+      verdict: "denied",
       memoryReferenceCount: 0,
       daysAgo: 5,
     });
@@ -79,6 +82,7 @@ describe("selectMemoryNudge", () => {
       _id: "older",
       item: "Old headphones",
       category: "electronics",
+      verdict: "approved",
       memoryReferenceCount: 1,
       daysAgo: 10,
     });
@@ -86,6 +90,7 @@ describe("selectMemoryNudge", () => {
       _id: "newer",
       item: "New headphones",
       category: "electronics",
+      verdict: "denied",
       memoryReferenceCount: 1,
       daysAgo: 1,
     });
@@ -94,21 +99,21 @@ describe("selectMemoryNudge", () => {
   });
 
   it("skips items that are 'unknown' or missing", () => {
-    const unknown = makeConversation({ _id: "bad1", item: "unknown", category: "electronics" });
-    const missing = makeConversation({ _id: "bad2", category: "electronics" });
-    const good = makeConversation({ _id: "good", item: "Laptop", category: "electronics" });
+    const unknown = makeConversation({ _id: "bad1", item: "unknown", category: "electronics", verdict: "denied" });
+    const missing = makeConversation({ _id: "bad2", category: "electronics", verdict: "denied" });
+    const good = makeConversation({ _id: "good", item: "Laptop", category: "electronics", verdict: "denied" });
     const result = selectMemoryNudge([unknown, missing, good], "electronics", undefined, NOW);
     expect(result!.conversationId).toBe("good");
   });
 
   it("skips past conversations with category 'other'", () => {
-    const other = makeConversation({ _id: "other", item: "Thing", category: "other" });
+    const other = makeConversation({ _id: "other", item: "Thing", category: "other", verdict: "denied" });
     const result = selectMemoryNudge([other], "electronics", undefined, NOW);
     expect(result).toBeNull();
   });
 
   it("accepts optional timezone parameter without breaking", () => {
-    const conv = makeConversation({ item: "Laptop", category: "electronics", daysAgo: 2 });
+    const conv = makeConversation({ item: "Laptop", category: "electronics", verdict: "denied", daysAgo: 2 });
     const result = selectMemoryNudge([conv], "electronics", "America/New_York", NOW);
     expect(result).not.toBeNull();
     expect(result!.item).toBe("Laptop");
@@ -120,86 +125,84 @@ describe("selectMemoryNudge", () => {
       _id: "no-count",
       item: "Phone",
       category: "electronics",
+      verdict: "denied",
       daysAgo: 5,
     });
     const withCount = makeConversation({
       _id: "with-count",
       item: "Tablet",
       category: "electronics",
+      verdict: "denied",
       memoryReferenceCount: 1,
       daysAgo: 1,
     });
     const result = selectMemoryNudge([withCount, noCount], "electronics", undefined, NOW);
     expect(result!.conversationId).toBe("no-count");
   });
+
+  it("skips conversations without a verdict", () => {
+    const active = makeConversation({ _id: "active", item: "Phone", category: "electronics" });
+    const result = selectMemoryNudge([active], "electronics", undefined, NOW);
+    expect(result).toBeNull();
+  });
+
+  it("skips conversations with undefined verdict", () => {
+    const errorConv = makeConversation({
+      _id: "err",
+      item: "Phone",
+      category: "electronics",
+      verdict: undefined,
+    });
+    const result = selectMemoryNudge([errorConv], "electronics", undefined, NOW);
+    expect(result).toBeNull();
+  });
+
+  it("includes both denied and approved conversations", () => {
+    const denied = makeConversation({
+      _id: "denied",
+      item: "Phone",
+      category: "electronics",
+      verdict: "denied",
+      memoryReferenceCount: 0,
+      daysAgo: 2,
+    });
+    const approved = makeConversation({
+      _id: "approved",
+      item: "Laptop",
+      category: "electronics",
+      verdict: "approved",
+      memoryReferenceCount: 0,
+      daysAgo: 1,
+    });
+    // Both are valid candidates — approved is more recent so it wins the tiebreak
+    const result = selectMemoryNudge([denied, approved], "electronics", undefined, NOW);
+    expect(result).not.toBeNull();
+    expect(result!.conversationId).toBe("approved");
+    expect(result!.verdict).toBe("approved");
+  });
+
+  it("returns verdict and verdictSummary in the nudge", () => {
+    const conv = makeConversation({
+      _id: "c1",
+      item: "Phone",
+      category: "electronics",
+      verdict: "denied",
+      verdictSummary: "Pure impulse buy with no research",
+    });
+    const result = selectMemoryNudge([conv], "electronics", undefined, NOW);
+    expect(result!.verdict).toBe("denied");
+    expect(result!.verdictSummary).toBe("Pure impulse buy with no research");
+  });
 });
 
-describe("selectMemoryNudge — category history", () => {
-  it("includes categoryHistory when count > 1", () => {
+describe("selectMemoryNudge — old conversations", () => {
+  it("still picks old conversations for nudge", () => {
     const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Headphones", category: "electronics", daysAgo: 20 }),
-      makeConversation({ _id: "c3", item: "Monitor", category: "electronics", daysAgo: 40 }),
+      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", verdict: "denied", daysAgo: 100 }),
     ];
     const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(3);
-    expect(result!.categoryHistory!.category).toBe("electronics");
-    expect(result!.categoryHistory!.window).toBe("a couple months");
-  });
-
-  it("omits categoryHistory when count = 1", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("excludes conversations older than 90 days from category history", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Headphones", category: "electronics", daysAgo: 91 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    // Only 1 candidate within 90 days, so no category history
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("still picks old conversations for nudge even if outside 90-day window", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 100 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    // Main nudge still works — 90-day cutoff only affects category history
     expect(result).not.toBeNull();
     expect(result!.item).toBe("Laptop");
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("includes conversation at exactly 90 days in category history", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Phone", category: "electronics", daysAgo: 90 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(2);
-  });
-
-  it("uses timezone-aware window label", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 2 }),
-      makeConversation({ _id: "c2", item: "Phone", category: "electronics", daysAgo: 10 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", "America/New_York", NOW);
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(2);
-    expect(result!.categoryHistory!.window).toBe("a couple weeks");
   });
 });
 
@@ -208,17 +211,17 @@ describe("formatNudgePrompt", () => {
     conversationId: "conv_123",
     item: "headphones",
     estimatedPrice: 550,
-    excuse: "I listen to music all day",
+    verdict: "denied",
     dateLabel: "a few days ago",
   };
 
   it("outputs structured YAML-like data with all fields", () => {
     const result = formatNudgePrompt(baseNudge);
     expect(result).toContain("MEMORY:");
-    expect(result).toContain('previous_item: "headphones"');
+    expect(result).toContain('item: "headphones"');
     expect(result).toContain("price: $550");
     expect(result).toContain('date: "a few days ago"');
-    expect(result).not.toContain("user:");
+    expect(result).toContain("verdict: denied");
   });
 
   it("omits price line when 0", () => {
@@ -233,55 +236,54 @@ describe("formatNudgePrompt", () => {
     expect(result).not.toContain("price:");
   });
 
-  it("includes their_claim when excuse present", () => {
-    const result = formatNudgePrompt(baseNudge);
-    expect(result).toContain('their_claim: "I listen to music all day"');
-  });
-
-  it("omits their_claim when excuse is undefined", () => {
-    const nudge = { ...baseNudge, excuse: undefined };
-    const result = formatNudgePrompt(nudge);
-    expect(result).not.toContain("their_claim");
-  });
-
-  it("sanitizes double quotes in item and excuse", () => {
+  it("sanitizes double quotes in item", () => {
     const nudge: MemoryNudge = {
       conversationId: "conv_456",
       item: 'He said "buy it"',
       estimatedPrice: 100,
-      excuse: 'She said "you need this"',
+      verdict: "denied",
       dateLabel: "a few days ago",
     };
     const result = formatNudgePrompt(nudge);
     expect(result).toContain("He said 'buy it'");
-    expect(result).toContain("She said 'you need this'");
   });
 
-  it("includes category_history block when present", () => {
+  it("contains denied guidance for denied nudge", () => {
+    const result = formatNudgePrompt(baseNudge);
+    expect(result).toContain("shut this down");
+    expect(result).toContain("Reference this once");
+    expect(result).not.toContain("made a real case");
+  });
+
+  it("contains approved guidance for approved nudge", () => {
+    const nudge: MemoryNudge = { ...baseNudge, verdict: "approved" };
+    const result = formatNudgePrompt(nudge);
+    expect(result).toContain("made a real case");
+    expect(result).toContain("verdict: approved");
+    expect(result).not.toContain("shut this down");
+  });
+
+  it("includes verdictSummary as reason line", () => {
     const nudge: MemoryNudge = {
       ...baseNudge,
-      categoryHistory: {
-        count: 4,
-        category: "electronics",
-        window: "a couple months",
-      },
+      verdictSummary: "Pure impulse buy with no research",
     };
     const result = formatNudgePrompt(nudge);
-    expect(result).toContain("category_history:");
-    expect(result).toContain("count: 4");
-    expect(result).toContain('category: "electronics"');
-    expect(result).toContain('window: "a couple months"');
+    expect(result).toContain('reason: "Pure impulse buy with no research"');
   });
 
-  it("omits category_history block when categoryHistory is undefined", () => {
-    const result = formatNudgePrompt(baseNudge);
-    expect(result).not.toContain("category_history:");
+  it("omits reason line when verdictSummary is missing", () => {
+    const nudge: MemoryNudge = { ...baseNudge, verdictSummary: undefined };
+    const result = formatNudgePrompt(nudge);
+    expect(result).not.toContain("reason:");
   });
 
-  it("includes the directive and examples", () => {
-    const result = formatNudgePrompt(baseNudge);
-    expect(result).toContain("Weave one dry callback");
-    expect(result).toContain("Don't parrot");
-    expect(result).toContain("Examples:");
+  it("sanitizes double quotes in verdictSummary", () => {
+    const nudge: MemoryNudge = {
+      ...baseNudge,
+      verdictSummary: 'User said "I need this" but had no justification',
+    };
+    const result = formatNudgePrompt(nudge);
+    expect(result).toContain("reason: \"User said 'I need this' but had no justification\"");
   });
 });

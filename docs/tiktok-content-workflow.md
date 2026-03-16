@@ -75,6 +75,7 @@ Dev URL:    http://localhost:3000/replay/<token>
 - Typing indicator dots before each Hank message
 - Verdict card scales in at the end
 - "askhank.app" watermark at bottom
+- **Animated share card intro/outro** — the v2 share card (see `docs/sharing-v2.md`) could animate in as a cold open or punchline: DENIED stamp slams down, score bar fills, quote fades in
 - Replay button appears when playback finishes
 - No sign-in required — anyone with the URL can view it
 - OG metadata for link previews (title: "Hank says NO to Espresso machine")
@@ -99,7 +100,7 @@ Go to **Admin -> Content** tab to:
 - `conversationId` — links back to the source conversation
 - `token` — UUID for the public URL (server-generated)
 - `messages` — condensed message array `[{role, content}]`
-- `item`, `estimatedPrice`, `category`, `verdict`, `verdictTagline` — denormalized from the conversation so the replay page needs only one unauthenticated query
+- `item`, `estimatedPrice`, `category`, `verdict`, `verdictSummary` — denormalized from the conversation so the replay page needs only one unauthenticated query
 
 ### Security
 

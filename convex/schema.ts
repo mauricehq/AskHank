@@ -48,8 +48,8 @@ export default defineSchema({
     disengagementCount: v.number(),
     stagnationCount: v.number(),
     verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
-    excuse: v.optional(v.string()),
-    verdictTagline: v.optional(v.string()),
+    verdictSummary: v.optional(v.string()),
+    shareScore: v.optional(v.number()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
@@ -124,6 +124,10 @@ export default defineSchema({
     // Call 2 prompt swap (opener/closer)
     call2SystemPrompt: v.optional(v.string()),
 
+    // Call 3 verdict summary trace
+    call3SystemPrompt: v.optional(v.string()),
+    call3RawResponse: v.optional(v.string()),
+
     // Tool calling (v2)
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
@@ -155,11 +159,51 @@ export default defineSchema({
     estimatedPrice: v.optional(v.number()),
     category: v.optional(v.string()),
     verdict: v.union(v.literal("approved"), v.literal("denied")),
-    verdictTagline: v.optional(v.string()),
+    verdictSummary: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_token", ["token"])
     .index("by_conversation", ["conversationId"]),
+
+  shareCards: defineTable({
+    token: v.string(),
+    cardType: v.union(
+      v.literal("verdict"),
+      v.literal("roast"),
+      v.literal("savedTotal")
+    ),
+    conversationId: v.optional(v.id("conversations")),
+    userId: v.id("users"),
+    data: v.union(
+      v.object({
+        verdict: v.union(v.literal("approved"), v.literal("denied")),
+        item: v.string(),
+        estimatedPrice: v.optional(v.number()),
+        category: v.optional(v.string()),
+        verdictSummary: v.optional(v.string()),
+        shareScore: v.optional(v.number()),
+        // Legacy — kept so old share cards pass schema validation
+        score: v.optional(v.number()),
+        thresholdMultiplier: v.optional(v.number()),
+      }),
+      v.object({
+        bestQuote: v.string(),
+        item: v.string(),
+        verdict: v.union(v.literal("approved"), v.literal("denied")),
+      }),
+      v.object({
+        savedTotal: v.number(),
+        deniedCount: v.number(),
+        approvedCount: v.number(),
+      })
+    ),
+    ogImageUrl: v.optional(v.string()),
+    downloadImageUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_conversation_and_type", ["conversationId", "cardType"])
+    .index("by_user", ["userId"]),
 
   webhookLogs: defineTable({
     eventId: v.string(),
