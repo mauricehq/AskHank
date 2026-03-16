@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowUp, Coffee, Droplets, Flame, Monitor } from "lucide-react";
+import { ArrowUp, Droplets, Flame, Footprints, Monitor } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useInView } from "@/hooks/useInView";
 import { SectionHeader } from "./SectionHeader";
@@ -29,41 +29,43 @@ interface DemoConversation {
 
 const CONVERSATIONS: DemoConversation[] = [
   {
-    id: "espresso",
-    label: "Espresso Machine",
-    shortLabel: "Espresso",
-    icon: Coffee,
-    price: 900,
+    id: "sneakers",
+    label: "Running Shoes",
+    shortLabel: "Sneakers",
+    icon: Footprints,
+    price: 180,
     verdict: "denied",
-    verdictQuote: "That's a Pinterest board with a credit card.",
+    verdictQuote: "You folded faster than a lawn chair at a discount shoe sale.",
     messages: [
       {
         role: "user",
-        content: "I want to buy a $900 espresso machine.",
+        content:
+          "Found some running shoes marked down from $300 to $180. 40% off, seems like a steal.",
         delay: 0,
       },
       {
         role: "hank",
         content:
-          "$900 on a machine that'll sit next to the other appliances you swore you'd use daily. What are you making coffee with now?",
+          "$180 shoes because they were $300. You keep receipts like trophies for purchases you never actually use.",
         delay: 800,
         typingDuration: 1500,
       },
       {
         role: "user",
-        content: "A drip maker. It works fine.",
+        content:
+          "No but 40% off doesn't come around often. I'd be losing money NOT buying them.",
         delay: 1200,
       },
       {
         role: "hank",
         content:
-          "So you have a working coffee maker and you want to spend $900 because... the foam? That's a Pinterest board with a credit card.",
+          "$180 is still $180. You'll wear them twice before they join the graveyard of \"good deals\" in your closet.",
         delay: 800,
         typingDuration: 1800,
       },
       {
         role: "user",
-        content: "ok fine I don't need it",
+        content: "ok fine you win",
         delay: 1500,
       },
     ],
@@ -201,7 +203,7 @@ const CONVERSATIONS: DemoConversation[] = [
       {
         role: "hank",
         content:
-          "Last week it was a $900 espresso machine. Now it's an $800 monitor. You're not upgrading, you're just shopping with extra steps.",
+          "Last week it was $180 running shoes on sale. Now it's an $800 monitor. You're not upgrading, you're just shopping with extra steps.",
         delay: 800,
         typingDuration: 2000,
       },

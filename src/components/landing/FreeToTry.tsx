@@ -25,6 +25,9 @@ export function FreeToTry() {
         <p className="text-text text-lg font-semibold">
           30 free messages. No credit card.
         </p>
+        <p className="text-text-secondary text-sm">
+          A typical conversation is about 7-10 messages.
+        </p>
         <p className="text-text-secondary text-[0.95rem] leading-relaxed">
           No subscription. No trial that expires.
           If you run out, credit packs start at $1.99.

@@ -24,11 +24,11 @@ export function LandingPage() {
         <section className="bg-bg-surface">
           <AiComparison />
         </section>
-        <section>
-          <WhyHankWorks />
-        </section>
-        <section id="how-it-works" className="bg-bg-surface">
+        <section id="how-it-works">
           <HowItWorks />
+        </section>
+        <section className="bg-bg-surface">
+          <WhyHankWorks />
         </section>
         <section>
           <Scorecard />

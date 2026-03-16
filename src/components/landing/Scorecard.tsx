@@ -28,11 +28,15 @@ export function Scorecard() {
         subhead="The average person spends $3,400 a year on things they didn't need. That's a vacation. An emergency fund. 114 hours at work — gone."
       />
 
+      <p className="text-center text-text-secondary text-sm mb-8">
+        Here&apos;s what a year with Hank looks like:
+      </p>
+
       <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Savings card */}
         <div className="bg-bg-card rounded-xl border border-border border-t-2 border-t-accent p-8 text-center">
           <Wallet className="w-6 h-6 text-accent mx-auto mb-3" />
-          <p className="text-text-secondary text-sm mb-2">You&apos;ve saved</p>
+          <p className="text-text-secondary text-sm mb-2">Saved</p>
           <div className="font-mono text-5xl font-bold text-text">
             ${Math.round(dollars).toLocaleString()}
           </div>
@@ -53,7 +57,7 @@ export function Scorecard() {
           </div>
           <p className="text-text-secondary text-sm mt-2">hours of work</p>
           <div className="mt-6 text-text font-semibold text-sm">
-            You kept.
+            Kept.
           </div>
         </div>
       </div>

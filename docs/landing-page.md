@@ -18,419 +18,355 @@ Tone test: if a sentence could appear on any SaaS landing page, rewrite it. If i
 
 ---
 
-## Reusable from Hopshelf (`D:\code\Hopshelf`)
+## Target Page (post-rework)
 
-Hopshelf's landing page is polished and production-tested. Several components and patterns port directly.
+Single scrolling page. Dark mode only. Fixed navbar with persistent "Try it free" CTA.
 
-### Copy Directly (adapt styling)
+Alternating backgrounds: default bg ↔ `bg-bg-surface` for visual rhythm.
 
-| Hopshelf Component | File | What it does | Hank adaptation |
-|---|---|---|---|
-| **Navbar** | `components/Navbar.tsx` (145 lines) | Fixed navbar — transparent on top, blur bg on scroll. Logo + scroll anchor links + auth-aware CTAs. Mobile hamburger with slide-in menu. | Same skeleton. Replace Hopshelf logo/name with Ask Hank. Replace `Link` auth routes with Clerk `SignInButton`/`SignUpButton` modals. Anchor links to Hank's sections (#demo, #how-it-works, #pricing). Restyle to Hank's palette (accent color, DM Sans, no rounded-full pills). |
-| **AdvisorPreview** | `components/landing/AdvisorPreview.tsx` (496 lines) | Auto-playing chat mockup with tabs, typing indicator, progress bar, auto-cycle between conversations | Core pattern for Section 2. Replace Tyler's beer conversations with Hank's purchase debates. Strip beer-specific rendering (freshness badges, bold parsing). Restyle to Hank's palette. |
-| **useInView hook** | Inline in `AdvisorPreview.tsx` | IntersectionObserver — fires once at 15% threshold, triggers animation on scroll-into-view | Copy as-is. Prevents auto-play from starting before visitor scrolls down. |
-| **ShowcaseSection** | `components/landing/ShowcaseSection.tsx` | Wrapper with uppercase label + headline + subhead + children slot | Good pattern for consistent section formatting. Adapt to Hank's typography. |
-| **HowItWorks** | `components/landing/HowItWorks.tsx` | 3-step numbered layout with connecting line | Same structure needed. Different content, same skeleton. |
-| **FAQ** | `components/FAQ.tsx` | Collapsible Q&A, first item open by default, smooth height transition | Nice-to-have for launch. Can add later if needed. |
+**Changes from current page:**
+- Hero subtitle promoted to match "Ask Hank first" weight (issue #3)
+- ChatDemo: espresso tab replaced with running shoes deal-hunter tab, real Hank copy (issue #5)
+- Section order: HowItWorks moved up, WhyHankWorks moved down — breaks the explanation plateau (issue #4)
+- Scorecard: reframed as example, not fake personal stats (issue #2)
+- FreeToTry: message unit clarified (issue #1)
 
-### Reuse the Pattern, Rebuild the Code
-
-| Pattern | Hopshelf reference | Why rebuild |
-|---|---|---|
-| **Message scheduling system** | `AdvisorPreview.tsx` — `schedule()` function, `delay` + `typingDuration` per message | The setTimeout + state management pattern is clean but tightly coupled to Hopshelf's message rendering. Rebuild with Hank's simpler message structure (no freshness badges, no bold parsing). |
-| **Typing indicator** | `AdvisorPreview.tsx` — 3 bouncing dots, CSS `animate-bounce` with staggered delays | Hank already has a `TypingIndicator.tsx` in the app, but the landing version needs to be standalone (no Convex). Rebuild a lightweight version or extract a shared component. |
-| **Tab navigation** | `AdvisorPreview.tsx` — clickable tabs disable auto-cycle, manual selection | Same UX needed. Different tab labels (purchase items instead of Tyler conversation names). |
-| **Progress bar** | `AdvisorPreview.tsx` — shows time remaining before auto-advance to next conversation | Subtle but effective. Tells the visitor "there's more coming" without being intrusive. Rebuild in Hank's accent color. |
-| **Section wrapper** | `ShowcaseSection.tsx` — label + headline + children | Simpler to just rebuild with Hank's typography since it's a small component. |
-
-### Don't Reuse
-
-| Component | Why |
-|---|---|
-| `Hero.tsx` | Hopshelf hero uses animated gradient text and Merriweather serif. Hank's hero is DM Sans, dry, no gradients. |
-| `Pricing.tsx` | Hopshelf has 3-tier subscription cards. Hank's credit packs are simpler, informational only. |
-| `CarbonationBackground.tsx` | Canvas-based bubble animation. Beer-specific. |
-| `PicksViewDemo.tsx`, `AnalyticsShowcase.tsx` | Beer-specific feature demos. |
-| `Footer.tsx` | Hopshelf footer has social links, legal links. Hank footer is just the domain. |
-| Color palette / typography | Hank has its own system (DM Sans, Southwest palette). |
+```
+Hero → ChatDemo → AiComparison (surface) → HowItWorks → WhyHankWorks (surface) → Scorecard → FreeToTry (surface) → FairWarning → FinalCTA
+```
 
 ---
 
-## Page Structure
+### Navbar (fixed)
 
-Single scrolling page. Dark mode default. Fixed navbar + seven sections.
+```
+[icon] Ask Hank          Demo   How It Works   Pricing          [Sign in] [Try it free]
+```
+
+- Transparent at top, blurred bg on scroll (> 20px)
+- Mobile: hamburger menu with slide-in dropdown
+- Signed-in users see "Open Hank" instead of auth buttons
 
 ---
 
-### Navbar
+### 1. Hero
 
-**Salvaged from Hopshelf's `Navbar.tsx`.** Fixed top, scroll-aware.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                                                                 │
+│              About to buy something you don't need?             │  ← h1, "you don't need?" in accent
+│                                                                 │
+│          Hank challenges your reasoning before you              │  ← PROMOTED: text-base/lg, white
+│          spend the money. Ask him first.                         │     (was text-sm text-secondary)
+│                                                                 │
+│     Think of him as the friend who's better                     │  ← text-sm, text-secondary
+│     with money than you.                                         │
+│                                                                 │
+│                    [Try it free]  [Sign in]                      │
+│                                                                 │
+│                          Scroll ▾                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-- **Default (top of page):** Transparent background, generous padding
-- **On scroll (> 20px):** Blurred background (`backdrop-blur-md`), border bottom, tighter padding
-- **Left:** Ask Hank logo/name (click scrolls to top)
-- **Center/right (desktop):** Scroll anchor links — Demo, How It Works, Pricing. Keeps the page scannable.
-- **Right:** "Sign in" (ghost button, `SignInButton` modal) + "Try it free" (accent button, `SignUpButton` modal). If authenticated: "Open Hank" button that routes to the app.
-- **Mobile:** Hamburger menu (Lucide Menu/X icons), slide-in dropdown with anchor links + auth CTA
-
-The navbar keeps the logo visible at all times and gives visitors anchor points without leaving the page. Hopshelf does this well — same single-page setup.
+**Changed:** The value prop ("challenges your reasoning before you spend") is now the subtitle at full weight. "Ask Hank first" folded into the same line. The "friend who's better with money" line stays secondary — it's flavor, not the pitch.
 
 ---
 
-### Section 1: Hero
-
-Full viewport. Centered. Generous whitespace.
+### 2. ChatDemo                                                    `bg: default`
 
 ```
-Ask Hank
-
-Tell him what you want to buy. He pushes back.
-
-A spending guardrail disguised as an argument
-with a friend who's better with money than you are.
-
-[Try it free]    [Sign in]
+┌─────────────────────────────────────────────────────────────────┐
+│                       SOUND FAMILIAR?                           │
+│    You've had this argument with yourself before.               │
+│    Except you always win.                                       │
+│                                                                 │
+│    [Sneakers] [Washer] [Candles] [Monitor]                      │  ← 4 tabs (Sneakers replaces Espresso)
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  ● ● ●  │  Ask Hank                                      │  │
+│  │──────────────────────────────────────────────────────────│  │
+│  │                                                           │  │
+│  │          Found some running shoes marked  ┐               │  │
+│  │          down from $300 to $180. 40% off, │               │  │
+│  │          seems like a steal.              ┘               │  │
+│  │                                                           │  │
+│  │  HANK                                                     │  │
+│  │  ┌ $180 shoes because they were $300. You keep           │  │
+│  │  └ receipts like trophies for purchases you never use.   │  │
+│  │                                                           │  │
+│  │          ... (conversation plays out) ...                 │  │
+│  │                                                           │  │
+│  │  ┌────────────────────────────────────────┐               │  │
+│  │  │   CASE CLOSED — DENIED ($180)          │               │  │
+│  │  │   "You folded faster than a lawn       │               │  │
+│  │  │    chair at a discount shoe sale."     │               │  │
+│  │  └────────────────────────────────────────┘               │  │
+│  │                                                           │  │
+│  │  ┌ Tell Hank what you want to buy...    [↑] ┐             │  │
+│  │  └──────────────────────────────────────────┘             │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-- "Hank" in accent color
-- "Try it free" opens Clerk signup modal
-- "Sign in" opens Clerk signin modal
-- Subtle scroll indicator at the bottom (chevron down, gentle bounce)
-- No theme toggle — landing page is dark mode only. The app has light/dark toggle after sign-in.
+4 tabs auto-cycle (espresso replaced by sneakers — espresso already appears in AiComparison):
+- **Running Shoes ($180, was $300)** — DENIED. Deal-hunter persona. "Lawn chair at a discount shoe sale."
+- **Pressure Washer ($200)** — APPROVED. Hard-won. Shows Hank is fair.
+- **Scented Candles ($45)** — DENIED. "Self-care vs retail therapy."
+- **Gaming Monitor ($800)** — DENIED. Memory callback — but now references sneakers, not espresso.
+
+**New conversation — Running Shoes (deal-hunter) — from real Hank session:**
+```
+User: Found some running shoes marked down from $300
+      to $180. 40% off, seems like a steal.
+
+Hank: $180 shoes because they were $300. You keep
+      receipts like trophies for purchases you
+      never actually use.
+
+User: No but 40% off doesn't come around often.
+      I'd be losing money NOT buying them.
+
+Hank: $180 is still $180. You'll wear them twice
+      before they join the graveyard of "good deals"
+      in your closet.
+
+User: ok fine you win
+
+VERDICT: CASE CLOSED — DENIED ($180)
+  "You folded faster than a lawn chair at a
+   discount shoe sale."
+```
+
+Dismantles the deal-hunter rationalization: "$180 is still $180." The closer is pure Hank.
+
+**Gaming Monitor memory callback** now needs to reference sneakers instead of espresso:
+"Last week it was $180 running shoes on sale. Now it's an $800 monitor."
 
 ---
 
-### Section 2: Auto-Play Chat Demo
-
-**The most important section.** Show the product working — live, not as a screenshot.
-
-**Header:** `WHAT HANK SOUNDS LIKE`
-
-**Salvaged from Hopshelf's `AdvisorPreview.tsx`.** Same architecture, different content:
-
-#### How it works (from Hopshelf)
-
-The auto-play uses a schedule-based timing system:
-
-```typescript
-interface Message {
-  role: "user" | "hank"
-  content: string
-  delay: number           // ms before showing this message
-  typingDuration?: number // ms to show typing dots (hank only)
-}
-
-interface DemoConversation {
-  id: string
-  label: string           // Tab label (desktop)
-  shortLabel: string      // Tab label (mobile)
-  verdict: "denied" | "approved"
-  messages: Message[]
-}
-```
-
-Each message is scheduled via `setTimeout`. Hank messages show a typing indicator first (3 bouncing dots), then reveal the text. The whole system uses React state — `setVisibleCount` increments to show the next message.
-
-**Key behaviors (all from Hopshelf, keep all of them):**
-- **Viewport trigger:** `useInView` hook (IntersectionObserver) — animation only starts when scrolled into view
-- **Tab navigation:** Clickable tabs to switch between conversations. Clicking a tab cancels auto-cycle and plays that conversation.
-- **Auto-cycle:** After a conversation finishes, 4-second pause with progress bar, then auto-advances to next conversation
-- **Typing indicator:** 3 bouncing dots before each Hank message. Creates the "what's he going to say?" tension.
-- **Cleanup:** All timeouts tracked in a ref, cleared on tab switch or unmount
-
-#### Conversations to demo
-
-**Tab 1 — Espresso Machine ($900) — DENIED**
-```
-User: I want to buy a $900 espresso machine.
-  [delay: 0]
-
-Hank: $900 on a machine that'll sit next to the
-      other appliances you swore you'd use daily.
-      What are you making coffee with now?
-  [delay: 800, typingDuration: 1500]
-
-User: A drip maker. It works fine.
-  [delay: 1200]
-
-Hank: So you have a working coffee maker and you
-      want to spend $900 because... the foam?
-      That's a Pinterest board with a credit card.
-  [delay: 800, typingDuration: 1800]
-
-User: ok fine I don't need it
-  [delay: 1500]
-
-VERDICT: CASE CLOSED — DENIED ($900)
-  [delay: 1000]
-```
-
-**Tab 2 — Pressure Washer ($200) — APPROVED (hard-won)**
-
-The only APPROVED example. Critically, this one is *earned* — the user fights for 4 rounds before Hank concedes. Shows the product isn't a blanket "no" bot, but you have to make a real case. Based on a real conversation.
+### 3. AI Comparison                                               `bg: bg-surface`
 
 ```
-User: Looking at buying a pressure washer to wash my car. Around $200.
-  [delay: 0]
-
-Hank: You already wash your car without one.
-      What's wrong with the hose and bucket method?
-  [delay: 800, typingDuration: 1200]
-
-User: I wash every 2 weeks, Montreal winters destroy
-      the paint. Grit gets stuck like glue.
-  [delay: 1200]
-
-Hank: A pressure washer won't stop winter from happening.
-      How many car washes would $200 buy at the touchless
-      place down the road?
-  [delay: 800, typingDuration: 1800]
-
-User: Around 10, not even a full winter. And I have
-      my own garage so I don't freeze outside.
-  [delay: 1500]
-
-Hank: Alright, fine. Winter in Montreal is a warzone
-      and you've actually thought this through. Just
-      promise me you'll use it more than once a season.
-  [delay: 800, typingDuration: 2000]
-
-VERDICT: CASE CLOSED — APPROVED ($200)
-  [delay: 1000]
+┌─────────────────────────────────────────────────────────────────┐
+│                      WHY NOT JUST ASK AI?                       │
+│       Every other AI is designed to agree with you.             │
+│       Hank isn't.                                               │
+│                                                                 │
+│              ┌─────────────────────────────────────┐            │
+│              │ I want to buy a $350 espresso        │            │
+│              │ machine. My Keurig works fine but I  │            │
+│              │ feel like I deserve better coffee.   │            │
+│              └─────────────────────────────────────┘            │
+│                                                                 │
+│  ┌──────────────────────┐    ┌──────────────────────────┐       │
+│  │  OTHER AI (faded)    │    │  HANK (accent border)    │       │
+│  │                      │    │                          │       │
+│  │  "You absolutely     │    │  "A $350 espresso        │       │
+│  │  deserve great       │    │  machine for a Keurig    │       │
+│  │  coffee! A $350      │    │  person. That's like     │       │
+│  │  espresso machine    │    │  buying a Ferrari to     │       │
+│  │  is a wonderful      │    │  drive to your desk      │       │
+│  │  investment..."      │    │  job."                   │       │
+│  │                      │    │                          │       │
+│  │  👍 Enabled the      │    │  ⚔️ Challenged the       │       │
+│  │     purchase         │    │     purchase             │       │
+│  └──────────────────────┘    └──────────────────────────┘       │
+│                                                                 │
+│  • They're optimized for engagement, not accountability.        │
+│  • They have no opinion. Hank is built to have one.             │
+│  • They enable the purchase. Hank makes you earn it.            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Tab 3 — Scented Candles ($45) — DENIED**
-```
-User: I want to buy some scented candles, $45 from
-      this brand I saw on TikTok.
-  [delay: 0]
-
-Hank: TikTok told you to want these. TikTok also
-      told you to want the last thing you barely used.
-      What's different this time?
-  [delay: 800, typingDuration: 1500]
-
-User: But it makes me happy. Self care is important.
-  [delay: 1200]
-
-Hank: You're confusing self-care with retail therapy.
-      Happiness isn't stored in pumpkin chai wax.
-      You know this.
-  [delay: 800, typingDuration: 1800]
-
-User: ugh fine whatever
-  [delay: 1500]
-
-VERDICT: CASE CLOSED — DENIED ($45)
-  [delay: 1000]
-```
-
-**Tab 4 — Gaming Monitor ($800) — DENIED (memory callback)**
-
-The showcase for Hank's memory feature. Hank references the espresso machine conversation from Tab 1. The visitor just watched that tab — so when Hank calls it back, the connection is instant. This is the "wait, he *remembers*?" moment.
-
-**This tab must always come after Tab 1 in the auto-cycle.** The callback only lands if the visitor has seen the espresso machine conversation first.
-
-```
-User: I want a new 4K gaming monitor. About $800.
-  [delay: 0]
-
-Hank: What's your current monitor failing at, exactly?
-  [delay: 800, typingDuration: 1000]
-
-User: It's only 1080p and I play competitive shooters.
-      The clarity difference at 4K is huge.
-  [delay: 1200]
-
-Hank: A 1080p monitor worked fine for years. Now suddenly
-      it's holding you back, right when shiny new 4K
-      screens hit the market. Convenient timing.
-  [delay: 800, typingDuration: 1800]
-
-User: It's 5 years old and has ghosting issues.
-      Games have gotten more demanding too.
-  [delay: 1500]
-
-Hank: Last week it was a $900 espresso machine.
-      Now it's an $800 monitor. You're not upgrading,
-      you're just shopping with extra steps.
-  [delay: 800, typingDuration: 2000]
-
-VERDICT: CASE CLOSED — DENIED ($800)
-  [delay: 1000]
-```
-
-**Why these four:**
-- Espresso machine = relatable, classic impulse buy, quick denial, shows Hank's sharp one-liners
-- Pressure washer = the APPROVED example, but hard-won. User fights for 4 rounds with real arguments (Montreal winter, regular use, has a garage, math works out). Shows Hank is fair — you CAN win, but you have to earn it.
-- Scented candles = female-coded purchase, low price point, TikTok-driven impulse. Shows Hank handles all categories without being patronizing. The "self-care vs retail therapy" line is sharp. Proves price isn't the issue — $45 gets denied because the reasoning is weak.
-- Gaming monitor = the memory callback. Hank references the espresso machine from Tab 1 — "Last week it was a $900 espresso machine." The visitor just watched that conversation, so the callback clicks instantly. This is the differentiator — he's not a one-off chatbot, he builds a case file on you over time. Must auto-cycle after Tab 1 for the reference to land.
-
-**Visual design:**
-- Chat container styled like the real app (dark bg, message bubbles, HANK label in accent mono)
-- Tabs above the chat window showing item + price (e.g. "Espresso Machine — $900")
-- Verdict animates in at the end (same styling as real VerdictCard but simplified)
-- Progress bar along the bottom during the pause between conversations (accent color)
-- The whole thing should look like the real app. Visitors should think "oh, that's what it looks like."
+No changes. This section works as-is.
 
 ---
 
-### Section 3: How It Works
-
-**Salvaged from Hopshelf's `HowItWorks.tsx`.** Same 3-step layout skeleton, different content.
+### 4. How It Works *(moved up — was section 5)*                   `bg: default`
 
 ```
-01                       02                       03
-Tell Hank what           Make your case.          You get a verdict.
-you want to buy.                                  Usually "no."
-
-Open a conversation.     Hank pushes back. You    When the case is closed,
-Type the item.           push back harder. If     you see exactly how much
-That's it.               your argument holds up,  you didn't spend — or
-                         he'll come around.       didn't need to.
+┌─────────────────────────────────────────────────────────────────┐
+│                    IT'S JUST A CONVERSATION                     │
+│           No spreadsheets. No tracking. No homework.            │
+│                                                                 │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
+│  │                  │  │                  │  │              │  │
+│  │  (01) 💬         │  │  (02) ⚔️         │  │  (03) ⚖️     │  │
+│  │                  │  │                  │  │              │  │
+│  │  Tell Hank what  │  │  He pushes back. │  │  You get a   │  │
+│  │  you want to     │  │  You push back.  │  │  verdict.    │  │
+│  │  buy.            │  │                  │  │  Usually     │  │
+│  │                  │  │  If your         │  │  "no."       │  │
+│  │  Open a convo.   │  │  argument holds  │  │              │  │
+│  │  Type the item.  │  │  up, he'll come  │  │  You see how │  │
+│  │  That's it.      │  │  around. Most    │  │  much you    │  │
+│  │                  │  │  don't.          │  │  didn't      │  │
+│  │                  │  │                  │  │  spend.      │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Numbers in DM Mono, accent color. Desktop: 3-column row. Mobile: stacked.
+**Why moved up:** Breaks the explanation plateau. AiComparison (persuasion) → HowItWorks (functional, visual, light) → WhyHankWorks (persuasion). The functional section gives the brain a break between two argument-driven sections.
 
 ---
 
-### Section 4: Your Scorecard
-
-**Header:** `TRACK YOUR WINS`
-
-A mockup of the stats/saved counter as it would look in the app. Not a global "users have saved $X" — that's fake at launch. Instead, show what YOUR counter will look like after using Hank.
+### 5. Why Hank Works *(moved down — was section 4)*               `bg: bg-surface`
 
 ```
-┌──────────────────┐  ┌──────────────────┐
-│                   │  │                   │
-│  You've saved     │  │  That's           │
-│     $2,847        │  │     114 hours     │
-│  this year        │  │  of work          │
-│                   │  │                   │
-│  47 talked out of │  │  You kept.        │
-│  3 approved       │  │                   │
-│                   │  │                   │
-└──────────────────┘  └──────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                   YOU'VE TRIED EVERYTHING ELSE                  │
+│                                                                 │
+│  ┌───────────────────────────┐  ┌────────────────────────────┐  │
+│  │                           │  │                            │  │
+│  │  You've tried the 24-hour │  │  ✗ Timers                  │  │
+│  │  rule. The no-buy         │  │    You wait 24 hours and   │  │
+│  │  challenge. The           │  │    buy it anyway.          │  │
+│  │  spreadsheet. None of it  │  │                            │  │
+│  │  stuck — because none of  │  │  ✗ Streaks                 │  │
+│  │  it pushed back.          │  │    Not buying something    │  │
+│  │                           │  │    isn't an action.        │  │
+│  │  Hank makes you argue     │  │                            │  │
+│  │  your case out loud. The  │  │  ✗ Checklists              │  │
+│  │  impulse dies in the      │  │    "Do I need this?"       │  │
+│  │  conversation, not after  │  │    You check yes. You      │  │
+│  │  a timer.                 │  │    buy it.                 │  │
+│  │                           │  │                            │  │
+│  │                           │  │  ✓ Hank                    │  │
+│  │                           │  │    A debate you have to    │  │
+│  │                           │  │    win. This app is the    │  │
+│  │                           │  │    friction.               │  │
+│  │                           │  │                            │  │
+│  └───────────────────────────┘  └────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Two cards side by side. Left is the dollar savings. Right is the work-hours equivalent — the gut punch version of the same number. $2,847 is abstract. 114 hours of your life is not.
-
-This is an example mockup with placeholder numbers — styled like the real stats view in the app. The framing is aspirational: "this is what it looks like after a few months of using Hank."
-
-Short line underneath: "Every denied purchase adds to your total. The app pays for itself."
+No content changes. Just repositioned after HowItWorks to break the explanation block.
 
 ---
 
-### Section 5: Why Hank Works
-
-**Header:** `WHY HANK WORKS`
-
-**Left side (paragraph):**
-
-Timers expire. Streaks are passive. Checklists are self-graded.
-
-Hank makes you argue your case out loud. When you have to explain why you need a $900 espresso machine to someone who pushes back, you hear your own weak arguments. The impulse dies in the conversation, not after a timer.
-
-**Right side (list with X icons):**
+### 6. Scorecard *(reframed)*                                      `bg: default`
 
 ```
-x  Timers
-   You wait 24 hours and buy it anyway.
-   The impulse was delayed, not killed.
-
-x  Streaks
-   Not buying something isn't an action.
-   No engagement, no confrontation.
-
-x  Checklists
-   "Do I need this?" You check yes.
-   "Can I afford it?" You check yes.
-   You buy it.
+┌─────────────────────────────────────────────────────────────────┐
+│                      THE COST OF IMPULSE                        │
+│    The average person spends $3,400 a year on things they       │
+│    didn't need. That's a vacation. An emergency fund.           │
+│    114 hours at work — gone.                                    │
+│                                                                 │
+│    Here's what a year with Hank looks like:                     │  ← NEW: explicit example framing
+│                                                                 │
+│       ┌──────────────────┐    ┌──────────────────┐              │
+│       │   💰              │    │   🕐              │              │
+│       │   Saved           │    │   That's          │              │
+│       │      $2,847       │    │      114          │              │  ← animated count-up
+│       │   this year       │    │   hours of work   │              │
+│       │                   │    │                   │              │
+│       │   47 denied       │    │   Kept.           │              │
+│       │   3 approved      │    │                   │              │
+│       └──────────────────┘    └──────────────────┘              │
+│                                                                 │
+│    Every purchase Hank talks you out of adds to your total.     │
+│    The app pays for itself on day one.                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Closes with a check icon: "Hank: A debate you have to win."
+**Changed:** Removed "You've saved" (fake personalization). Added "Here's what a year with Hank looks like:" to explicitly frame the numbers as an example, not the visitor's stats. Cards now say "Saved" and "Kept" instead of "You've saved" and "You kept."
 
 ---
 
-### Section 6: Free to Try
-
-**Header:** `FREE TO TRY`
+### 7. Free to Try *(clarified)*                                   `bg: bg-surface`
 
 ```
-Every impulse buying app charges you before
-you can try it. Hank lets you argue for free.
-
-30 free messages. No credit card.
-No subscription. No trial that expires.
-
-If you run out, credit packs start at $1.99.
-Buy what you need, when you need it.
+┌─────────────────────────────────────────────────────────────────┐
+│                         FREE TO TRY                             │
+│                                                                 │
+│                     ┌ No subscription ┐                         │
+│                                                                 │
+│    An app that tells you not to spend money                     │
+│    shouldn't charge you monthly.                                │
+│    Hank lets you argue for free.                                │
+│                                                                 │
+│              30 free messages. No credit card.                   │  ← bold
+│    A typical conversation is about 7-10 messages.                      │  ← NEW: clarifier
+│                                                                 │
+│    No subscription. No trial that expires.                      │
+│    If you run out, credit packs start at $1.99.                 │
+│                                                                 │
+│       ┌──────────┐    ┌──────────────┐    ┌──────────┐          │
+│       │    50    │    │     150      │    │   400    │          │
+│       │ messages │    │   messages   │    │ messages │          │
+│       │  $1.99   │    │    $4.99     │    │  $9.99   │          │
+│       └──────────┘    │ Most Popular │    └──────────┘          │
+│                       └──────────────┘                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Optional: show credit pack tiers (50/$1.99, 150/$4.99, 400/$9.99) as informational cards. No purchase action on the landing page.
+**Changed:** Added "A typical conversation is about 7-10 messages." after the "30 free messages" line. Visitor now knows 30 messages ≈ 6-10 conversations.
 
 ---
 
-### Section 7: Fair Warning
-
-Top and bottom border — feels like a warning label.
+### 8. Fair Warning                                                `bg: bg-surface, border-t/b`
 
 ```
-Hank is not a therapist. Not a budgeting app.
-Not gentle. Not supportive. Not encouraging.
-
-He is a debate partner. Sarcastic, blunt, and
-usually right. Like a friend who's better with
-money than you are.
-
-If you can't take the debate, don't sign up.
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                    ⚠ FAIR WARNING                               │
+│                                                                 │
+│    Hank is not a therapist. Not a budgeting app.                │
+│    Not gentle. Not supportive. Not encouraging.                 │
+│                                                                 │
+│    He is a debate partner. Sarcastic, blunt,                    │
+│    and usually right. Like a friend who's better                │
+│    with money than you are.                                     │
+│                                                                 │
+│    If you can't take the debate, don't sign up.                 │  ← bold
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Last line gets slightly more weight. This is the personality filter.
+No changes. Works as-is.
 
 ---
 
-### Section 8: Final CTA
-
-Minimal echo of the hero. Last chance to convert.
+### 9. Final CTA                                                   `bg: default`
 
 ```
-Ask Hank
-
-Tell him what you want to buy.
-
-[Try it free]
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│         You already know you don't need it.                     │  ← h2, "don't need it." in accent
+│         Hank just makes sure you don't buy it.                  │
+│                                                                 │
+│                      [Try it free]                              │  ← hover glow
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-One button. No "Sign in" here — this is for new users.
+No changes.
 
 ---
 
 ### Footer
 
-**Salvaged from Hopshelf's `Footer.tsx`.** Same grid layout, adapted for Hank.
-
 ```
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  [icon] Ask Hank              Product       Legal        │
-│  Tell him what you            Demo          Terms        │
-│  want to buy.                 How It Works  Privacy      │
-│  He pushes back.              Pricing       Contact      │
-│                                                          │
-│  ─────────────────────────────────────────────────────── │
-│  © 2026 AskHank                            [mail icon]   │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  [icon] Ask Hank              Product         Legal             │
+│  Tell him what you            Demo            Terms of Service  │
+│  want to buy.                 How It Works    Privacy Policy    │
+│  He pushes back.              Pricing         Contact           │
+│                                                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│  © 2026 AskHank                                    [✉]          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-- **Left (2 cols):** Logo + icon + tagline
-- **Product column:** Scroll anchor links (Demo, How It Works, Pricing) — same as navbar
-- **Legal column:** Terms of Service, Privacy Policy, Contact (mailto)
-- **Bottom row:** Copyright + contact icon (mail). No social links until there's a presence to link to.
-- Mobile: stacked single column
-
-Legal pages (Terms, Privacy) are separate routes — required for launch but simple boilerplate. Contact is a mailto link.
 
 ---
 
@@ -445,12 +381,49 @@ Legal pages (Terms, Privacy) are separate routes — required for launch but sim
 
 ---
 
-## Open Questions
+## Evaluation Findings (March 2026)
 
-1. **Credit pack display in the pricing section — worth showing tiers visually?** It might anchor the price ("this is cheap") or distract from the "free" message. Currently just says "credit packs start at $1.99" in text. Decide once credits are built (Phase 4).
+Three-agent review of the live page across clarity, curiosity/engagement, and target persona conversion.
 
-2. ~~**Should there be a "Saved $X by Hank users" counter eventually?**~~ Resolved — Section 4 shows a per-user mockup with dollars + work hours side by side.
+### What's working
 
-3. ~~**The Hank logo/icon — should it appear in the hero?**~~ Resolved — yes. Icon in the navbar next to "Ask Hank" text, same pattern as Hopshelf's `HopshelfIcon` in `Navbar.tsx`. Uses `AskHankIcon.svg` at ~24-28px.
+- **ChatDemo is the strongest section.** The auto-playing conversations are the single most effective selling tool. Lines like "That's a Pinterest board with a credit card" are screenshot-and-share quality.
+- **Pricing is disarming.** "An app that tells you not to spend money shouldn't charge you monthly" is one of the best lines on the page. Removes the biggest objection.
+- **FairWarning earns its place.** The personality filter ("Not gentle. Not supportive. Not encouraging.") does real brand work and creates "are you tough enough?" FOMO.
+- **Tone is calibrated correctly.** Playfully confrontational, not judgmental. The pressure washer approval is critical — proves Hank is fair, not just a "no" machine.
+- **Zero jargon.** No "AI-powered behavioral nudge engine." A non-technical person understands every word.
+- **AiComparison intercepts the right objection.** The side-by-side contrast between sycophantic AI and Hank lands viscerally.
 
-4. ~~**Auto-play conversation count — 3 or 4?**~~ Resolved — 4 tabs. Espresso machine, pressure washer, scented candles, gaming monitor (memory callback).
+### Issues identified → addressed in target page
+
+1. **Clarify message units** — Added "A typical conversation is 3-5 messages" line to FreeToTry (section 7)
+2. **Scorecard fake personalization** — Reframed: "Here's what a year with Hank looks like:" + removed "You've/You" from cards (section 6)
+3. **Hero subtitle hierarchy** — Promoted value prop to subtitle weight, folded "Ask Hank first" into same line (section 1)
+4. **Explanation plateau** — Swapped HowItWorks and WhyHankWorks. Now: AiComparison (persuasion) → HowItWorks (functional break) → WhyHankWorks (persuasion). No more three-argument block.
+5. **Deal-hunter persona** — Espresso tab replaced with "Running Shoes ($180, was $300)" from a real Hank session. "$180 is still $180." Replaces espresso (which now lives in AiComparison). Monitor memory callback updated to reference sneakers.
+
+### Not issues (despite agent flags)
+
+- **"No CTA at peak curiosity"** — The navbar has a persistent "Try it free" button. CTA is never more than a glance away.
+- **"No social proof"** — Can't fake it pre-launch. Social proof is a post-launch addition. The spec already says this in "What This Page Deliberately Excludes."
+
+### Persona fit
+
+| Persona | Fit | Notes |
+|---|---|---|
+| **Treat-yourself spender** | Strong | Candles demo is a direct hit. "Self-care vs retail therapy" names their exact rationalization. |
+| **Lifestyle aspirant** | Strong | Espresso machine demo is tailor-made. "Pinterest board with a credit card" is a character description. |
+| **Serial returner** | Partial | Recognizes the general problem but nothing names the return cycle specifically. |
+| **Deal hunter** | Missing | Page has nothing for them. Biggest gap. |
+
+---
+
+## Resolved Questions
+
+1. ~~**Credit pack display — worth showing tiers visually?**~~ Yes. Three cards (50/$1.99, 150/$4.99, 400/$9.99) with "Most Popular" badge on middle tier. Anchors the price as cheap without distracting from the free message.
+
+2. ~~**Should there be a "Saved $X by Hank users" counter eventually?**~~ Section 5 shows a per-user mockup with dollars + work hours side by side. Needs reframing (see evaluation issue #2).
+
+3. ~~**The Hank logo/icon — should it appear in the hero?**~~ Yes. Icon in the navbar next to "Ask Hank" text, same pattern as Hopshelf's `HopshelfIcon` in `Navbar.tsx`. Uses `AskHankIcon.svg` at ~24px.
+
+4. ~~**Auto-play conversation count — 3 or 4?**~~ 4 tabs. Espresso machine, pressure washer, scented candles, gaming monitor (memory callback).
