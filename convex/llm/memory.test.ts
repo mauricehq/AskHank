@@ -133,72 +133,14 @@ describe("selectMemoryNudge", () => {
   });
 });
 
-describe("selectMemoryNudge — category history", () => {
-  it("includes categoryHistory when count > 1", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Headphones", category: "electronics", daysAgo: 20 }),
-      makeConversation({ _id: "c3", item: "Monitor", category: "electronics", daysAgo: 40 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(3);
-    expect(result!.categoryHistory!.category).toBe("electronics");
-    expect(result!.categoryHistory!.window).toBe("a couple months");
-  });
-
-  it("omits categoryHistory when count = 1", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("excludes conversations older than 90 days from category history", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Headphones", category: "electronics", daysAgo: 91 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    // Only 1 candidate within 90 days, so no category history
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("still picks old conversations for nudge even if outside 90-day window", () => {
+describe("selectMemoryNudge — old conversations", () => {
+  it("still picks old conversations for nudge", () => {
     const convs = [
       makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 100 }),
     ];
     const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    // Main nudge still works — 90-day cutoff only affects category history
     expect(result).not.toBeNull();
     expect(result!.item).toBe("Laptop");
-    expect(result!.categoryHistory).toBeUndefined();
-  });
-
-  it("includes conversation at exactly 90 days in category history", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 5 }),
-      makeConversation({ _id: "c2", item: "Phone", category: "electronics", daysAgo: 90 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", undefined, NOW);
-    expect(result).not.toBeNull();
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(2);
-  });
-
-  it("uses timezone-aware window label", () => {
-    const convs = [
-      makeConversation({ _id: "c1", item: "Laptop", category: "electronics", daysAgo: 2 }),
-      makeConversation({ _id: "c2", item: "Phone", category: "electronics", daysAgo: 10 }),
-    ];
-    const result = selectMemoryNudge(convs, "electronics", "America/New_York", NOW);
-    expect(result!.categoryHistory).toBeDefined();
-    expect(result!.categoryHistory!.count).toBe(2);
-    expect(result!.categoryHistory!.window).toBe("a couple weeks");
   });
 });
 
@@ -242,31 +184,10 @@ describe("formatNudgePrompt", () => {
     expect(result).toContain("He said 'buy it'");
   });
 
-  it("includes category_history block when present", () => {
-    const nudge: MemoryNudge = {
-      ...baseNudge,
-      categoryHistory: {
-        count: 4,
-        category: "electronics",
-        window: "a couple months",
-      },
-    };
-    const result = formatNudgePrompt(nudge);
-    expect(result).toContain("category_history:");
-    expect(result).toContain("count: 4");
-    expect(result).toContain('category: "electronics"');
-    expect(result).toContain('window: "a couple months"');
-  });
-
-  it("omits category_history block when categoryHistory is undefined", () => {
-    const result = formatNudgePrompt(baseNudge);
-    expect(result).not.toContain("category_history:");
-  });
-
-  it("includes the directive and examples", () => {
+  it("includes the directive without hardcoded examples", () => {
     const result = formatNudgePrompt(baseNudge);
     expect(result).toContain("Weave one dry callback");
     expect(result).toContain("Don't parrot");
-    expect(result).toContain("Examples:");
+    expect(result).not.toContain("Examples:");
   });
 });

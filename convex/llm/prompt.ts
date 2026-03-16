@@ -516,11 +516,10 @@ interface VerdictSummaryPromptConfig {
   estimatedPrice?: number;
   category?: string;
   verdict: "approved" | "denied";
-  closingLine: string;
 }
 
 export function buildVerdictSummaryPrompt(config: VerdictSummaryPromptConfig): string {
-  const { item, estimatedPrice, category, verdict, closingLine } = config;
+  const { item, estimatedPrice, category, verdict } = config;
 
   const itemContext = item && item !== "unknown"
     ? estimatedPrice && estimatedPrice > 0
@@ -547,7 +546,7 @@ YOUR ONE JOB: Write a 1-2 sentence verdict that works on its own — readable by
 CONTEXT:
 - Item: ${itemContext}${categoryNote}
 - Verdict: ${verdict}
-- Your closing line (DO NOT repeat or rephrase this): "${closingLine}"
+- Your closing line is the last message in the conversation. Do NOT repeat or rephrase it.
 
 RULES:
 - Summarize YOUR reasoning, not the user's argument.
