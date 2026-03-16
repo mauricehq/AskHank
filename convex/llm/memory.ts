@@ -7,6 +7,8 @@ export interface PastConversation {
   item?: string;
   category?: string;
   estimatedPrice?: number;
+  verdict?: "approved" | "denied";
+  verdictSummary?: string;
   createdAt: number;
   memoryReferenceCount?: number;
 }
@@ -15,6 +17,8 @@ export interface MemoryNudge {
   conversationId: string;
   item: string;
   estimatedPrice?: number;
+  verdict: "approved" | "denied";
+  verdictSummary?: string;
   dateLabel: string;
 }
 
@@ -25,7 +29,8 @@ export function sanitizeForYaml(value: string): string {
 /**
  * Select ONE past conversation to reference.
  * Called on turn 2+ when no nudge has been stored yet.
- * Filters to: valid item + category matches currentCategory + category is not "other".
+ * Filters to: valid item + category matches currentCategory + category is not "other"
+ * + conversation must have a verdict (only closed/resolved conversations).
  * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
  */
 export function selectMemoryNudge(
@@ -42,7 +47,8 @@ export function selectMemoryNudge(
       c.item !== "unknown" &&
       c.category &&
       c.category !== "other" &&
-      c.category === currentCategory
+      c.category === currentCategory &&
+      (c.verdict === "denied" || c.verdict === "approved")
   );
 
   if (candidates.length === 0) return null;
@@ -61,6 +67,8 @@ export function selectMemoryNudge(
     conversationId: pick._id,
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
+    verdict: pick.verdict!,
+    verdictSummary: pick.verdictSummary,
     dateLabel: formatRelativeDate(pick.createdAt, now, timezone),
   };
 }
@@ -68,15 +76,26 @@ export function selectMemoryNudge(
 /**
  * Format the memory directive injected into the system prompt on stance softening.
  * Structured data so the LLM narrates in its own voice instead of parroting a sentence.
+ * Includes verdict and reason so the LLM knows the outcome and can reference it accurately.
  */
 export function formatNudgePrompt(nudge: MemoryNudge): string {
   const lines: string[] = [];
   lines.push("MEMORY:");
-  lines.push(`  previous_item: "${sanitizeForYaml(nudge.item)}"`);
+  lines.push(`  item: "${sanitizeForYaml(nudge.item)}"`);
   if (nudge.estimatedPrice && nudge.estimatedPrice > 0) {
     lines.push(`  price: $${nudge.estimatedPrice}`);
   }
   lines.push(`  date: "${nudge.dateLabel}"`);
-  lines.push("Weave one dry callback into your response. Don't parrot these fields — narrate them in your voice.");
+  lines.push(`  verdict: ${nudge.verdict}`);
+  if (nudge.verdictSummary) {
+    lines.push(`  reason: "${sanitizeForYaml(nudge.verdictSummary)}"`);
+  }
+  lines.push("Reference this once, naturally, in your voice:");
+  if (nudge.verdict === "denied") {
+    lines.push("- You shut this down before. Use it to reinforce your skepticism.");
+  } else {
+    lines.push("- They made a real case last time. Acknowledge it, but the bar is still high.");
+  }
+  lines.push("Do not invent details beyond what's listed. Skip if it feels forced.");
   return lines.join("\n");
 }

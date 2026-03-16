@@ -325,6 +325,7 @@ export const internalGetPastConversations = internalQuery({
         category: c.category,
         estimatedPrice: c.estimatedPrice,
         verdict: c.verdict,
+        verdictSummary: c.verdictSummary,
         createdAt: c.createdAt,
         memoryReferenceCount: c.memoryReferenceCount,
       }));
