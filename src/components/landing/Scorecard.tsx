@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Wallet, Clock } from "lucide-react";
 import { useInView } from "@/hooks/useInView";
 import { useCountUp } from "@/hooks/useCountUp";
 import { SectionHeader } from "./SectionHeader";
@@ -22,25 +23,30 @@ export function Scorecard() {
 
   return (
     <div className="py-20 md:py-32 px-6" ref={ref}>
-      <SectionHeader label="Track Your Wins" />
+      <SectionHeader
+        label="The Cost of Impulse"
+        subhead="The average person spends $3,400 a year on things they didn't need. That's a vacation. An emergency fund. 114 hours at work — gone."
+      />
 
       <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Savings card */}
-        <div className="bg-bg-surface rounded-xl border border-border p-8 text-center">
+        <div className="bg-bg-card rounded-xl border border-border border-t-2 border-t-accent p-8 text-center">
+          <Wallet className="w-6 h-6 text-accent mx-auto mb-3" />
           <p className="text-text-secondary text-sm mb-2">You&apos;ve saved</p>
           <div className="font-mono text-5xl font-bold text-text">
             ${Math.round(dollars).toLocaleString()}
           </div>
           <p className="text-text-secondary text-sm mt-2">this year</p>
           <div className="mt-6 text-text-secondary text-sm">
-            <span className="font-mono text-text font-semibold">{Math.round(denied)}</span> talked out of
+            <span className="font-mono text-denied font-semibold">{Math.round(denied)}</span> talked out of
             <span className="mx-2">&middot;</span>
-            <span className="font-mono text-text font-semibold">{Math.round(approved)}</span> approved
+            <span className="font-mono text-approved font-semibold">{Math.round(approved)}</span> approved
           </div>
         </div>
 
         {/* Hours card */}
-        <div className="bg-bg-surface rounded-xl border border-border p-8 text-center">
+        <div className="bg-bg-card rounded-xl border border-border p-8 text-center">
+          <Clock className="w-6 h-6 text-text-secondary mx-auto mb-3" />
           <p className="text-text-secondary text-sm mb-2">That&apos;s</p>
           <div className="font-mono text-5xl font-bold text-text">
             {Math.round(hours)}
@@ -53,7 +59,7 @@ export function Scorecard() {
       </div>
 
       <p className="text-center text-text-secondary text-sm mt-8">
-        Every denied purchase adds to your total. The app pays for itself.
+        Every purchase Hank talks you out of adds to your total. The app pays for itself on day one.
       </p>
     </div>
   );

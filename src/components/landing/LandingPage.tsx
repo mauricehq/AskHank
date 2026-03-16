@@ -15,16 +15,20 @@ export function LandingPage() {
   return (
     <>
       <Navbar />
-      <main>
+      <main className="overflow-x-hidden">
         <Hero />
         <section id="demo">
           <ChatDemo />
         </section>
+        <section className="bg-bg-surface">
+          <WhyHankWorks />
+        </section>
         <section id="how-it-works">
           <HowItWorks />
         </section>
-        <Scorecard />
-        <WhyHankWorks />
+        <section className="bg-bg-surface">
+          <Scorecard />
+        </section>
         <section id="pricing">
           <FreeToTry />
         </section>

@@ -92,8 +92,10 @@ const clerkAppearance = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://askhank.app"),
   title: "Ask Hank",
-  description: "Tell him what you want to buy. He says no.",
+  description:
+    "About to buy something you don't need? Hank challenges your reasoning before you spend the money.",
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
@@ -102,6 +104,24 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  openGraph: {
+    title: "Ask Hank",
+    description:
+      "About to buy something you don't need? Hank challenges your reasoning before you spend the money.",
+    siteName: "Ask Hank",
+    type: "website",
+    url: "https://askhank.app",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "Ask Hank",
+    description:
+      "About to buy something you don't need? Hank challenges your reasoning before you spend the money.",
+  },
+  alternates: {
+    canonical: "https://askhank.app",
+  },
 };
 
 export default function RootLayout({
