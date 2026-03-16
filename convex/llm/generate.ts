@@ -988,16 +988,15 @@ export const respond = internalAction({
               estimatedPrice: stanceResult._estimatedPrice,
               category: stanceResult._category,
               verdict: stanceResult.verdict,
-              closingLine: responseText,
             });
 
             traceData.call3SystemPrompt = summarySystemPrompt;
 
-            // conversationMsgs was built before Call 2, so the closing line
-            // only appears in the system prompt, not in the messages array.
+            // Append Hank's closing response so Call 3 sees the complete conversation.
             const call3Messages: ChatMessage[] = [
               { role: "system", content: summarySystemPrompt },
               ...conversationMsgs,
+              { role: "assistant", content: responseText },
             ];
 
             const call3 = await chatCompletion({
@@ -1007,9 +1006,30 @@ export const respond = internalAction({
               maxTokens: 120,
             });
 
-            const rawSummary = (call3.content ?? "").trim();
+            let rawSummary = (call3.content ?? "").trim();
             traceData.call3RawResponse = rawSummary || "(empty)";
             totalUsage = addUsage(totalUsage, call3.usage);
+
+            // Retry with fallback model if primary returned empty
+            if (!rawSummary && fallbackModel && fallbackModel !== modelId) {
+              console.warn(`Call 3 empty from ${modelId}, retrying with fallback: ${fallbackModel}`);
+              try {
+                const call3Retry = await chatCompletion({
+                  messages: call3Messages,
+                  modelId: fallbackModel,
+                  temperature: TEMPERATURE_RESPONSE,
+                  maxTokens: 120,
+                });
+                rawSummary = (call3Retry.content ?? "").trim();
+                traceData.call3RawResponse = rawSummary
+                  ? `(fallback) ${rawSummary}`
+                  : "(fallback empty)";
+                totalUsage = addUsage(totalUsage, call3Retry.usage);
+              } catch (fallbackErr) {
+                console.error(`Call 3 fallback (${fallbackModel}) also failed:`, fallbackErr);
+                traceData.call3RawResponse = `(fallback error) ${String(fallbackErr)}`;
+              }
+            }
 
             if (rawSummary) {
               const verdictSummary = cleanVerdictSummary(rawSummary);
@@ -1017,10 +1037,26 @@ export const respond = internalAction({
                 conversationId: args.conversationId,
                 verdictSummary,
               });
+            } else {
+              // Hard fallback: use Hank's closing line rather than infinite loading
+              console.warn("Call 3: all models failed/empty, using responseText as verdictSummary");
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary: cleanVerdictSummary(responseText),
+              });
             }
           } catch (call3Error) {
             console.error("Call 3 (verdict summary) failed (non-fatal):", call3Error);
             traceData.call3RawResponse = `ERROR: ${String(call3Error)}`;
+            // Hard fallback on outer error: use closing line
+            try {
+              await ctx.runMutation(internal.conversations.patchVerdictSummary, {
+                conversationId: args.conversationId,
+                verdictSummary: cleanVerdictSummary(responseText),
+              });
+            } catch (patchErr) {
+              console.error("Failed to save hard fallback verdictSummary:", patchErr);
+            }
           }
 
           // Update timing + tokens to include Call 3
