@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { Verdict } from "@/types/chat";
 import type { VerdictCardData } from "@/lib/cards/types";
+import { computePriceModifier } from "@/lib/cards/scoreDisplay";
 import { ShareCardModal } from "./share/ShareCardModal";
 
 interface VerdictCardProps {
@@ -14,11 +15,12 @@ interface VerdictCardProps {
   estimatedPrice?: number;
   category?: string;
   verdictSummary?: string;
+  score?: number;
   conversationId?: Id<"conversations">;
   onNewConversation: () => void;
 }
 
-export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSummary, conversationId, onNewConversation }: VerdictCardProps) {
+export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSummary, score, conversationId, onNewConversation }: VerdictCardProps) {
   const isDenied = verdict.type === "denied";
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
@@ -50,6 +52,8 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSu
     estimatedPrice,
     category,
     verdictSummary,
+    score,
+    thresholdMultiplier: computePriceModifier(estimatedPrice),
   };
 
   return (

@@ -1,16 +1,10 @@
 /**
- * Card Preview Container Query Styles
+ * Share Card v2 — Container Query CSS
  *
- * Uses CSS Container Queries with cqmin units for proportional scaling.
- * Base reference: 512px container (modal/public page size)
- *
- * cqmin = 1% of the smaller dimension (width or height)
- * This ensures text scales proportionally without overflow in either orientation.
- *
- * Per-Element Sizing:
- * Each text element can have size variants (normal/compact/tight) based on content length.
- * Only long elements get scaled down - others stay at full size.
- * See cardDensity.ts for the utility functions.
+ * Uses CSS Container Queries for proportional scaling.
+ * Portrait (default): cqmin-based sizing
+ * Landscape (min-aspect-ratio: 3/2): cqw-based, two-panel layout
+ * Very wide (min-aspect-ratio: 1.8/1): additional OG image tweaks
  */
 
 /* ===== Container Setup ===== */
@@ -21,280 +15,319 @@
   height: 100%;
 }
 
-/* ===== Proportional Sizing ===== */
-
-/* Padding: 40px at 512px = 7.8% */
-.card-padding {
-  padding: 7.8cqmin;
-}
-
-/* Border radius: 48px at 512px = 9.4% */
-/* Capped at 48px to prevent excessive rounding on large screens */
+/* Border radius: capped at 48px */
 .card-radius {
-  border-radius: clamp(24px, 9.4cqmin, 48px);
+  border-radius: clamp(16px, 5.2cqmin, 48px);
 }
 
-/* ===== Typography ===== */
+/* ===== Layout Modes ===== */
 
-/* Hero text (item name): THE STAR OF THE SHOW */
-/* 60px at 512px = 11.7%, scales up dramatically for large canvases */
-.card-text-hero {
-  font-size: clamp(32px, 11.7cqmin, 140px);
-  line-height: 0.9;
-  letter-spacing: -0.05em;
+/* Full-bleed inner wrapper */
+.card-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-/* Logo/brand text: 20px at 512px = 3.9% */
+/* Portrait: visible by default */
+.card-portrait {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 7cqmin;
+  gap: 3.5cqmin;
+}
+
+/* Landscape: hidden by default */
+.card-landscape {
+  display: none;
+}
+
+/* ===== Typography — Portrait (cqmin) ===== */
+
 .card-text-logo {
-  font-size: clamp(14px, 3.9cqmin, 32px);
+  font-size: clamp(12px, 3.2cqmin, 28px);
 }
 
-/* Price text: 24px at 512px = 4.7% - more prominent */
+.card-text-stamp {
+  font-size: clamp(36px, 13cqmin, 160px);
+  line-height: 1;
+}
+
+.card-stamp-sub {
+  font-size: clamp(9px, 2.5cqmin, 22px);
+  letter-spacing: 0.1em;
+}
+
+.card-text-product {
+  font-size: clamp(20px, 6.5cqmin, 80px);
+}
+
 .card-text-price {
-  font-size: clamp(14px, 4.7cqmin, 36px);
+  font-size: clamp(12px, 3.8cqmin, 32px);
 }
 
-/* Insight text: 24px at 512px = 4.7% */
-.card-text-insight {
-  font-size: clamp(14px, 4.7cqmin, 36px);
+.card-text-quote {
+  font-size: clamp(11px, 3.5cqmin, 28px);
+  line-height: 1.5;
+}
+
+.card-text-score-label {
+  font-size: clamp(8px, 2.2cqmin, 18px);
+}
+
+.card-text-score-value {
+  font-size: clamp(9px, 2.5cqmin, 20px);
+}
+
+.card-text-tagline {
+  font-size: clamp(8px, 2cqmin, 16px);
   line-height: 1.4;
 }
 
-/* Badge text: 10px at 512px = 2% */
-.card-text-badge {
-  font-size: max(9px, 2cqmin);
-  letter-spacing: 0.2em;
-}
-
-/* Footer text: 14px at 512px = 2.7% */
-.card-text-footer {
-  font-size: max(10px, 2.7cqmin);
+.card-text-url {
+  font-size: clamp(9px, 2.5cqmin, 20px);
 }
 
 /* ===== Icons ===== */
 
-/* Logo icon: 24px at 512px = 4.7% */
 .card-icon-logo {
   width: max(16px, 4.7cqmin);
   height: max(16px, 4.7cqmin);
 }
 
-/* Badge icon: 14px at 512px = 2.7% */
-.card-icon-badge {
-  width: max(10px, 2.7cqmin);
-  height: max(10px, 2.7cqmin);
-}
-
-/* Insight icon container: 32px at 512px = 6.25% */
-.card-icon-container {
-  width: max(24px, 6.25cqmin);
-  height: max(24px, 6.25cqmin);
-  border-radius: max(6px, 1.5cqmin);
-}
-
-/* Insight icon: 16px at 512px = 3.1% */
-.card-icon-insight {
-  width: max(12px, 3.1cqmin);
-  height: max(12px, 3.1cqmin);
-}
-
-/* ===== Insight Box ===== */
-
-/* Contained insight box with padding */
-.card-insight-box {
-  padding: max(12px, 3cqmin);
-  border-radius: max(12px, 2.5cqmin);
-}
-
-/* Insight layout - icon + text */
-.card-insight-layout {
-  gap: max(8px, 2cqmin);
-}
-
 /* ===== Spacing ===== */
 
-/* Small gap (8px): 1.6% */
 .card-gap-sm {
   gap: max(4px, 1.6cqmin);
 }
 
-/* Medium gap (16px): 3.1% */
-.card-gap-md {
-  gap: max(8px, 3.1cqmin);
-}
-
-/* Margin top for price info: 24px at 512px = 4.7% */
 .card-mt-price {
-  margin-top: max(12px, 4.7cqmin);
+  margin-top: max(4px, 1cqmin);
 }
 
-/* ===== Divider ===== */
+/* ===== Stamp ===== */
 
-/* Divider: 64px wide, 40px vertical margin at 512px */
-.card-divider {
-  width: max(32px, 12.5cqmin);
-  height: 1px;
-  margin-top: max(20px, 7.8cqmin);
-  margin-bottom: max(20px, 7.8cqmin);
-}
-
-/* ===== Badge ===== */
-
-/* Badge padding: 12px horiz, 6px vert at 512px */
-.card-badge-padding {
-  padding: max(4px, 1.2cqmin) max(8px, 2.3cqmin);
-}
-
-/* ===== Layout Structure ===== */
-
-/* Main content wrapper - column by default */
-/* No overflow:hidden here — the card-level container handles clipping */
-.card-main-content {
+.card-stamp {
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
-  justify-content: center;
+  align-items: center;
 }
 
-/* Item info section */
-.card-item-section {
-  text-align: left;
+.card-stamp-frame {
+  display: flex;
+  align-items: center;
+  gap: max(6px, 2cqmin);
+  width: 100%;
+  margin-top: max(2px, 0.7cqmin);
 }
 
-/* Insight section */
-.card-insight-section {
-  text-align: left;
+.card-stamp-line {
+  flex: 1;
+  height: 2px;
 }
 
-/* ===== Landscape Layout (aspect ratio >= 1.5) ===== */
+/* ===== Quote Box ===== */
 
-@container card (min-aspect-ratio: 3/2) {
-  /* Switch to horizontal layout with better space distribution */
-  .card-main-content {
-    flex-direction: row;
-    align-items: center;
-    gap: 5cqw;
-  }
+.card-quote-box {
+  padding: max(10px, 2.5cqmin);
+  border-radius: max(8px, 2cqmin);
+}
 
-  /* Item info takes left side - larger portion */
-  .card-item-section {
-    flex: 0 0 50%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+/* ===== Score ===== */
 
-  /* Insight takes right side - box provides visual separation */
-  .card-insight-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+.card-score-section {
+  display: flex;
+  flex-direction: column;
+}
 
-  /* Hide horizontal divider in landscape */
-  .card-divider {
-    display: none;
-  }
+.card-score-header {
+  margin-bottom: max(4px, 1cqmin);
+}
 
-  /* Hero text in landscape: use cqw (width) for bigger text */
-  /* At 1120px width: 10% = 112px - MUCH bigger than cqmin approach */
-  .card-text-hero {
-    font-size: clamp(48px, 10cqw, 140px);
-  }
+.card-score-track {
+  width: 100%;
+  height: max(4px, 1.2cqmin);
+  border-radius: 999px;
+  overflow: hidden;
+}
 
-  /* Price text also uses cqw for better scaling */
-  .card-text-price {
-    font-size: clamp(16px, 3.5cqw, 32px);
-  }
+.card-score-fill {
+  height: 100%;
+  border-radius: 999px;
+}
 
-  /* Insight text in landscape - use cqw for better scaling */
-  .card-text-insight {
-    font-size: clamp(16px, 3cqw, 36px);
-  }
+/* ===== Footer (portrait only) ===== */
 
-  /* Icon container in landscape - use cqw */
-  .card-icon-container {
-    width: max(28px, 5cqw);
-    height: max(28px, 5cqw);
-    border-radius: max(8px, 1.2cqw);
-  }
-
-  /* Insight icon in landscape */
-  .card-icon-insight {
-    width: max(14px, 2.5cqw);
-    height: max(14px, 2.5cqw);
-  }
-
-  /* Insight box in landscape */
-  .card-insight-box {
-    padding: max(16px, 2.5cqw);
-    border-radius: max(16px, 2cqw);
-  }
-
-  /* Insight layout gap in landscape */
-  .card-insight-layout {
-    gap: max(12px, 1.8cqw);
-  }
+.card-footer-portrait {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: max(8px, 2.5cqmin);
 }
 
 /* ===== Per-Element Size Variants ===== */
-/*
- * Only scale down elements that are too long.
- * Each element has its own size variants: normal (base), compact, tight.
- */
 
-/* Hero text (item name) variants */
-.card-text-hero-compact {
-  font-size: clamp(26px, 9cqmin, 110px);
-  line-height: 0.9;
-  letter-spacing: -0.04em;
+/* Product name variants */
+.card-text-product-compact {
+  font-size: clamp(16px, 5cqmin, 64px);
 }
-.card-text-hero-tight {
-  font-size: clamp(22px, 7.5cqmin, 90px);
-  line-height: 0.9;
-  letter-spacing: -0.03em;
+.card-text-product-tight {
+  font-size: clamp(14px, 4cqmin, 52px);
 }
 
-/* Insight text variants */
-.card-text-insight-compact {
-  font-size: clamp(12px, 4cqmin, 30px);
-  line-height: 1.35;
+/* Quote variants */
+.card-text-quote-compact {
+  font-size: clamp(10px, 3cqmin, 24px);
+  line-height: 1.45;
 }
-.card-text-insight-tight {
-  font-size: clamp(11px, 3.5cqmin, 26px);
-  line-height: 1.3;
+.card-text-quote-tight {
+  font-size: clamp(9px, 2.5cqmin, 20px);
+  line-height: 1.4;
 }
 
-/* Landscape overrides for size variants */
+/* ═══════════════════════════════════════════ */
+/* LANDSCAPE — min-aspect-ratio: 3/2          */
+/* ═══════════════════════════════════════════ */
+
 @container card (min-aspect-ratio: 3/2) {
-  .card-text-hero-compact {
-    font-size: clamp(40px, 8cqw, 110px);
-  }
-  .card-text-hero-tight {
-    font-size: clamp(34px, 6.5cqw, 90px);
+  /* Swap layouts */
+  .card-portrait {
+    display: none;
   }
 
-  .card-text-insight-compact {
-    font-size: clamp(14px, 2.5cqw, 30px);
+  .card-landscape {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    padding: 5.5cqh 5cqw;
+    gap: 4cqw;
   }
-  .card-text-insight-tight {
-    font-size: clamp(12px, 2.2cqw, 26px);
+
+  /* Left panel */
+  .card-ls-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .card-ls-stamp-area {
+    display: flex;
+    flex-direction: column;
+    margin-top: max(8px, 2cqh);
+  }
+
+  /* Vertical divider */
+  .card-ls-divider {
+    width: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  /* Right panel */
+  .card-ls-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
+    gap: 3cqh;
+  }
+
+  .card-ls-url {
+    margin-top: max(4px, 1.5cqh);
+  }
+
+  /* Typography — landscape (cqw) */
+  .card-text-logo {
+    font-size: clamp(12px, 2.2cqw, 28px);
+  }
+
+  .card-text-stamp {
+    font-size: clamp(36px, 8cqw, 120px);
+  }
+
+  .card-stamp-sub {
+    font-size: clamp(9px, 1.5cqw, 20px);
+  }
+
+  .card-text-product {
+    font-size: clamp(18px, 4cqw, 60px);
+  }
+
+  .card-text-price {
+    font-size: clamp(12px, 2.2cqw, 28px);
+  }
+
+  .card-text-quote {
+    font-size: clamp(11px, 2.2cqw, 24px);
+    line-height: 1.5;
+  }
+
+  .card-text-score-label {
+    font-size: clamp(8px, 1.4cqw, 16px);
+  }
+
+  .card-text-score-value {
+    font-size: clamp(9px, 1.6cqw, 18px);
+  }
+
+  .card-text-tagline {
+    font-size: clamp(8px, 1.3cqw, 14px);
+  }
+
+  .card-text-url {
+    font-size: clamp(9px, 1.5cqw, 18px);
+  }
+
+  /* Icons — landscape */
+  .card-icon-logo {
+    width: max(16px, 3.5cqw);
+    height: max(16px, 3.5cqw);
+  }
+
+  /* Score track */
+  .card-score-track {
+    height: max(4px, 1cqh);
+  }
+
+  /* Quote box */
+  .card-quote-box {
+    padding: max(10px, 2cqw);
+    border-radius: max(8px, 1.5cqw);
+  }
+
+  /* Size variants — landscape */
+  .card-text-product-compact {
+    font-size: clamp(16px, 3.2cqw, 48px);
+  }
+  .card-text-product-tight {
+    font-size: clamp(14px, 2.6cqw, 40px);
+  }
+
+  .card-text-quote-compact {
+    font-size: clamp(10px, 1.9cqw, 20px);
+  }
+  .card-text-quote-tight {
+    font-size: clamp(9px, 1.6cqw, 18px);
   }
 }
 
-/* Very wide aspect ratios (OG images ~1.9:1) - more aggressive insight scaling */
+/* Very wide (OG 1.9:1) — tighter quote scaling */
 @container card (min-aspect-ratio: 1.8/1) {
-  .card-text-insight {
-    font-size: clamp(12px, 2.4cqw, 28px);
+  .card-text-quote {
+    font-size: clamp(10px, 1.9cqw, 22px);
   }
-  .card-text-insight-compact {
-    font-size: clamp(11px, 2.1cqw, 24px);
+  .card-text-quote-compact {
+    font-size: clamp(9px, 1.6cqw, 18px);
   }
-  .card-text-insight-tight {
-    font-size: clamp(10px, 1.8cqw, 20px);
+  .card-text-quote-tight {
+    font-size: clamp(8px, 1.4cqw, 16px);
   }
-  .card-insight-box {
-    padding: max(10px, 2cqw);
+  .card-quote-box {
+    padding: max(8px, 1.6cqw);
   }
 }

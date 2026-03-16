@@ -1,206 +1,226 @@
 import type { VerdictCardData } from "@/lib/cards/types";
+import { computeDisplayPercent } from "@/lib/cards/scoreDisplay";
 import { getCardTextSizes, sizeToClass } from "@/lib/cards/cardDensity";
 import "./styles/card.css";
 
-// Brand orange — always used for card chrome (gradients, glow, divider, footer, icons)
-const BRAND_COLOR = "#D4673A";
-const BRAND_RGB = "212, 103, 58";
+// Design tokens — keep in sync with docs/style-guide.html
+const COLOR = {
+  bg: "#1A1714",
+  text: "#F4EFEA",
+  textQuote: "#D4CFC8",
+  textMuted: "#9A9A9A",
+  textSubtle: "#7A7A7A",
+  brand: "#C65A2E",
+  denied: "#C65A2E",
+  deniedRgb: "198, 90, 46",
+  approved: "#6B9E6F",
+  approvedRgb: "107, 158, 111",
+  surface: "rgba(42, 37, 32, 0.6)",
+  surfaceBorder: "rgba(61, 55, 50, 0.8)",
+  track: "#2A2520",
+} as const;
+
+const FONT_MONO = "var(--font-mono)";
 
 interface VerdictShareCardProps {
   data: VerdictCardData;
 }
 
 export function VerdictShareCard({ data }: VerdictShareCardProps) {
-  const { verdict, item, estimatedPrice, verdictSummary } = data;
+  const { verdict, item, estimatedPrice, verdictSummary, score, thresholdMultiplier } = data;
   const isDenied = verdict === "denied";
 
   const priceLabel = estimatedPrice
     ? `$${estimatedPrice.toLocaleString()}`
     : null;
 
-  const insightText = verdictSummary ?? "";
+  const quoteText = verdictSummary ?? "";
+  const sizes = getCardTextSizes(item, quoteText);
 
-  // Calculate per-element text sizes based on content length
-  const sizes = getCardTextSizes(item, insightText);
+  const accent = isDenied ? COLOR.denied : COLOR.approved;
+  const accentRgb = isDenied ? COLOR.deniedRgb : COLOR.approvedRgb;
 
-  // Only badge + insight text change color per verdict
-  const verdictColor = isDenied ? "#D4673A" : "#6B9E6F";
-  const verdictRgb = isDenied ? "212, 103, 58" : "107, 158, 111";
+  const hasScore = score != null && thresholdMultiplier != null;
+  const displayPercent = hasScore
+    ? computeDisplayPercent(score, thresholdMultiplier)
+    : 0;
+
+  // Shared fragments rendered identically in both layouts
+  const logoBlock = (
+    <div className="flex items-center card-gap-sm">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="card-icon-logo"
+        src="/AskHankIcon.svg"
+        alt=""
+        style={{ borderRadius: "21%" }}
+      />
+      <span className="card-text-logo font-bold tracking-wide uppercase" style={{ color: COLOR.text }}>
+        Ask <span style={{ color: COLOR.brand }}>Hank</span>
+      </span>
+    </div>
+  );
+
+  const stampBlock = (
+    <>
+      <span
+        className="card-text-stamp font-black uppercase"
+        style={{ color: accent, letterSpacing: "0.06em" }}
+      >
+        {isDenied ? "DENIED" : "APPROVED"}
+      </span>
+    </>
+  );
+
+  const stampSubBlock = (
+    <span className="card-stamp-sub font-bold uppercase" style={{ color: accent }}>
+      Hank says {isDenied ? "no" : "yes"}
+    </span>
+  );
+
+  const productBlock = (
+    <div>
+      <h2
+        className={`font-bold card-text-product${sizeToClass(sizes.heroSize)}`}
+        style={{ color: COLOR.text, letterSpacing: "-0.02em", lineHeight: "1.2" }}
+      >
+        {item}
+      </h2>
+      {priceLabel && (
+        <p
+          className="card-text-price card-mt-price"
+          style={{ color: COLOR.brand, fontFamily: FONT_MONO, fontWeight: 500 }}
+        >
+          {priceLabel}
+        </p>
+      )}
+    </div>
+  );
+
+  const quoteBlock = quoteText ? (
+    <div
+      className="card-quote-box"
+      style={{ background: COLOR.surface, border: `1px solid ${COLOR.surfaceBorder}` }}
+    >
+      <p
+        className={`font-light italic card-text-quote${sizeToClass(sizes.insightSize)}`}
+        style={{ color: COLOR.textQuote }}
+      >
+        &ldquo;{quoteText}&rdquo;
+      </p>
+    </div>
+  ) : null;
+
+  const scoreBlock = hasScore ? (
+    <div className="card-score-section">
+      <div className="flex justify-between items-baseline card-score-header">
+        <span
+          className="card-text-score-label font-semibold uppercase"
+          style={{ color: COLOR.textMuted, letterSpacing: "0.1em" }}
+        >
+          Your case
+        </span>
+        <span
+          className="card-text-score-value"
+          style={{ color: accent, fontFamily: FONT_MONO, fontWeight: 500 }}
+        >
+          {score} / 100
+        </span>
+      </div>
+      <div className="card-score-track" style={{ background: COLOR.track }}>
+        <div
+          className="card-score-fill"
+          style={{ width: `${displayPercent}%`, background: accent }}
+        />
+      </div>
+    </div>
+  ) : null;
+
+  const urlBlock = (
+    <span
+      className="card-text-url"
+      style={{ color: COLOR.brand, fontFamily: FONT_MONO, fontWeight: 500 }}
+    >
+      askhank.app
+    </span>
+  );
 
   return (
     <div
-      className="share-card-container w-full h-full card-radius border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,1)] overflow-hidden relative"
-      style={{ background: "#1A1714" }}
+      className="share-card-container w-full h-full card-radius overflow-hidden relative"
+      style={{ background: COLOR.bg }}
     >
-      {/* Background Flair - 4 gradient layers (always brand orange, dialed down) */}
+      {/* Warm radial glow */}
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(to bottom right, rgba(${BRAND_RGB}, 0.10), transparent, transparent)`,
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(circle at top right, rgba(${BRAND_RGB}, 0.08), transparent 60%)`,
-        }}
-      />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.3)_100%)]" />
-      <div
-        className="absolute bottom-0 inset-x-0 h-1/2"
-        style={{
-          background: `linear-gradient(to top, rgba(${BRAND_RGB}, 0.03), transparent)`,
+          background: `radial-gradient(ellipse at 30% 0%, rgba(${accentRgb}, 0.08), transparent 60%)`,
         }}
       />
 
-      <div className="relative h-full flex flex-col justify-between z-10 card-padding">
-        {/* Header */}
-        <div className="flex justify-between items-start flex-shrink-0">
-          <div className="flex items-center card-gap-sm">
-            {/* AskHank logo icon */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="card-icon-logo"
-              src="/AskHankIcon.svg"
-              alt=""
-              style={{ borderRadius: "21%" }}
-            />
-            <span
-              className="font-black tracking-tight leading-none card-text-logo"
-              style={{ color: "#FFFFFF" }}
-            >
-              ASK HANK
-            </span>
+      {/*
+       * Both portrait and landscape DOMs are always rendered, toggled via
+       * CSS `display: none` in card.css container queries. This avoids
+       * JS-side aspect ratio detection and works correctly in Puppeteer
+       * SSR for image generation.
+       */}
+      <div className="relative h-full z-10 card-layout">
+        {/* ── PORTRAIT ── */}
+        <div className="card-portrait">
+          {logoBlock}
+
+          <div className="card-stamp">
+            {stampBlock}
+            <div className="card-stamp-frame">
+              <div className="card-stamp-line" style={{ background: accent }} />
+              {stampSubBlock}
+              <div className="card-stamp-line" style={{ background: accent }} />
+            </div>
           </div>
-          {/* Badge pill — verdict-colored */}
-          <div
-            className="flex items-center card-gap-sm card-badge-padding rounded-full"
-            style={{
-              background: `rgba(${verdictRgb}, 0.10)`,
-              border: `1px solid rgba(${verdictRgb}, 0.30)`,
-            }}
-          >
-            {isDenied ? (
-              <svg
-                className="card-icon-badge"
-                viewBox="0 0 14 14"
-                fill="none"
-                style={{ color: verdictColor }}
-              >
-                <path
-                  d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="card-icon-badge"
-                viewBox="0 0 14 14"
-                fill="none"
-                style={{ color: verdictColor }}
-              >
-                <path
-                  d="M2.5 7.5L5.5 10.5L11.5 4.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-            <span
-              className="card-text-badge font-black uppercase leading-none"
-              style={{ color: verdictColor }}
-            >
-              {isDenied ? "DENIED" : "APPROVED"}
+
+          {productBlock}
+          {quoteBlock}
+          {scoreBlock}
+
+          <div className="card-footer-portrait" style={{ borderTop: `1px solid ${COLOR.track}` }}>
+            <span className="card-text-tagline" style={{ color: COLOR.textSubtle }}>
+              Ask before buying
             </span>
+            {urlBlock}
           </div>
         </div>
 
-        {/* Main Content - switches to row layout in landscape */}
-        <div className="card-main-content">
-          {/* Item Info Section */}
-          <div className="card-item-section">
-            {/* Item name - hero with brand glow */}
-            <h2
-              className={`capitalize font-black card-text-hero${sizeToClass(sizes.heroSize)}`}
-              style={{
-                color: "#FFFFFF",
-                filter: `drop-shadow(0 0 25px rgba(${BRAND_RGB}, 0.35))`,
-              }}
-            >
-              {item}
-            </h2>
-
-            {/* Price */}
-            {priceLabel && (
-              <p className="text-zinc-400 font-bold uppercase tracking-widest card-text-price card-mt-price">
-                {priceLabel}
-              </p>
-            )}
+        {/* ── LANDSCAPE ── */}
+        <div className="card-landscape">
+          <div className="card-ls-left">
+            {logoBlock}
+            <div className="card-ls-stamp-area">
+              {stampBlock}
+              {stampSubBlock}
+            </div>
+            <span className="card-text-tagline mt-auto" style={{ color: COLOR.textSubtle }}>
+              Ask before buying
+            </span>
           </div>
 
-          {/* Brand divider - hidden in landscape */}
           <div
-            className="card-divider"
-            style={{ background: `rgba(${BRAND_RGB}, 0.30)` }}
+            className="card-ls-divider"
+            style={{
+              background: `linear-gradient(to bottom, transparent, ${accent} 30%, ${accent} 70%, transparent)`,
+            }}
           />
 
-          {/* Insight Section - box border color changes per verdict */}
-          {insightText && (
-            <div className="card-insight-section">
-              <div
-                className="card-insight-box shadow-inner"
-                style={{
-                  background: `rgba(${verdictRgb}, 0.05)`,
-                  border: `1px solid rgba(${verdictRgb}, 0.20)`,
-                }}
-              >
-                <div className="flex items-start card-insight-layout">
-                  <div
-                    className="card-icon-container flex items-center justify-center shrink-0"
-                    style={{
-                      background: "rgba(255, 255, 255, 0.05)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                    }}
-                  >
-                    <svg
-                      className="card-icon-insight"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      style={{ color: "rgba(255, 255, 255, 0.20)" }}
-                    >
-                      <path
-                        d="M11 7.5V14H7.5C7.5 15.933 9.067 17.5 11 17.5V19.5C7.964 19.5 5.5 17.036 5.5 14V7.5H11ZM18.5 7.5V14H15C15 15.933 16.567 17.5 18.5 17.5V19.5C15.464 19.5 13 17.036 13 14V7.5H18.5Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </div>
-                  <p
-                    className={`font-light italic card-text-insight${sizeToClass(sizes.insightSize)}`}
-                    style={{ color: "#E8E4DF" }}
-                  >
-                    {insightText}
-                  </p>
-                </div>
+          <div className="card-ls-right">
+            {productBlock}
+            {quoteBlock}
+
+            <div className="mt-auto">
+              {scoreBlock}
+              <div className="card-ls-url" style={{ textAlign: "right" }}>
+                {urlBlock}
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-between items-end flex-shrink-0">
-          <span
-            className="card-text-footer font-bold"
-            style={{ color: BRAND_COLOR }}
-          >
-            askhank.app
-          </span>
-          <span className="card-text-badge font-medium text-zinc-500 tracking-wide">
-            Hank says {isDenied ? "no" : "yes"}
-          </span>
+          </div>
         </div>
       </div>
     </div>

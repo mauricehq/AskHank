@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUser } from "./lib/auth";
+import { computePriceModifier } from "./llm/scoring";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -48,6 +49,8 @@ export const createVerdictCard = mutation({
         estimatedPrice: conversation.estimatedPrice,
         category: conversation.category,
         verdictSummary: conversation.verdictSummary,
+        score: conversation.score,
+        thresholdMultiplier: computePriceModifier(conversation.estimatedPrice),
       },
       createdAt: Date.now(),
     });

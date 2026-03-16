@@ -180,6 +180,8 @@ export default defineSchema({
         estimatedPrice: v.optional(v.number()),
         category: v.optional(v.string()),
         verdictSummary: v.optional(v.string()),
+        score: v.optional(v.number()),
+        thresholdMultiplier: v.optional(v.number()),
       }),
       v.object({
         bestQuote: v.string(),
