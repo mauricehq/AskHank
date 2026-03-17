@@ -44,7 +44,7 @@ export function LandingPage() {
         <AnimateIn>
           <FinalCTA />
         </AnimateIn>
-        <AnimateIn as="section" className="bg-bg-surface">
+        <AnimateIn as="section">
           <FAQ />
         </AnimateIn>
       </main>
