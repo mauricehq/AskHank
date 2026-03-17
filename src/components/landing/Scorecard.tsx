@@ -58,9 +58,6 @@ export function Scorecard() {
         </div>
       </div>
 
-      <p className="text-center text-text-secondary text-sm mt-8">
-        You&apos;ll make back the $1.99 before lunch.
-      </p>
     </div>
   );
 }

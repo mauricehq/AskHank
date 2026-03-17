@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export function Hero() {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <div className="relative flex h-svh flex-col items-center justify-center px-6 text-center">
       {/* Accent glow behind headline */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-accent/6 blur-[100px] rounded-full pointer-events-none" />
 
