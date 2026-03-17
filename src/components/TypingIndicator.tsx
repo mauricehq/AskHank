@@ -10,6 +10,7 @@ export function TypingIndicator() {
           <span className="typing-dot h-2 w-2 rounded-full bg-text-secondary [animation-delay:0.2s]" />
           <span className="typing-dot h-2 w-2 rounded-full bg-text-secondary [animation-delay:0.4s]" />
         </div>
+        <div className="mt-1.5 text-[0.7rem] text-text-secondary animate-fade-in opacity-0" style={{ animationDelay: "0.4s", animationFillMode: "both" }}>Hank is thinking...</div>
       </div>
     </div>
   );

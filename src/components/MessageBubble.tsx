@@ -102,7 +102,7 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         </span>
         {scoring !== null && (
           <span className="text-zinc-400 font-semibold">
-            {scoring.score}{scoring.delta !== 0 && <span className={scoring.delta > 0 ? "text-green-400" : "text-red-400"}> ({scoring.delta > 0 ? "+" : ""}{scoring.delta})</span>}
+            {scoring.score}{scoring.delta !== 0 && <span className={`animate-fade-in ${scoring.delta > 0 ? "text-green-400" : "text-red-400"}`}> ({scoring.delta > 0 ? "+" : ""}{scoring.delta})</span>}
           </span>
         )}
         {itemLabel && (

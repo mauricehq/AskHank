@@ -46,7 +46,7 @@ export function ChatInput({ onSend, hasMessages, disabled, outOfCredits, centere
   };
 
   const box = (
-    <div className="w-full rounded-2xl border border-border bg-bg-surface">
+    <div className="w-full rounded-2xl border border-border bg-bg-surface focus-within:ring-2 focus-within:ring-accent/40 transition-shadow duration-150">
       {/* Textarea */}
       <textarea
         ref={textareaRef}
@@ -67,8 +67,8 @@ export function ChatInput({ onSend, hasMessages, disabled, outOfCredits, centere
         <button
           onClick={handleSend}
           disabled={!canSend}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-user-text transition-opacity active:scale-[0.97] ${
-            !canSend ? "opacity-30 pointer-events-none" : ""
+          className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-user-text transition-colors active:scale-[0.97] ${
+            !canSend ? "opacity-30 pointer-events-none" : "hover:bg-accent-hover"
           }`}
           aria-label="Send message"
         >

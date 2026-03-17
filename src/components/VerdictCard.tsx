@@ -57,10 +57,10 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSu
   return (
     <>
       <div
-        className={`animate-verdict-in text-center p-5 rounded-xl mt-2 mb-6 border-[1.5px] ${
+        className={`text-center p-5 rounded-xl mt-2 mb-6 border-[1.5px] ${
           isDenied
-            ? "border-denied bg-[rgba(198,90,46,0.08)]"
-            : "border-approved bg-[rgba(90,138,94,0.08)]"
+            ? "animate-verdict-denied border-denied bg-[rgba(198,90,46,0.08)]"
+            : "animate-verdict-in border-approved bg-[rgba(90,138,94,0.08)]"
         }`}
       >
         <div

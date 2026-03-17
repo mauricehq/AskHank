@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Coins, Gavel, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { cascade } from "@/lib/motion";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -160,31 +162,34 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             No matches
           </div>
         ) : (
-          filteredHistory!.map((item) => (
-            <HistoryItem
-              key={item._id}
-              name={item.title}
-              verdict={item.verdict}
-              estimatedPrice={item.estimatedPrice}
-              timeAgo={formatRelativeTime(item.createdAt)}
-              isActive={activeConversationId === item._id}
-              onClick={() => {
-                if (!isDesktop) onClose();
-                router.push(`/conversations/${item._id}`);
-              }}
-              onDelete={async () => {
-                try {
-                  await deleteConversation({ conversationId: item._id });
-                  // If we deleted the active conversation, go to empty state
-                  if (item._id === activeConversationId) {
-                    router.push("/conversations");
-                  }
-                } catch {
-                  // Mutation failed — Convex shows error toast, list stays unchanged
-                }
-              }}
-            />
-          ))
+          <div key={searchQuery || "__all"} className="animate-fade-in">
+            {filteredHistory!.map((item, i) => (
+              <motion.div key={item._id} {...cascade(i, { maxIndex: 8 })}>
+                <HistoryItem
+                  name={item.title}
+                  verdict={item.verdict}
+                  estimatedPrice={item.estimatedPrice}
+                  timeAgo={formatRelativeTime(item.createdAt)}
+                  isActive={activeConversationId === item._id}
+                  onClick={() => {
+                    if (!isDesktop) onClose();
+                    router.push(`/conversations/${item._id}`);
+                  }}
+                  onDelete={async () => {
+                    try {
+                      await deleteConversation({ conversationId: item._id });
+                      // If we deleted the active conversation, go to empty state
+                      if (item._id === activeConversationId) {
+                        router.push("/conversations");
+                      }
+                    } catch {
+                      // Mutation failed — Convex shows error toast, list stays unchanged
+                    }
+                  }}
+                />
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -243,10 +248,10 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
               if (!isDesktop) onClose();
               router.push("/settings");
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+            className="group flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"
           >
-            <Settings size={16} />
+            <Settings size={16} className="transition-transform duration-200 group-hover:rotate-90" />
           </button>
         </div>
       </div>
@@ -276,9 +281,15 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
 
             {/* Top actions */}
             <div className="flex flex-col items-center gap-1 py-1">
-              <IconButton icon={<Plus size={16} />} label="New conversation" accent onClick={() => router.push("/conversations/new")} />
-              <IconButton icon={<Search size={16} />} label="Search" onClick={onToggle} />
-              <IconButton icon={<Gavel size={16} />} label="Verdict History" onClick={() => router.push("/verdicts")} />
+              {([
+                { icon: <Plus size={16} />, label: "New conversation", accent: true, onClick: () => router.push("/conversations/new") },
+                { icon: <Search size={16} />, label: "Search", onClick: onToggle },
+                { icon: <Gavel size={16} />, label: "Verdict History", onClick: () => router.push("/verdicts") },
+              ] as const).map((cfg, i) => (
+                <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + i * 40}ms`, animationFillMode: "both" }}>
+                  <IconButton icon={cfg.icon} label={cfg.label} accent={"accent" in cfg} onClick={cfg.onClick} />
+                </div>
+              ))}
             </div>
 
             {/* Spacer */}
@@ -286,8 +297,14 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
 
             {/* Bottom actions */}
             <div className="flex flex-col items-center gap-1 py-1">
-              <IconButton icon={<Coins size={16} />} label="Credits" onClick={openCreditsModal} />
-              <IconButton icon={<TrendingUp size={16} />} label="Stats" onClick={() => router.push("/stats")} />
+              {([
+                { icon: <Coins size={16} />, label: "Credits", onClick: openCreditsModal },
+                { icon: <TrendingUp size={16} />, label: "Stats", onClick: () => router.push("/stats") },
+              ] as const).map((cfg, i) => (
+                <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + (i + 3) * 40}ms`, animationFillMode: "both" }}>
+                  <IconButton icon={cfg.icon} label={cfg.label} onClick={cfg.onClick} />
+                </div>
+              ))}
             </div>
 
             {/* Footer */}

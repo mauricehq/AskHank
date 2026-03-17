@@ -6,14 +6,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
 import { motion } from "framer-motion";
-
-const ease = [0.25, 0.1, 0.25, 1] as const;
-
-const cascade = (i: number) => ({
-  initial: { opacity: 0, y: 10 } as const,
-  animate: { opacity: 1, y: 0 } as const,
-  transition: { duration: 0.35, ease, delay: i * 0.06 },
-});
+import { cascade } from "@/lib/motion";
 
 type VerdictEntry = Doc<"verdictLedger">;
 

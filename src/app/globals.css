@@ -72,6 +72,9 @@
 
   --animate-message-in: message-in 0.2s ease-out both;
   --animate-verdict-in: verdict-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  --animate-verdict-denied: verdict-denied-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  --animate-greeting-icon: greeting-icon-in 0.5s ease-out both;
+  --animate-check-ring: check-ring 0.6s ease-out both;
 }
 
 /* ── Custom scrollbar ── */
@@ -128,6 +131,30 @@ body {
 @keyframes verdict-in {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Greeting icon entrance ── */
+
+@keyframes greeting-icon-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 0.8; transform: scale(1); }
+}
+
+/* ── Verdict denied with glow pulse ── */
+
+@keyframes verdict-denied-in {
+  0% { opacity: 0; transform: scale(0.95); box-shadow: 0 0 0 0 rgba(198, 90, 46, 0); }
+  50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(198, 90, 46, 0); }
+  70% { box-shadow: 0 0 16px 2px rgba(198, 90, 46, 0.25); }
+  100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(198, 90, 46, 0); }
+}
+
+/* ── Check ring (credits success) ── */
+
+@keyframes check-ring {
+  0% { box-shadow: 0 0 0 0 rgba(198, 90, 46, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(198, 90, 46, 0); }
+  100% { box-shadow: 0 0 0 12px rgba(198, 90, 46, 0); }
 }
 
 /* ── Slow warning fade-in ── */
@@ -193,6 +220,25 @@ html {
 
   @keyframes scroll-bounce {
     0%, 100% { transform: none; }
+  }
+
+  @keyframes greeting-icon-in {
+    from { opacity: 0.8; transform: none; }
+    to { opacity: 0.8; transform: none; }
+  }
+
+  @keyframes verdict-denied-in {
+    from { opacity: 1; transform: none; box-shadow: none; }
+    to { opacity: 1; transform: none; box-shadow: none; }
+  }
+
+  @keyframes check-ring {
+    0%, 100% { box-shadow: none; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 1; }
+    to { opacity: 1; }
   }
 
   html {
