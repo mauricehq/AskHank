@@ -125,7 +125,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
     setGreeting(getGreeting(firstName));
   }, [firstName]);
 
-  const isGreeting = messages.length === 0 && !isThinking;
+  const isGreeting = messages.length === 0 && !isThinking && !externalId;
 
   return (
     <AnimatePresence mode="wait">
