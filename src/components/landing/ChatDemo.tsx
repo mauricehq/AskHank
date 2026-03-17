@@ -59,14 +59,14 @@ const CONVERSATIONS: DemoConversation[] = [
     icon: Droplets,
     price: 200,
     verdict: "approved",
-    verdictQuote: "You've actually thought this through.",
+    verdictQuote: "Just promise me you'll use it more than once a season.",
     messages: [
       { role: "user", content: "Looking at buying a pressure washer to wash my car. Around $200." },
       { role: "hank", content: "You already wash your car without one. What's wrong with the hose and bucket method?" },
       { role: "user", content: "I wash every 2 weeks, Montreal winters destroy the paint. Grit gets stuck like glue." },
       { role: "hank", content: "A pressure washer won't stop winter from happening. How many car washes would $200 buy at the touchless place down the road?" },
       { role: "user", content: "Around 10, not even a full winter. And I have my own garage so I don't freeze outside." },
-      { role: "hank", content: "Alright, fine. Winter in Montreal is a warzone and you've actually thought this through. Just promise me you'll use it more than once a season." },
+      { role: "hank", content: "Alright, fine. Winter in Montreal is a warzone and you've actually thought this through." },
     ],
   },
   {
@@ -81,8 +81,7 @@ const CONVERSATIONS: DemoConversation[] = [
       { role: "user", content: "I want to buy some scented candles, $45 from this brand I saw on TikTok." },
       { role: "hank", content: "TikTok told you to want these. TikTok also told you to want the last thing you barely used. What's different this time?" },
       { role: "user", content: "But it makes me happy. Self care is important." },
-      { role: "hank", content: "You're confusing self-care with retail therapy. Happiness isn't stored in pumpkin chai wax. You know this." },
-      { role: "user", content: "ugh fine whatever" },
+      { role: "hank", content: "You're confusing self-care with retail therapy. You know this." },
     ],
   },
   {
@@ -97,9 +96,7 @@ const CONVERSATIONS: DemoConversation[] = [
       { role: "user", content: "I want a new 4K gaming monitor. About $800." },
       { role: "hank", content: "What's your current monitor failing at, exactly?" },
       { role: "user", content: "It's only 1080p and I play competitive shooters. The clarity difference at 4K is huge." },
-      { role: "hank", content: "A 1080p monitor worked fine for years. Now suddenly it's holding you back, right when shiny new 4K screens hit the market. Convenient timing." },
-      { role: "user", content: "It's 5 years old and has ghosting issues. Games have gotten more demanding too." },
-      { role: "hank", content: "Last week it was $180 running shoes on sale. Now it's an $800 monitor. You're not upgrading, you're just shopping with extra steps." },
+      { role: "hank", content: "Last week it was $180 running shoes on sale. Now it's an $800 monitor. Convenient timing." },
     ],
   },
 ];
