@@ -1,12 +1,17 @@
+"use client";
+
 import { SectionHeader } from "./SectionHeader";
+import { useInView } from "@/hooks/useInView";
 
 const packs = [
-  { messages: 50, price: "$1.99", popular: false, convos: "~5–7" },
-  { messages: 150, price: "$4.99", popular: true, convos: "~15–21" },
-  { messages: 400, price: "$9.99", popular: false, convos: "~40–57" },
+  { messages: 50, price: "$1.99", convos: "~5–7" },
+  { messages: 150, price: "$4.99", convos: "~15–21" },
+  { messages: 400, price: "$9.99", convos: "~40–57" },
 ];
 
 export function FreeToTry() {
+  const { ref, inView } = useInView<HTMLDivElement>(0.15);
+
   return (
     <div className="py-20 md:py-32 px-6">
       <SectionHeader label="What It Costs" />
@@ -34,23 +39,13 @@ export function FreeToTry() {
         </p>
       </div>
 
-      <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {packs.map((pack) => (
+      <div ref={ref} className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {packs.map((pack, i) => (
           <div
             key={pack.messages}
-            className={`rounded-xl border p-6 text-center relative ${
-              pack.popular
-                ? "bg-bg-surface border-accent/40 shadow-lg"
-                : "bg-bg-surface border-border"
-            }`}
+            className={`rounded-xl border border-border bg-bg-surface p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-lg animate-in-ready ${inView ? "animate-in-visible" : ""}`}
+            style={{ animationDelay: `${i * 100}ms` }}
           >
-            {pack.popular && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="font-mono text-[0.6rem] uppercase tracking-widest text-accent bg-bg border border-accent/30 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  Most Popular
-                </span>
-              </div>
-            )}
             <div className="font-mono text-2xl font-bold text-accent">
               {pack.messages}
             </div>

@@ -34,7 +34,7 @@ export function Navbar() {
         {/* Left: hamburger (mobile) + logo */}
         <div className="flex items-center gap-3">
           <button
-            className="md:hidden text-text-secondary hover:text-text"
+            className="md:hidden text-text-secondary hover:text-text focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none rounded-sm"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -61,7 +61,7 @@ export function Navbar() {
             <a
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-text-secondary hover:text-text transition-colors"
+              className="nav-link-underline text-sm font-medium text-text-secondary hover:text-text transition-colors"
             >
               {link.label}
             </a>
@@ -72,12 +72,12 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           <Show when="signed-out">
             <SignInButton mode="modal" forceRedirectUrl="/conversations">
-              <button className="rounded-[10px] border border-border bg-transparent px-4 py-2 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
+              <button className="rounded-[10px] border border-border bg-transparent px-4 py-2 text-sm font-medium text-text hover:bg-bg-surface transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
                 Sign in
               </button>
             </SignInButton>
             <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-              <button className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+              <button className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
                 Try it free
               </button>
             </SignUpButton>
@@ -85,7 +85,7 @@ export function Navbar() {
           <Show when="signed-in">
             <Link
               href="/conversations"
-              className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+              className="rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
             >
               Open Hank
             </Link>
@@ -96,7 +96,7 @@ export function Navbar() {
         <div className="md:hidden flex items-center">
           <Show when="signed-out">
             <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-              <button className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+              <button className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
                 Try it free
               </button>
             </SignUpButton>
@@ -104,7 +104,7 @@ export function Navbar() {
           <Show when="signed-in">
             <Link
               href="/conversations"
-              className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+              className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
             >
               Open Hank
             </Link>
@@ -113,8 +113,12 @@ export function Navbar() {
       </div>
 
       {/* Mobile slide-in menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-bg-surface border-b border-border p-4 flex flex-col gap-4">
+      <div
+        className={`md:hidden absolute top-full left-0 w-full bg-bg-surface border-b border-border overflow-hidden transition-all duration-300 ease-out ${
+          mobileMenuOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0 pointer-events-none border-b-0"
+        }`}
+      >
+        <div className="p-4 flex flex-col gap-4">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
@@ -130,14 +134,14 @@ export function Navbar() {
             <SignInButton mode="modal" forceRedirectUrl="/conversations">
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="border border-border bg-transparent text-text px-4 py-3 rounded-[10px] font-bold text-center hover:bg-bg transition-colors"
+                className="border border-border bg-transparent text-text px-4 py-3 rounded-[10px] font-bold text-center hover:bg-bg transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
               >
                 Sign in
               </button>
             </SignInButton>
           </Show>
         </div>
-      )}
+      </div>
     </nav>
   );
 }

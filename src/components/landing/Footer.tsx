@@ -60,7 +60,7 @@ export function Footer() {
           <a
             href="mailto:hello@askhank.app"
             aria-label="Contact us via email"
-            className="text-text-secondary hover:text-text transition-colors"
+            className="text-text-secondary hover:text-text transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none rounded-sm"
           >
             <Mail className="w-5 h-5" />
           </a>

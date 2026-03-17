@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import { SectionHeader } from "./SectionHeader";
+import { useInView } from "@/hooks/useInView";
 
 const faqs = [
   {
@@ -34,36 +35,41 @@ const faqs = [
 
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const { ref, inView } = useInView<HTMLDivElement>(0.15);
 
   return (
     <div className="py-20 md:py-32 px-6">
       <SectionHeader label="FAQ" />
 
-      <div className="max-w-2xl mx-auto space-y-2">
+      <div ref={ref} className="max-w-2xl mx-auto rounded-2xl border border-border bg-bg-card p-2 sm:p-8">
         {faqs.map((faq, i) => {
           const isOpen = openIndex === i;
           return (
-            <div key={i} className="border border-border rounded-xl overflow-hidden">
+            <div
+              key={i}
+              className={`border-b border-border last:border-0 animate-in-ready ${inView ? "animate-in-visible" : ""}`}
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
               <button
                 onClick={() => setOpenIndex(isOpen ? null : i)}
-                className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left hover:bg-white/5 transition-colors"
+                className="w-full py-5 flex items-center justify-between text-left hover:bg-white/5 transition-colors rounded-lg px-2 -mx-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
               >
-                <span className="text-sm font-semibold text-text">
+                <span className="text-[0.95rem] font-semibold text-text">
                   {faq.question}
                 </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-text-secondary shrink-0 transition-transform duration-200 ${
-                    isOpen ? "rotate-180" : ""
-                  }`}
-                />
+                <span className={`ml-6 shrink-0 text-accent transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}>
+                  {isOpen ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                </span>
               </button>
-              {isOpen && (
-                <div className="px-6 pb-4">
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </div>
-              )}
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  isOpen ? "max-h-48 opacity-100 pb-5" : "max-h-0 opacity-0"
+                }`}
+              >
+                <p className="text-sm text-text-secondary leading-relaxed pr-12">
+                  {faq.answer}
+                </p>
+              </div>
             </div>
           );
         })}

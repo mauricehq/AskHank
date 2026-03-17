@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /** Fires once when the element enters the viewport at the given threshold. */
-export function useInView(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null);
+export function useInView<T extends HTMLElement = HTMLElement>(threshold = 0.15) {
+  const ref = useRef<T>(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {

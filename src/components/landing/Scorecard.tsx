@@ -7,7 +7,7 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { SectionHeader } from "./SectionHeader";
 
 export function Scorecard() {
-  const { ref, inView } = useInView(0.3);
+  const { ref, inView } = useInView<HTMLDivElement>(0.3);
   const [target, setTarget] = useState({ dollars: 0, hours: 0, denied: 0, approved: 0 });
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export function Scorecard() {
 
       <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Savings card */}
-        <div className="bg-bg-card rounded-xl border border-border border-t-2 border-t-accent p-8 text-center">
+        <div className="bg-bg-card rounded-xl border border-border border-t-2 border-t-accent p-8 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
           <Wallet className="w-6 h-6 text-accent mx-auto mb-3" />
           <p className="text-text-secondary text-sm mb-2">Saved</p>
           <div className="font-mono text-5xl font-bold text-text">
@@ -49,7 +49,7 @@ export function Scorecard() {
         </div>
 
         {/* Hours card */}
-        <div className="bg-bg-card rounded-xl border border-border p-8 text-center">
+        <div className="bg-bg-card rounded-xl border border-border p-8 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
           <Clock className="w-6 h-6 text-text-secondary mx-auto mb-3" />
           <p className="text-text-secondary text-sm mb-2">That&apos;s</p>
           <div className="font-mono text-5xl font-bold text-text">

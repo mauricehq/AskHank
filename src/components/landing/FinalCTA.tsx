@@ -19,7 +19,7 @@ export function FinalCTA() {
       <div className="relative mt-8">
         <Show when="signed-out">
           <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-            <button className="rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all hover:shadow-[0_0_30px_rgba(198,90,46,0.3)]">
+            <button className="rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all active:scale-[0.97] hover:shadow-[0_0_30px_rgba(198,90,46,0.3)] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
               Try it free
             </button>
           </SignUpButton>
@@ -27,7 +27,7 @@ export function FinalCTA() {
         <Show when="signed-in">
           <Link
             href="/conversations"
-            className="inline-block rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all hover:shadow-[0_0_30px_rgba(198,90,46,0.3)]"
+            className="inline-block rounded-[10px] bg-accent px-8 py-3 text-base font-medium text-user-text hover:bg-accent-hover transition-all active:scale-[0.97] hover:shadow-[0_0_30px_rgba(198,90,46,0.3)] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             Open Hank
           </Link>

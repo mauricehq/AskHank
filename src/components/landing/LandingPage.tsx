@@ -12,6 +12,7 @@ import { FairWarning } from "./FairWarning";
 import { FinalCTA } from "./FinalCTA";
 import { FAQ } from "./FAQ";
 import { Footer } from "./Footer";
+import { AnimateIn } from "./AnimateIn";
 
 export function LandingPage() {
   return (
@@ -22,26 +23,30 @@ export function LandingPage() {
         <section id="demo">
           <ChatDemo />
         </section>
-        <section className="bg-bg-surface">
+        <AnimateIn as="section" className="bg-bg-surface">
           <AiComparison />
-        </section>
-        <section id="how-it-works">
+        </AnimateIn>
+        <AnimateIn as="section" id="how-it-works">
           <HowItWorks />
-        </section>
-        <section className="bg-bg-surface">
+        </AnimateIn>
+        <AnimateIn as="section" className="bg-bg-surface">
           <WhyHankWorks />
-        </section>
-        <section>
+        </AnimateIn>
+        <AnimateIn as="section">
           <Scorecard />
-        </section>
-        <section id="pricing" className="bg-bg-surface">
+        </AnimateIn>
+        <AnimateIn as="section" id="pricing" className="bg-bg-surface">
           <FreeToTry />
-        </section>
-        <FairWarning />
-        <FinalCTA />
-        <section className="bg-bg-surface">
+        </AnimateIn>
+        <AnimateIn>
+          <FairWarning />
+        </AnimateIn>
+        <AnimateIn>
+          <FinalCTA />
+        </AnimateIn>
+        <AnimateIn as="section" className="bg-bg-surface">
           <FAQ />
-        </section>
+        </AnimateIn>
       </main>
       <Footer />
     </>

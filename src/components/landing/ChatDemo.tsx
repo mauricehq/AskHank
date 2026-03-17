@@ -181,7 +181,7 @@ function DemoVerdict({
 // ChatDemo — auto-playing chat showcase
 // ---------------------------------------------------------------------------
 export function ChatDemo() {
-  const { ref, inView } = useInView(0.15);
+  const { ref, inView } = useInView<HTMLDivElement>(0.15);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(0);

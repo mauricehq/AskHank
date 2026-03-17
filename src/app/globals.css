@@ -138,8 +138,33 @@ body {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-in;
+  animation: fade-in 0.3s ease-out;
 }
+
+/* ── Scroll entrance animation ── */
+
+@keyframes animate-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in-ready { opacity: 0; }
+.animate-in-visible { animation: animate-in 0.35s ease-out both; }
+
+/* ── Nav link underline ── */
+
+.nav-link-underline { position: relative; }
+.nav-link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0;
+  height: 1.5px;
+  background: var(--accent);
+  transition: width 0.2s ease-out;
+}
+.nav-link-underline:hover::after { width: 100%; }
 
 /* ── Settings panel section entrance ── */
 
@@ -194,6 +219,12 @@ html {
   @keyframes scroll-bounce {
     0%, 100% { transform: none; }
   }
+
+  @keyframes animate-in {
+    from { opacity: 1; transform: none; }
+    to { opacity: 1; transform: none; }
+  }
+  .animate-in-ready { opacity: 1; }
 
   html {
     scroll-behavior: auto;

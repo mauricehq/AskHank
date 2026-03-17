@@ -26,12 +26,12 @@ export function Hero() {
       <div className="relative mt-10 flex gap-3">
         <Show when="signed-out">
           <SignUpButton mode="modal" forceRedirectUrl="/conversations">
-            <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+            <button className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
               Try it free
             </button>
           </SignUpButton>
           <SignInButton mode="modal" forceRedirectUrl="/conversations">
-            <button className="rounded-[10px] border border-border bg-transparent px-6 py-2.5 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
+            <button className="rounded-[10px] border border-border bg-transparent px-6 py-2.5 text-sm font-medium text-text hover:bg-bg-surface transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none">
               Sign in
             </button>
           </SignInButton>
@@ -39,7 +39,7 @@ export function Hero() {
         <Show when="signed-in">
           <Link
             href="/conversations"
-            className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors"
+            className="rounded-[10px] bg-accent px-6 py-2.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-[colors,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             Open Hank
           </Link>
