@@ -254,13 +254,14 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
   // Desktop: static panel with width transition
   if (isDesktop) {
     return (
-      <aside
-        className="hidden h-full shrink-0 flex-col overflow-hidden border-r border-border bg-bg-card transition-[width] duration-[250ms] ease-in-out md:flex"
-        style={{ width: isOpen ? 280 : 48 }}
-      >
-        {isOpen ? (
-          sidebarContent
-        ) : (
+      <div className="relative hidden shrink-0 md:flex">
+        <aside
+          className="flex h-full flex-col overflow-hidden border-r border-border bg-bg-card transition-[width] duration-[250ms] ease-in-out"
+          style={{ width: isOpen ? 280 : 48 }}
+        >
+          {isOpen ? (
+            sidebarContent
+          ) : (
           <div className="flex h-full w-[48px] flex-col items-center">
             {/* Logo — expand trigger */}
             <button
@@ -298,7 +299,19 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             </div>
           </div>
         )}
-      </aside>
+        </aside>
+
+        {/* Floating expand chevron on sidebar edge */}
+        {!isOpen && (
+          <button
+            onClick={onToggle}
+            className="absolute -right-3 top-[18px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-bg-card text-text-secondary shadow-sm transition-colors hover:bg-bg-surface hover:text-text"
+            aria-label="Expand sidebar"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
+      </div>
     );
   }
 
