@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import {
   ArrowLeft,
   Pencil,
@@ -22,6 +22,7 @@ import {
 import { useClerk } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useTheme } from "next-themes";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "../../convex/_generated/api";
 
 /* ── Local layout primitives ── */
@@ -123,8 +124,21 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
+  const [savedField, setSavedField] = useState<string | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  useEffect(() => setMounted(true), []);
+  const showSaved = (field: string) => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    setSavedField(field);
+    savedTimerRef.current = setTimeout(() => setSavedField(null), 1500);
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   const displayName = user?.displayName ?? "";
   const email = user?.email ?? "";
@@ -159,6 +173,7 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
     if (trimmed.length >= 1 && trimmed.length <= 30) {
       await setDisplayName({ displayName: trimmed });
       setIsEditingName(false);
+      showSaved("name");
     }
   };
 
@@ -198,6 +213,7 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
     if (parsed > 0) {
       await setIncomeMutation({ incomeAmount: parsed, incomeType: incomeTypeInput });
       setIsEditingIncome(false);
+      showSaved("income");
     }
   };
 
@@ -287,6 +303,19 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
                   <span className="text-sm text-text-secondary">
                     {displayName}
                   </span>
+                  <AnimatePresence>
+                    {savedField === "name" && (
+                      <motion.span
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 4 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-xs font-medium text-accent"
+                      >
+                        Saved
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                   <button
                     onClick={startEditing}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
@@ -375,6 +404,19 @@ export function SettingsPanel({ onBack, onOpenCredits }: SettingsPanelProps) {
                   <span className="text-sm text-text-secondary">
                     {incomeDisplay}
                   </span>
+                  <AnimatePresence>
+                    {savedField === "income" && (
+                      <motion.span
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 4 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-xs font-medium text-accent"
+                      >
+                        Saved
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                   <button
                     onClick={startEditingIncome}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"

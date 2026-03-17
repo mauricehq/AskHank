@@ -4,7 +4,18 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./lib/roles";
 
-// ── Shared helper ──
+// ── Shared helpers ──
+
+function validateMessages(messages: { content: string }[]) {
+  if (messages.length > 50) {
+    throw new Error("Too many messages (max 50).");
+  }
+  for (const msg of messages) {
+    if (msg.content.length > 5000) {
+      throw new Error("Message content too long (max 5000 chars).");
+    }
+  }
+}
 
 async function insertCut(
   ctx: MutationCtx,
@@ -13,6 +24,8 @@ async function insertCut(
     messages: { role: "user" | "hank"; content: string }[];
   }
 ) {
+  validateMessages(args.messages);
+
   const token = crypto.randomUUID();
 
   // Ensure token uniqueness (collision is astronomically unlikely but guard anyway)
@@ -80,6 +93,7 @@ export const updateMessages = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    validateMessages(args.messages);
 
     const cut = await ctx.db.get(args.cutId);
     if (!cut) throw new Error("Cut not found");

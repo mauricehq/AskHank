@@ -60,6 +60,9 @@ export const set = mutation({
       if (typeof args.value !== "string" || args.value.trim() === "") {
         throw new Error(`${args.key} must be a non-empty string.`);
       }
+      if (args.value.length > 100) {
+        throw new Error(`${args.key} must be at most 100 characters.`);
+      }
     } else if (args.key === "hank_killswitch") {
       if (
         typeof args.value !== "object" ||
@@ -69,6 +72,9 @@ export const set = mutation({
         throw new Error(
           "hank_killswitch must be { enabled: boolean, reason: string | null }."
         );
+      }
+      if (typeof args.value.reason === "string" && args.value.reason.length > 500) {
+        throw new Error("Killswitch reason must be at most 500 characters.");
       }
     }
     const existing = await ctx.db

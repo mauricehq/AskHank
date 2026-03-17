@@ -123,8 +123,8 @@ export const adminAddCredits = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
-    if (args.amount <= 0 || !Number.isInteger(args.amount)) {
-      throw new Error("Amount must be a positive integer.");
+    if (args.amount <= 0 || !Number.isInteger(args.amount) || args.amount > 100_000) {
+      throw new Error("Amount must be a positive integer (max 100,000).");
     }
 
     const user = await ctx.db.get(args.userId);
@@ -158,8 +158,8 @@ export const adminSetBalance = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
-    if (args.balance < 0 || !Number.isInteger(args.balance)) {
-      throw new Error("Balance must be a non-negative integer.");
+    if (args.balance < 0 || !Number.isInteger(args.balance) || args.balance > 100_000) {
+      throw new Error("Balance must be a non-negative integer (max 100,000).");
     }
 
     const user = await ctx.db.get(args.userId);

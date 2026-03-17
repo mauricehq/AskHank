@@ -1,6 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Coins, Plus, Settings, Shield, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Coins, Gavel, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { cascade } from "@/lib/motion";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -50,6 +53,12 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
 
   const activeConversationId = params.id as Id<"conversations"> | undefined;
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredHistory = history?.filter((item) =>
+    searchQuery === "" || item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const sidebarContent = (
     <div className="flex h-full w-[280px] flex-col">
       {/* Header */}
@@ -76,15 +85,62 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             if (!isDesktop) onClose();
             router.push("/conversations/new");
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
+          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
         >
-          <Plus size={16} />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <Plus size={16} />
+          </span>
           New conversation
         </button>
       </div>
 
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+          <input
+            type="text"
+            placeholder="Search conversations…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border-[1.5px] border-border bg-input-bg py-2 pl-9 pr-8 text-sm text-text placeholder:text-text-secondary/60 focus:border-accent focus:outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text"
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Verdict History link */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={() => {
+            if (!isDesktop) onClose();
+            router.push("/verdicts");
+          }}
+          className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
+        >
+          <Gavel size={16} />
+          <span className="flex-1 text-left">Verdict History</span>
+          <ChevronRight size={14} className="text-text-secondary/50" />
+        </button>
+      </div>
+
+      {/* RECENTS label */}
+      <div className="px-3 pt-3 pb-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+          Recents
+        </span>
+      </div>
+
       {/* History list */}
-      <div className="flex-1 overflow-y-auto px-2">
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-2">
         {history === undefined ? (
           <div className="space-y-2 px-3 py-2">
             {[1, 2, 3].map((i) => (
@@ -101,32 +157,39 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
           <div className="px-4 py-8 text-center text-xs text-text-secondary">
             No conversations yet
           </div>
+        ) : filteredHistory!.length === 0 ? (
+          <div className="px-4 py-8 text-center text-xs text-text-secondary">
+            No matches
+          </div>
         ) : (
-          history.map((item) => (
-            <HistoryItem
-              key={item._id}
-              name={item.title}
-              verdict={item.verdict}
-              estimatedPrice={item.estimatedPrice}
-              timeAgo={formatRelativeTime(item.createdAt)}
-              isActive={activeConversationId === item._id}
-              onClick={() => {
-                if (!isDesktop) onClose();
-                router.push(`/conversations/${item._id}`);
-              }}
-              onDelete={async () => {
-                try {
-                  await deleteConversation({ conversationId: item._id });
-                  // If we deleted the active conversation, go to empty state
-                  if (item._id === activeConversationId) {
-                    router.push("/conversations");
-                  }
-                } catch {
-                  // Mutation failed — Convex shows error toast, list stays unchanged
-                }
-              }}
-            />
-          ))
+          <div key={searchQuery || "__all"} className="animate-fade-in">
+            {filteredHistory!.map((item, i) => (
+              <motion.div key={item._id} {...cascade(i, { maxIndex: 8 })}>
+                <HistoryItem
+                  name={item.title}
+                  verdict={item.verdict}
+                  estimatedPrice={item.estimatedPrice}
+                  timeAgo={formatRelativeTime(item.createdAt)}
+                  isActive={activeConversationId === item._id}
+                  onClick={() => {
+                    if (!isDesktop) onClose();
+                    router.push(`/conversations/${item._id}`);
+                  }}
+                  onDelete={async () => {
+                    try {
+                      await deleteConversation({ conversationId: item._id });
+                      // If we deleted the active conversation, go to empty state
+                      if (item._id === activeConversationId) {
+                        router.push("/conversations");
+                      }
+                    } catch {
+                      // Mutation failed — Convex shows error toast, list stays unchanged
+                    }
+                  }}
+                />
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -185,10 +248,10 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
               if (!isDesktop) onClose();
               router.push("/settings");
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+            className="group flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
             aria-label="Settings"
           >
-            <Settings size={16} />
+            <Settings size={16} className="transition-transform duration-200 group-hover:rotate-90" />
           </button>
         </div>
       </div>
@@ -198,12 +261,76 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
   // Desktop: static panel with width transition
   if (isDesktop) {
     return (
-      <aside
-        className="hidden h-full shrink-0 flex-col overflow-hidden border-r border-border bg-bg-card transition-[width] duration-[250ms] ease-in-out md:flex"
-        style={{ width: isOpen ? 280 : 0 }}
-      >
-        {sidebarContent}
-      </aside>
+      <div className="relative hidden shrink-0 md:flex">
+        <aside
+          className="flex h-full flex-col overflow-hidden border-r border-border bg-bg-card transition-[width] duration-[250ms] ease-in-out"
+          style={{ width: isOpen ? 280 : 48 }}
+        >
+          {isOpen ? (
+            sidebarContent
+          ) : (
+          <div className="flex h-full w-[48px] flex-col items-center">
+            {/* Logo — expand trigger */}
+            <button
+              onClick={onToggle}
+              className="flex h-[60px] w-full shrink-0 items-center justify-center"
+              aria-label="Expand sidebar"
+            >
+              <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
+            </button>
+
+            {/* Top actions */}
+            <div className="flex flex-col items-center gap-1 py-1">
+              {([
+                { icon: <Plus size={16} />, label: "New conversation", accent: true, onClick: () => router.push("/conversations/new") },
+                { icon: <Search size={16} />, label: "Search", onClick: onToggle },
+                { icon: <Gavel size={16} />, label: "Verdict History", onClick: () => router.push("/verdicts") },
+              ] as const).map((cfg, i) => (
+                <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + i * 40}ms`, animationFillMode: "both" }}>
+                  <IconButton icon={cfg.icon} label={cfg.label} accent={"accent" in cfg} onClick={cfg.onClick} />
+                </div>
+              ))}
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Bottom actions */}
+            <div className="flex flex-col items-center gap-1 py-1">
+              {([
+                { icon: <Coins size={16} />, label: "Credits", onClick: openCreditsModal },
+                { icon: <TrendingUp size={16} />, label: "Stats", onClick: () => router.push("/stats") },
+              ] as const).map((cfg, i) => (
+                <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + (i + 3) * 40}ms`, animationFillMode: "both" }}>
+                  <IconButton icon={cfg.icon} label={cfg.label} onClick={cfg.onClick} />
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col items-center gap-1 border-t border-border py-2.5 w-full">
+              {canAccessAdminPanel && (
+                <IconButton icon={<Shield size={16} />} label="Admin" onClick={() => router.push("/admin")} />
+              )}
+              <ThemeToggle size="sm" />
+              <IconButton icon={<Settings size={16} />} label="Settings" onClick={() => router.push("/settings")} />
+              <UserButton />
+            </div>
+          </div>
+        )}
+        </aside>
+
+        {/* Floating expand chevron on sidebar edge */}
+        {!isOpen && (
+          <button
+            onClick={onToggle}
+            className="absolute -right-3 top-[18px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-bg-card text-text-secondary shadow-sm transition-colors hover:bg-bg-surface hover:text-text"
+            aria-label="Expand sidebar"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -291,5 +418,27 @@ function SidebarStats({
         </div>
       </button>
     </div>
+  );
+}
+
+function IconButton({ icon, label, onClick, accent }: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center transition-colors ${
+        accent
+          ? "h-8 w-8 rounded-full bg-accent/15 text-accent hover:bg-accent/25"
+          : "h-8 w-8 rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
+      }`}
+      aria-label={label}
+      title={label}
+    >
+      {icon}
+    </button>
   );
 }

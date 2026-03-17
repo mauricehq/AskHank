@@ -3,6 +3,7 @@
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface ThemeToggleProps {
   size?: "sm" | "md";
@@ -32,7 +33,18 @@ export function ThemeToggle({ size = "md" }: ThemeToggleProps) {
       className={`flex ${buttonSize} items-center justify-center rounded-[10px] text-text-secondary hover:bg-bg-surface hover:text-text`}
       aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {resolvedTheme === "dark" ? <Sun size={iconSize} /> : <Moon size={iconSize} />}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={resolvedTheme}
+          initial={{ opacity: 0, rotate: -90 }}
+          animate={{ opacity: 1, rotate: 0 }}
+          exit={{ opacity: 0, rotate: 90 }}
+          transition={{ duration: 0.15 }}
+          className="flex items-center justify-center"
+        >
+          {resolvedTheme === "dark" ? <Sun size={iconSize} /> : <Moon size={iconSize} />}
+        </motion.span>
+      </AnimatePresence>
     </button>
   );
 }

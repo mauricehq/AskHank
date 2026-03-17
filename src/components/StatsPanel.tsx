@@ -5,14 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCountUp } from "@/hooks/useCountUp";
 import { motion } from "framer-motion";
-
-const ease = [0.25, 0.1, 0.25, 1] as const;
-
-const cascade = (i: number) => ({
-  initial: { opacity: 0, y: 10 } as const,
-  animate: { opacity: 1, y: 0 } as const,
-  transition: { duration: 0.35, ease, delay: i * 0.06 },
-});
+import { cascade, ease } from "@/lib/motion";
 
 interface StatsPanelProps {
   onBack: () => void;
@@ -27,7 +20,37 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
   const hoursSavedDisplay = rawHoursSaved >= 16 ? Math.round((rawHoursSaved / 8) * 10) / 10 : rawHoursSaved;
   const animatedHoursSaved = useCountUp(hoursSavedDisplay);
 
-  if (stats === undefined) return null;
+  if (stats === undefined) {
+    return (
+      <div className="flex flex-1 flex-col min-h-0">
+        <div className="shrink-0 border-b border-border px-4 py-3 md:px-6">
+          <div className="mx-auto max-w-[720px]">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-bg-surface animate-pulse" />
+              <div className="h-5 w-24 rounded bg-bg-surface animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-8 space-y-5">
+            <div className="rounded-xl bg-bg-surface p-6 animate-pulse">
+              <div className="mx-auto h-10 w-40 rounded bg-bg animate-pulse" />
+              <div className="mx-auto mt-3 h-3 w-20 rounded bg-bg animate-pulse" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-xl bg-bg-surface p-4 animate-pulse">
+                  <div className="mx-auto h-4 w-4 rounded bg-bg animate-pulse mb-2" />
+                  <div className="mx-auto h-6 w-12 rounded bg-bg animate-pulse" />
+                  <div className="mx-auto mt-1 h-2 w-16 rounded bg-bg animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col min-h-0">

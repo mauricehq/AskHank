@@ -62,6 +62,7 @@ export function VerdictCard({ verdict, item, estimatedPrice, category, verdictSu
             ? "border-denied bg-[rgba(198,90,46,0.08)]"
             : "border-approved bg-[rgba(90,138,94,0.08)]"
         }`}
+        style={{ "--verdict-glow": isDenied ? "rgba(198,90,46,0.25)" : "rgba(90,138,94,0.25)" } as React.CSSProperties}
       >
         <div
           className={`text-[0.8rem] font-bold uppercase tracking-[0.12em] mb-2 ${
