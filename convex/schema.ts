@@ -205,6 +205,19 @@ export default defineSchema({
     .index("by_conversation_and_type", ["conversationId", "cardType"])
     .index("by_user", ["userId"]),
 
+  verdictLedger: defineTable({
+    userId: v.id("users"),
+    conversationId: v.id("conversations"),
+    item: v.string(),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+    verdict: v.union(v.literal("approved"), v.literal("denied")),
+    verdictSummary: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_conversation", ["conversationId"]),
+
   webhookLogs: defineTable({
     eventId: v.string(),
     eventType: v.string(),

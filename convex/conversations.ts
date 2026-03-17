@@ -398,6 +398,19 @@ export const patchVerdictSummary = internalMutation({
     await ctx.db.patch(args.conversationId, {
       verdictSummary: args.verdictSummary,
     });
+
+    // Also patch the verdict ledger entry
+    const ledgerEntry = await ctx.db
+      .query("verdictLedger")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .unique();
+    if (ledgerEntry) {
+      await ctx.db.patch(ledgerEntry._id, {
+        verdictSummary: args.verdictSummary,
+      });
+    }
   },
 });
 
@@ -440,19 +453,33 @@ export const saveResponseWithVerdict = internalMutation({
       thinkingSince: undefined,
     });
 
+    // Fetch conversation for userId (needed for ledger + user stats)
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return messageId;
+
+    // Insert verdict into ledger
+    if (args.item) {
+      await ctx.db.insert("verdictLedger", {
+        userId: conversation.userId,
+        conversationId: args.conversationId,
+        item: args.item,
+        category: args.category,
+        estimatedPrice: args.estimatedPrice,
+        verdict: args.verdict,
+        createdAt: conversation.createdAt,
+      });
+    }
+
     // Increment user's savedTotal and deniedCount on denied verdicts
     if (args.verdict === "denied") {
-      const conversation = await ctx.db.get(args.conversationId);
-      if (conversation) {
-        const user = await ctx.db.get(conversation.userId);
-        if (user) {
-          await ctx.db.patch(user._id, {
-            deniedCount: (user.deniedCount ?? 0) + 1,
-            ...(args.estimatedPrice && args.estimatedPrice > 0
-              ? { savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice }
-              : {}),
-          });
-        }
+      const user = await ctx.db.get(conversation.userId);
+      if (user) {
+        await ctx.db.patch(user._id, {
+          deniedCount: (user.deniedCount ?? 0) + 1,
+          ...(args.estimatedPrice && args.estimatedPrice > 0
+            ? { savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice }
+            : {}),
+        });
       }
     }
 
