@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Coins, Plus, Scale, Search, Settings, Shield, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Coins, Plus, Scale, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -261,14 +261,42 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
         {isOpen ? (
           sidebarContent
         ) : (
-          <button
-            onClick={onToggle}
-            className="flex h-full w-[48px] flex-col items-center pt-4 gap-2 text-text-secondary hover:text-text transition-colors"
-            aria-label="Expand sidebar"
-          >
-            <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
-            <ChevronRight size={14} className="text-text-secondary/50" />
-          </button>
+          <div className="flex h-full w-[48px] flex-col items-center">
+            {/* Logo — expand trigger */}
+            <button
+              onClick={onToggle}
+              className="flex h-[60px] w-full shrink-0 items-center justify-center"
+              aria-label="Expand sidebar"
+            >
+              <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
+            </button>
+
+            {/* Top actions */}
+            <div className="flex flex-col items-center gap-1 py-1">
+              <IconButton icon={<Plus size={16} />} label="New conversation" accent onClick={() => router.push("/conversations/new")} />
+              <IconButton icon={<Search size={16} />} label="Search" onClick={onToggle} />
+              <IconButton icon={<Scale size={16} />} label="Verdict History" onClick={() => router.push("/verdicts")} />
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Bottom actions */}
+            <div className="flex flex-col items-center gap-1 py-1">
+              <IconButton icon={<Coins size={16} />} label="Credits" onClick={openCreditsModal} />
+              <IconButton icon={<TrendingUp size={16} />} label="Stats" onClick={() => router.push("/stats")} />
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col items-center gap-1 border-t border-border py-2.5 w-full">
+              {canAccessAdminPanel && (
+                <IconButton icon={<Shield size={16} />} label="Admin" onClick={() => router.push("/admin")} />
+              )}
+              <ThemeToggle size="sm" />
+              <IconButton icon={<Settings size={16} />} label="Settings" onClick={() => router.push("/settings")} />
+              <UserButton />
+            </div>
+          </div>
         )}
       </aside>
     );
@@ -358,5 +386,26 @@ function SidebarStats({
         </div>
       </button>
     </div>
+  );
+}
+
+function IconButton({ icon, label, onClick, accent }: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+        accent
+          ? "text-accent hover:bg-accent/10"
+          : "text-text-secondary hover:bg-bg-surface hover:text-text"
+      }`}
+      aria-label={label}
+    >
+      {icon}
+    </button>
   );
 }
