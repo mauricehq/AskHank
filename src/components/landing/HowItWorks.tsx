@@ -1,6 +1,6 @@
 "use client";
 
-import { Scale, Brain, BarChart3 } from "lucide-react";
+import { Gavel, Brain, BarChart3 } from "lucide-react";
 import { SectionHeader } from "./SectionHeader";
 import { useInView } from "@/hooks/useInView";
 
@@ -10,7 +10,7 @@ const cards = [
     title: "He scores your arguments.",
     description:
       "Every claim you make gets weighed. Vague feelings don't score well.",
-    icon: Scale,
+    icon: Gavel,
   },
   {
     number: "02",
