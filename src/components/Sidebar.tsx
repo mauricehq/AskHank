@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Coins, Plus, Scale, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins, Gavel, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -83,9 +83,11 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             if (!isDesktop) onClose();
             router.push("/conversations/new");
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-user-text hover:bg-accent-hover active:scale-[0.97]"
+          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
         >
-          <Plus size={16} />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <Plus size={16} />
+          </span>
           New conversation
         </button>
       </div>
@@ -122,7 +124,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
           }}
           className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
         >
-          <Scale size={16} />
+          <Gavel size={16} />
           <span className="flex-1 text-left">Verdict History</span>
           <ChevronRight size={14} className="text-text-secondary/50" />
         </button>
@@ -276,7 +278,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             <div className="flex flex-col items-center gap-1 py-1">
               <IconButton icon={<Plus size={16} />} label="New conversation" accent onClick={() => router.push("/conversations/new")} />
               <IconButton icon={<Search size={16} />} label="Search" onClick={onToggle} />
-              <IconButton icon={<Scale size={16} />} label="Verdict History" onClick={() => router.push("/verdicts")} />
+              <IconButton icon={<Gavel size={16} />} label="Verdict History" onClick={() => router.push("/verdicts")} />
             </div>
 
             {/* Spacer */}
@@ -411,12 +413,13 @@ function IconButton({ icon, label, onClick, accent }: {
   return (
     <button
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+      className={`flex items-center justify-center transition-colors ${
         accent
-          ? "text-accent hover:bg-accent/10"
-          : "text-text-secondary hover:bg-bg-surface hover:text-text"
+          ? "h-8 w-8 rounded-full bg-accent/15 text-accent hover:bg-accent/25"
+          : "h-8 w-8 rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
       }`}
       aria-label={label}
+      title={label}
     >
       {icon}
     </button>
