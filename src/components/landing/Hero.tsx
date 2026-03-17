@@ -16,7 +16,7 @@ export function Hero() {
       </h1>
 
       <p className="relative mt-6 text-base md:text-lg text-text max-w-lg leading-relaxed">
-        Hank challenges your reasoning before you spend the money. Ask him first.
+        Tell him what you want to buy. He&apos;ll tell you why you don&apos;t need it.
       </p>
 
       <p className="relative mt-4 text-sm text-text-secondary max-w-md leading-relaxed">

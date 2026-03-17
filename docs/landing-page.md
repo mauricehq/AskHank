@@ -18,21 +18,21 @@ Tone test: if a sentence could appear on any SaaS landing page, rewrite it. If i
 
 ---
 
-## Target Page (post-rework)
+## Target Page (round 3)
 
 Single scrolling page. Dark mode only. Fixed navbar with persistent "Try it free" CTA.
 
-Alternating backgrounds: default bg ↔ `bg-bg-surface` for visual rhythm.
+Sparse gray backgrounds — only 3 sections use `bg-bg-surface`. Bottom of page is all dark.
 
-**Changes from current page:**
-- Hero: deduplicate "friend who's better with money" (lives in FairWarning now)
-- Navbar: mobile CTA swap — "Try it free" visible, "Sign in" in hamburger
-- HowItWorks: reworked into credibility section — surfaces scoring engine + memory
-- Scorecard: generic copy rewritten, numbers labeled as projection
-- FreeToTry: header rewritten, generic copy killed, conversation counts added, mobile grid fixed, privacy line added
+**Round 3 changes from current implementation:**
+- Hero: subhead rewritten — less clinical, more conversational
+- WhyHankWorks: Hank closer rewritten — UX jargon → user language
+- Scorecard: tightened — cut lines that restate what the counters show
+- FreeToTry: consolidated — 4 paragraphs → 2
+- FAQ + FairWarning: lost `bg-bg-surface` (all dark bottom)
 
 ```
-Hero → ChatDemo → AiComparison (surface) → HowItWorks → WhyHankWorks (surface) → Scorecard → FreeToTry (surface) → FairWarning → FinalCTA → FAQ (surface)
+Hero → ChatDemo → AiComparison (surface) → HowItWorks → WhyHankWorks (surface) → Scorecard → FreeToTry (surface) → FairWarning → FinalCTA → FAQ
 ```
 
 ---
@@ -63,8 +63,8 @@ Mobile:
 │                                                                 │
 │              About to buy something you don't need?             │  ← h1, "you don't need?" in accent
 │                                                                 │
-│          Hank challenges your reasoning before you              │  ← text-base/lg, white
-│          spend the money. Ask him first.                         │
+│          Tell him what you want to buy.                          │  ← was "Hank challenges your reasoning..."
+│          He'll tell you why you don't need it.                   │
 │                                                                 │
 │     You keep the money, or you earn the right to spend it.      │  ← text-sm, text-secondary
 │                                                                 │
@@ -75,7 +75,7 @@ Mobile:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Changed:** Secondary line is now "You keep the money, or you earn the right to spend it." — centers the user payoff and builds curiosity ("earn the right" implies a challenge, makes you scroll to find out how). The "friend who's better with money" metaphor now lives exclusively in FairWarning where it's earned.
+**Changed (round 3):** Subhead rewritten. "Hank challenges your reasoning before you spend the money" was clinical SaaS-speak — "challenges your reasoning" is what a product manager writes, not a friend. New version describes the experience in plain language and echoes the spec's core line.
 
 ---
 
@@ -115,7 +115,7 @@ Mobile:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-No changes from previous rework. Sneakers tab, content-based pacing, persistent typing indicators.
+**Changed (round 3):** Conversations trimmed to eliminate redundant verdict quotes. Verdict card is now always the mic-drop — no line appears in both a chat bubble and the verdict. Pressure washer: Hank's concession split between last message + verdict parting shot. Candles: user concession ("ugh fine whatever") dropped, Hank's last trimmed. Monitor: collapsed from 6 to 4 messages.
 
 ---
 
@@ -148,17 +148,18 @@ No changes from previous rework. Sneakers tab, content-based pacing, persistent 
 │  └──────────────────────┘    └──────────────────────────┘       │
 │                                                                 │
 │  • They're optimized for engagement, not accountability.        │
+│    Agreeing keeps you chatting.                                  │
 │  • They have no opinion. Hank is built to have one.             │
 │  • They enable the purchase. Hank makes you earn it.            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-No changes. This section works as-is.
+No copy changes. The bullets are tight as-is.
 
 ---
 
-### 4. How It Works *(reworked — was 3-step tutorial)*              `bg: default`
+### 4. How It Works                                               `bg: default`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -167,7 +168,7 @@ No changes. This section works as-is.
 │                                                                 │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
 │  │                  │  │                  │  │              │  │
-│  │  (01) ⚖️         │  │  (02) 🧠         │  │  (03) 📊     │  │
+│  │  (01) 🔨         │  │  (02) 🧠         │  │  (03) 📊     │  │  ← 01 icon: gavel (was scale)
 │  │                  │  │                  │  │              │  │
 │  │  He scores your  │  │  He remembers    │  │  ~10% of     │  │
 │  │  arguments.      │  │  your patterns.  │  │  purchases   │  │
@@ -184,7 +185,7 @@ No changes. This section works as-is.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Changed:** The old 3-step tutorial ("Tell Hank, push back, get verdict") was redundant — the ChatDemo already showed this. Reworked to surface what makes Hank different from a system-prompt wrapper: scoring engine, cross-conversation memory, and calibrated concession rate. Kills the "just a chatbot with attitude" objection. Header changed from "It's Just a Conversation" to "Not Just Attitude."
+**Changed (round 3):** Icon changed from Scale to Gavel. Card titles and body copy unchanged — the original "He scores / He remembers / ~10% get through" is already declarative and on-voice.
 
 ---
 
@@ -211,29 +212,27 @@ No changes. This section works as-is.
 │  │                           │  │                            │  │
 │  │                           │  │  ✓ Hank                    │  │
 │  │                           │  │    A debate you have to    │  │
-│  │                           │  │    win. This app is the    │  │
-│  │                           │  │    friction.               │  │
+│  │                           │  │    win. That's what        │  │  ← was "This app is the friction."
+│  │                           │  │    stops you.              │  │
 │  │                           │  │                            │  │
 │  └───────────────────────────┘  └────────────────────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-No content changes.
+**Changed (round 3):** Hank closer "This app is the friction" → "That's what stops you." — "friction" is UX jargon. "Stops you" is what the user actually wants.
 
 ---
 
-### 6. Scorecard *(copy rewritten)*                                `bg: default`
+### 6. Scorecard *(tightened)*                                    `bg: default`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        THE COST OF IMPULSE                              │
+│                        THE COST OF IMPULSE                      │
 │    The average person blows $3,400 a year on things they        │
-│    didn't need. That's 114 hours at your job. Gone.             │
+│    didn't need. Gone.                                           │  ← cut "That's 114 hours at your job" (cards reveal it)
 │                                                                 │
-│    Here's what a year with Hank looks like:                     │
-│                                                                 │
-│       ┌──────────────────┐    ┌──────────────────┐              │
+│       ┌──────────────────┐    ┌──────────────────┐              │  ← cut "Here's what a year..." intro
 │       │   💰              │    │   🕐              │              │
 │       │   Saved           │    │   That's          │              │
 │       │      $2,847       │    │      114          │              │  ← animated count-up
@@ -243,62 +242,45 @@ No content changes.
 │       │   3 approved      │    │                   │              │
 │       └──────────────────┘    └──────────────────┘              │
 │                                                                 │
-│    Every purchase Hank talks you out of adds to your total.     │
-│    You'll make back the $1.99 before lunch.                     │  ← was "The app pays for itself on day one."
+│    You'll make back the $1.99 before lunch.                     │  ← cut "Every purchase..." (counters show it)
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Changed:**
-- Header: stays "The Cost of Impulse"
-- Subhead: cut vacation/emergency fund comparisons (generic financial advisor language), tightened to "114 hours at your job. Gone."
-- "spends" → "blows" — more Hank
-- Added "Based on avg. impulse spending of $3,400/year." — labels the numbers as projection, not fabricated personal stats
-- "The app pays for itself on day one." → "You'll make back the $1.99 before lunch." — specific, grounded in actual price, dry confidence
+**Changed (round 3):** Tightened. Cut "That's 114 hours at your job" from subhead — the animated hours card reveals this as a surprise. Cut "Here's what a year with Hank looks like:" — self-explanatory. Cut "Every purchase Hank talks you out of adds to your total." — restates what counters already show. Keeps the pain hook + the $1.99 closer.
 
 ---
 
-### 7. Free to Try *(header + copy rewritten)*                     `bg: bg-surface`
+### 7. Free to Try *(tightened)*                                   `bg: bg-surface`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       WHAT IT COSTS                             │  ← was "FREE TO TRY"
+│                       WHAT IT COSTS                             │
 │                                                                 │
 │                     ┌ No subscription ┐                         │
 │                                                                 │
 │    An app that tells you not to spend money                     │
 │    shouldn't charge you monthly.                                │
-│    Hank lets you argue for free.                                │
 │                                                                 │
-│              30 free messages. No credit card.                   │  ← bold
-│        A typical conversation is about 7-10 messages.           │
-│                                                                 │
-│    No trial that expires.                                       │  ← removed redundant "No subscription."
-│    If you run out, credit packs start at $1.99.                 │
+│    30 free messages. No credit card.                            │  ← merged into one block
+│    Need more? Credit packs start at $1.99.                      │  ← was 3 separate paragraphs
 │                                                                 │
 │       ┌──────────┐    ┌──────────────┐    ┌──────────┐          │
 │       │    50    │    │     150      │    │   400    │          │
 │       │ messages │    │   messages   │    │ messages │          │
-│       │ ~5-7     │    │  ~15-21     │    │ ~40-57   │          │  ← NEW: conversation counts
+│       │ ~5-7     │    │  ~15-21     │    │ ~40-57   │          │
 │       │  convos  │    │   convos    │    │  convos  │          │
 │       │  $1.99   │    │    $4.99     │    │  $9.99   │          │
-│       └──────────┘    │ Most Popular │    └──────────┘          │
-│                       └──────────────┘                          │
+│       └──────────┘    └──────────────┘    └──────────┘          │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Changed:**
-- Header: "Free to Try" → "What It Costs" — every freemium SaaS says "free to try." This is more direct.
-- "Buy what you need, when you need it." → cut entirely. Generic SaaS copy that contradicted the product's thesis.
-- Removed redundant "No subscription." from the body (already in the badge and first paragraph).
-- Added approximate conversation counts under each credit pack (~5-7, ~15-21, ~40-57). Visitors think in conversations, not messages.
-- Privacy line moved to FAQ section.
-- Mobile: grid changes from `grid-cols-3` to `grid-cols-1 sm:grid-cols-3` to prevent cramping on small screens.
+**Changed (round 3):** Consolidated 4 paragraphs → 2. Cut "Hank lets you argue for free" (redundant after philosophy line). Cut "A typical conversation is about 7-10 messages" (pack cards show convo counts). Cut "No trial that expires" (implied by badge + no credit card).
 
 ---
 
-### 8. Fair Warning                                                `bg: bg-surface, border-t/b`
+### 8. Fair Warning                                                `bg: default`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -317,7 +299,7 @@ No content changes.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-No changes. "Friend who's better with money" now lives exclusively here (removed from Hero). The metaphor is earned — the visitor has seen the product in action by this point.
+No copy changes. `bg: default` (was `bg-surface`). Bottom of page is now all dark from FairWarning through Footer.
 
 ---
 
@@ -334,11 +316,11 @@ No changes. "Friend who's better with money" now lives exclusively here (removed
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-No changes.
+No copy changes.
 
 ---
 
-### 10. FAQ                                                        `bg: bg-surface`
+### 10. FAQ                                                        `bg: default`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -367,9 +349,7 @@ No changes.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**New section.** Consolidates technical details (scoring engine, memory), skeptic objections ("just ChatGPT?"), and trust signals (privacy, post-free experience) into one scannable place. Keeps the main page flow emotional and clean — the people who need these answers will find them here.
-
-Collapsible accordion on desktop and mobile. Each question is a toggle.
+Collapsible accordion. Each question is a toggle. `bg: default` (was `bg-surface` — bottom of page is now all dark).
 
 ---
 
@@ -481,3 +461,44 @@ Cold visitor, copywriting, CRO, skeptic, and narrative/behavioral perspectives.
 5. ~~**HowItWorks: cut or rework?**~~ Rework. The 3-step tutorial was redundant after the demo. Replaced with credibility section surfacing scoring engine, memory, and concession rate. Solves two problems at once.
 
 6. ~~**"AI" in the hero?**~~ No. Leads with the problem, not the technology. The word "AI" appears naturally in AiComparison.
+
+### Round 3 (March 2026) — 4-agent review
+
+Length/density, user empathy, conversion flow, and copy clarity/voice.
+
+**What's working (confirmed):**
+- ChatDemo remains the strongest section. Does more selling than any copy block.
+- FairWarning is tight, on-voice, works as reverse psychology. No changes needed.
+- FinalCTA headline ("You already know you don't need it") is the best line on the page.
+- WhyHankWorks failure list (timers/streaks/checklists) is a sharp differentiator.
+- FreeToTry philosophy line ("An app that tells you not to spend money shouldn't charge you monthly") is brilliant.
+- Navbar persistent CTA covers the "missing CTAs" concern — no need for extra inline buttons.
+
+**Core problem: pain-first → feature-first drift.**
+The page front-loads strong emotional hooks (Hero, ChatDemo) then collapses into feature-explanation mode for the middle sections. The visitor goes from "that's me" to "let me tell you about our product." Several sections lead with what Hank does instead of what the user feels.
+
+**Page is ~20% too long (~960 words).** Makes 3-4 points and restates them across 10 sections. The "10% approval rate" appears 3x. "Memory" appears 3x. "Other tools agree with you" appears in 7 sections.
+
+**Issues identified → rework targets:**
+
+| # | Issue | Proposed Fix | Priority |
+|---|---|---|---|
+| 1 | Hero subhead is clinical SaaS-speak ("challenges your reasoning") | Rewrite: "Tell him what you want to buy. He'll tell you why you don't need it." | P1 |
+| 4 | WhyHankWorks closer uses UX jargon ("This app is the friction") | Rewrite: "That's what stops you." | P2 |
+| 6 | Scorecard subhead pre-spoils the animated counters + unattributed stat | Trim to just the pain hook, let counters reveal the numbers | P2 |
+| 7 | Scorecard body copy restates what the counters show | Cut "Here's what a year with Hank looks like:" — self-explanatory | P2 |
+| 8 | FreeToTry says "free" 3x in 4 paragraphs | Consolidate to 2 paragraphs | P3 |
+| 9 | Section order: WhyHankWorks before HowItWorks reads better | Establish why the problem is hard before explaining how Hank solves it | P3 |
+| 10 | FAQ before FairWarning would let visitors resolve doubts before the personality dare + CTA | Move FAQ up so FinalCTA is absolute last with no friction after it | P3 |
+
+**Not issues (despite agent flags):**
+- **"Missing CTAs at desire peaks"** — navbar CTA is persistent. Adding inline CTAs after ChatDemo or FreeToTry would feel desperate for a brand built on confident restraint.
+- **"No social proof"** — still can't fake it pre-launch. Deliberate exclusion, unchanged.
+- **"No urgency/scarcity mechanism"** — artificial urgency (limited-time pricing, beta caps) contradicts the honest, no-BS brand. The product sells on personality and problem recognition, not FOMO.
+- **"FAQ is 100% redundant"** — FAQs serve a different reading pattern (skimmers who scroll to the bottom). Standard landing page furniture. Keep it.
+
+**Completed in round 3 (implementation):**
+- ChatDemo conversations trimmed — verdict quotes no longer repeat chat bubbles
+- FAQ section background removed (more dark, less gray)
+- Gavel icon for HowItWorks card 1
+- Micro-interactions added: scroll-triggered fade-in animations (AnimateIn wrapper), staggered card reveals, hover lift + shadow on cards, active:scale press effects on CTAs, focus-visible rings on all interactive elements, nav link underline animation, mobile menu CSS transition

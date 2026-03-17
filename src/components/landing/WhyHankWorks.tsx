@@ -62,7 +62,7 @@ export function WhyHankWorks() {
             <div>
               <div className="font-semibold text-text mb-1">Hank</div>
               <p className="text-sm text-text-secondary leading-relaxed">
-                A debate you have to win. This app is the friction.
+                A debate you have to win. That&apos;s what stops you.
               </p>
             </div>
           </div>

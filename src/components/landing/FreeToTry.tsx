@@ -25,17 +25,12 @@ export function FreeToTry() {
         </div>
         <p className="text-text-secondary text-[0.95rem] leading-relaxed">
           An app that tells you not to spend money shouldn&apos;t charge you monthly.
-          Hank lets you argue for free.
         </p>
         <p className="text-text text-lg font-semibold">
           30 free messages. No credit card.
-        </p>
-        <p className="text-text-secondary text-sm">
-          A typical conversation is about 7-10 messages.
-        </p>
-        <p className="text-text-secondary text-[0.95rem] leading-relaxed">
-          No trial that expires.
-          If you run out, credit packs start at $1.99.
+          <span className="block text-text-secondary text-[0.95rem] font-normal mt-1">
+            Need more? Credit packs start at $1.99.
+          </span>
         </p>
       </div>
 
