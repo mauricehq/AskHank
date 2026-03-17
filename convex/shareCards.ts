@@ -124,6 +124,10 @@ export const setImageUrl = mutation({
     if (!card) throw new Error("Card not found");
     if (card.userId !== user._id) throw new Error("Not your card");
 
+    if (args.url.length > 2048) {
+      throw new Error("URL too long.");
+    }
+
     // Only allow Vercel Blob Storage URLs
     const parsed = new URL(args.url);
     const allowedHosts = ["public.blob.vercel-storage.com"];

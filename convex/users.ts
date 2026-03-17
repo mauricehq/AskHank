@@ -10,6 +10,10 @@ export const store = mutation({
       throw new Error("Called store without authentication");
     }
 
+    if (args.timezone && args.timezone.length > 100) {
+      throw new Error("Invalid timezone.");
+    }
+
     const tokenIdentifier = identity.tokenIdentifier;
     const user = await ctx.db
       .query("users")
@@ -60,6 +64,11 @@ export const setDisplayName = mutation({
       throw new Error("Called setDisplayName without authentication");
     }
 
+    const displayName = args.displayName.replace(/[\n\r]/g, " ").trim();
+    if (displayName.length === 0 || displayName.length > 50) {
+      throw new Error("Display name must be 1-50 characters.");
+    }
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_token", (q) =>
@@ -72,7 +81,7 @@ export const setDisplayName = mutation({
     }
 
     await ctx.db.patch(user._id, {
-      displayName: args.displayName,
+      displayName,
       updatedAt: Date.now(),
     });
   },
@@ -89,8 +98,8 @@ export const setIncome = mutation({
       throw new Error("Called setIncome without authentication");
     }
 
-    if (args.incomeAmount <= 0) {
-      throw new Error("Income must be a positive number");
+    if (args.incomeAmount <= 0 || args.incomeAmount > 10_000_000) {
+      throw new Error("Income must be between $0 and $10,000,000.");
     }
 
     const user = await ctx.db
