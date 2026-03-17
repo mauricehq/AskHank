@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQuery } from "convex/react";
+import Image from "next/image";
 import { api } from "../../convex/_generated/api";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
@@ -25,6 +26,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
   const { openCreditsModal } = useAppLayout();
   const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, category, verdictSummary, shareScore, outOfCredits, thinkingSince } = useConversation();
   const { isAdmin } = useUserAccess();
+  const currentUser = useQuery(api.users.currentUser);
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
   const activeConversationId = hookConversationId ?? externalId;
@@ -111,6 +113,34 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
     reset();
     onNewConversation();
   };
+
+  // Greeting state: no messages and not thinking
+  if (messages.length === 0 && !isThinking) {
+    const firstName = currentUser?.displayName?.split(" ")[0];
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6">
+        <Image
+          src="/AskHankIcon.svg"
+          alt="AskHank"
+          width={64}
+          height={64}
+          className="mb-5 opacity-80"
+        />
+        <h1 className="text-lg font-semibold text-text">
+          What are you buying{firstName ? `, ${firstName}` : ""}?
+        </h1>
+        <div className="mt-5 w-full max-w-[600px]">
+          <ChatInput
+            onSend={handleSend}
+            hasMessages={false}
+            disabled={false}
+            outOfCredits={outOfCredits}
+            centered
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
