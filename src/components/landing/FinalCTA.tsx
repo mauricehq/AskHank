@@ -14,7 +14,7 @@ export function FinalCTA() {
         <span className="text-accent">don&apos;t need it.</span>
       </h2>
       <p className="relative mt-4 text-text-secondary text-base md:text-lg">
-        Hank just makes sure you don&apos;t buy it.
+        Hank makes sure you don&apos;t buy it.
       </p>
       <div className="relative mt-8">
         <Show when="signed-out">

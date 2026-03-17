@@ -29,11 +29,11 @@ export function WhyHankWorks() {
         <div className="text-text-secondary text-[0.95rem] leading-relaxed space-y-4">
           <p>
             You&apos;ve tried the 24-hour rule. The no-buy challenge. The
-            spreadsheet. None of it stuck — because none of it pushed back.
+            spreadsheet. None of it stuck. Because none of it pushed back.
           </p>
           <p>
             Hank makes you argue your case out loud. When you have to explain
-            why you need a $900 espresso machine to someone who pushes back,
+            why you need a $400 robot vacuum to someone who pushes back,
             you hear your own weak arguments. The impulse dies in the
             conversation, not after a timer.
           </p>

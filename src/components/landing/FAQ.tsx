@@ -9,7 +9,7 @@ const faqs = [
   {
     question: "Is this just AI with a prompt that says 'be tough'?",
     answer:
-      "No. Hank runs a scoring engine that tracks your arguments turn by turn. The AI doesn't decide when to give in — the math does.",
+      "No. Hank tracks your arguments turn by turn. He doesn't decide when to give in. The math does.",
   },
   {
     question: "Does Hank ever say yes?",
@@ -19,7 +19,7 @@ const faqs = [
   {
     question: "Does Hank remember past conversations?",
     answer:
-      "Yes. Buy sneakers this week, try to justify a jacket next week — he'll notice the pattern.",
+      "Yes. Buy sneakers this week, try to justify a jacket next week. He'll notice the pattern.",
   },
   {
     question: "What happens when I run out of free messages?",

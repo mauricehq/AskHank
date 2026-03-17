@@ -17,7 +17,7 @@ const BULLETS = [
   },
   {
     icon: Flame,
-    text: "They have no opinion. Hank is built to have one — and to defend it.",
+    text: "They have no opinion. Hank has one. And he'll defend it.",
   },
   {
     icon: Swords,
