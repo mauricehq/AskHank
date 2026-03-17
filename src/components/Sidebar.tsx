@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Coins, Plus, Settings, Shield, X } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Coins, Plus, Scale, Search, Settings, Shield, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserButton } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -50,6 +51,12 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
 
   const activeConversationId = params.id as Id<"conversations"> | undefined;
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredHistory = history?.filter((item) =>
+    searchQuery === "" || item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const sidebarContent = (
     <div className="flex h-full w-[280px] flex-col">
       {/* Header */}
@@ -83,6 +90,51 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
         </button>
       </div>
 
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+          <input
+            type="text"
+            placeholder="Search conversations…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border-[1.5px] border-border bg-input-bg py-2 pl-9 pr-8 text-sm text-text placeholder:text-text-secondary/60 focus:border-accent focus:outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text"
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Verdict History link */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={() => {
+            if (!isDesktop) onClose();
+            router.push("/verdicts");
+          }}
+          className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
+        >
+          <Scale size={16} />
+          <span className="flex-1 text-left">Verdict History</span>
+          <ChevronRight size={14} className="text-text-secondary/50" />
+        </button>
+      </div>
+
+      {/* RECENTS label */}
+      <div className="px-3 pt-3 pb-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+          Recents
+        </span>
+      </div>
+
       {/* History list */}
       <div className="flex-1 overflow-y-auto px-2">
         {history === undefined ? (
@@ -101,8 +153,12 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
           <div className="px-4 py-8 text-center text-xs text-text-secondary">
             No conversations yet
           </div>
+        ) : filteredHistory!.length === 0 ? (
+          <div className="px-4 py-8 text-center text-xs text-text-secondary">
+            No matches
+          </div>
         ) : (
-          history.map((item) => (
+          filteredHistory!.map((item) => (
             <HistoryItem
               key={item._id}
               name={item.title}
@@ -200,9 +256,20 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
     return (
       <aside
         className="hidden h-full shrink-0 flex-col overflow-hidden border-r border-border bg-bg-card transition-[width] duration-[250ms] ease-in-out md:flex"
-        style={{ width: isOpen ? 280 : 0 }}
+        style={{ width: isOpen ? 280 : 48 }}
       >
-        {sidebarContent}
+        {isOpen ? (
+          sidebarContent
+        ) : (
+          <button
+            onClick={onToggle}
+            className="flex h-full w-[48px] flex-col items-center pt-4 gap-2 text-text-secondary hover:text-text transition-colors"
+            aria-label="Expand sidebar"
+          >
+            <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
+            <ChevronRight size={14} className="text-text-secondary/50" />
+          </button>
+        )}
       </aside>
     );
   }

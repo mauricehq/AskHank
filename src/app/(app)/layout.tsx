@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useStoreUserEffect } from "@/hooks/useStoreUserEffect";
@@ -66,17 +65,6 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="shrink-0 px-4 pt-2">
             <SessionErrorBanner sessionError={sessionError} clearSessionError={clearSessionError} />
           </div>
-        )}
-
-        {/* Desktop expand button (visible when sidebar collapsed) */}
-        {isDesktop && !sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-[10px] text-text hover:bg-bg-surface"
-            aria-label="Open sidebar"
-          >
-            <Menu size={20} />
-          </button>
         )}
 
         {needsOnboarding ? (
