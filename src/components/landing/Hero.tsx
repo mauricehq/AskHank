@@ -20,7 +20,7 @@ export function Hero() {
       </p>
 
       <p className="relative mt-4 text-sm text-text-secondary max-w-md leading-relaxed">
-        Think of him as the friend who&apos;s better with money than you.
+        You keep the money, or you earn the right to spend it.
       </p>
 
       <div className="relative mt-10 flex gap-3">

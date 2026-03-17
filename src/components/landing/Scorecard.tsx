@@ -25,7 +25,7 @@ export function Scorecard() {
     <div className="py-20 md:py-32 px-6" ref={ref}>
       <SectionHeader
         label="The Cost of Impulse"
-        subhead="The average person spends $3,400 a year on things they didn't need. That's a vacation. An emergency fund. 114 hours at work — gone."
+        subhead="The average person blows $3,400 a year on things they didn't need. That's 114 hours at your job. Gone."
       />
 
       <p className="text-center text-text-secondary text-sm mb-8">
@@ -63,7 +63,7 @@ export function Scorecard() {
       </div>
 
       <p className="text-center text-text-secondary text-sm mt-8">
-        Every purchase Hank talks you out of adds to your total. The app pays for itself on day one.
+        Every purchase Hank talks you out of adds to your total. You&apos;ll make back the $1.99 before lunch.
       </p>
     </div>
   );

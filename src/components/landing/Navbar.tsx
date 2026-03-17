@@ -92,14 +92,14 @@ export function Navbar() {
           </Show>
         </div>
 
-        {/* Right: mobile auth — lightweight button only, CTA goes in hamburger menu */}
+        {/* Right: mobile auth — CTA button visible, sign in goes in hamburger menu */}
         <div className="md:hidden flex items-center">
           <Show when="signed-out">
-            <SignInButton mode="modal" forceRedirectUrl="/conversations">
-              <button className="rounded-[10px] border border-border bg-transparent px-4 py-1.5 text-sm font-medium text-text hover:bg-bg-surface transition-colors">
-                Sign in
+            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
+              <button className="rounded-[10px] bg-accent px-4 py-1.5 text-sm font-medium text-user-text hover:bg-accent-hover transition-colors">
+                Try it free
               </button>
-            </SignInButton>
+            </SignUpButton>
           </Show>
           <Show when="signed-in">
             <Link
@@ -127,14 +127,14 @@ export function Navbar() {
           ))}
           <hr className="border-border" />
           <Show when="signed-out">
-            <SignUpButton mode="modal" forceRedirectUrl="/conversations">
+            <SignInButton mode="modal" forceRedirectUrl="/conversations">
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="bg-accent text-user-text px-4 py-3 rounded-[10px] font-bold text-center"
+                className="border border-border bg-transparent text-text px-4 py-3 rounded-[10px] font-bold text-center hover:bg-bg transition-colors"
               >
-                Try it free
+                Sign in
               </button>
-            </SignUpButton>
+            </SignInButton>
           </Show>
         </div>
       )}

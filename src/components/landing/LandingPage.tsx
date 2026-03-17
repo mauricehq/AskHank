@@ -10,6 +10,7 @@ import { WhyHankWorks } from "./WhyHankWorks";
 import { FreeToTry } from "./FreeToTry";
 import { FairWarning } from "./FairWarning";
 import { FinalCTA } from "./FinalCTA";
+import { FAQ } from "./FAQ";
 import { Footer } from "./Footer";
 
 export function LandingPage() {
@@ -38,6 +39,9 @@ export function LandingPage() {
         </section>
         <FairWarning />
         <FinalCTA />
+        <section className="bg-bg-surface">
+          <FAQ />
+        </section>
       </main>
       <Footer />
     </>

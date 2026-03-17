@@ -1,15 +1,15 @@
 import { SectionHeader } from "./SectionHeader";
 
 const packs = [
-  { messages: 50, price: "$1.99", popular: false },
-  { messages: 150, price: "$4.99", popular: true },
-  { messages: 400, price: "$9.99", popular: false },
+  { messages: 50, price: "$1.99", popular: false, convos: "~5–7" },
+  { messages: 150, price: "$4.99", popular: true, convos: "~15–21" },
+  { messages: 400, price: "$9.99", popular: false, convos: "~40–57" },
 ];
 
 export function FreeToTry() {
   return (
     <div className="py-20 md:py-32 px-6">
-      <SectionHeader label="Free to Try" />
+      <SectionHeader label="What It Costs" />
 
       <div className="max-w-2xl mx-auto text-center space-y-4 mb-12">
         {/* No subscription badge */}
@@ -29,13 +29,12 @@ export function FreeToTry() {
           A typical conversation is about 7-10 messages.
         </p>
         <p className="text-text-secondary text-[0.95rem] leading-relaxed">
-          No subscription. No trial that expires.
+          No trial that expires.
           If you run out, credit packs start at $1.99.
-          Buy what you need, when you need it.
         </p>
       </div>
 
-      <div className="max-w-2xl mx-auto grid grid-cols-3 gap-4">
+      <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4">
         {packs.map((pack) => (
           <div
             key={pack.messages}
@@ -55,7 +54,8 @@ export function FreeToTry() {
             <div className="font-mono text-2xl font-bold text-accent">
               {pack.messages}
             </div>
-            <div className="text-text-secondary text-xs mt-1 mb-3">messages</div>
+            <div className="text-text-secondary text-xs mt-1">messages</div>
+            <div className="text-text-secondary text-xs mb-3">{pack.convos} convos</div>
             <div className="text-text font-semibold">{pack.price}</div>
           </div>
         ))}
