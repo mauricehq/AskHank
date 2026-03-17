@@ -13,6 +13,7 @@ import { useConversation } from "@/hooks/useConversation";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAppLayout } from "./AppLayoutContext";
+import { getGreeting } from "@/lib/greetings";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { TraceSummary } from "@/types/chat";
 
@@ -114,9 +115,14 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
     onNewConversation();
   };
 
+  const firstName = currentUser?.displayName?.split(" ")[0];
+  const [greeting, setGreeting] = useState("");
+  useEffect(() => {
+    setGreeting(getGreeting(firstName));
+  }, [firstName]);
+
   // Greeting state: no messages and not thinking
   if (messages.length === 0 && !isThinking) {
-    const firstName = currentUser?.displayName?.split(" ")[0];
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <Image
@@ -127,7 +133,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
           className="mb-5 opacity-80"
         />
         <h1 className="text-lg font-semibold text-text">
-          What are you buying{firstName ? `, ${firstName}` : ""}?
+          {greeting}
         </h1>
         <div className="mt-5 w-full max-w-[600px]">
           <ChatInput
