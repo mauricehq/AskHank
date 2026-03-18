@@ -89,12 +89,23 @@ export function HistoryItem({ name, verdict, timeAgo, estimatedPrice, isActive, 
             </div>
           </div>
 
-          {/* Trash icon (fades in on hover) */}
+          {/* Verdict badge — hides on hover */}
+          {verdict && (
+            <span
+              className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide group-hover:hidden ${
+                isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
+              }`}
+            >
+              {verdict}
+            </span>
+          )}
+
+          {/* Trash icon — always in DOM, fades in on hover */}
           {onDelete && (
             <div
               role="button"
               aria-label="Delete conversation"
-              className="flex shrink-0 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto"
+              className="shrink-0 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto hidden group-hover:flex"
               onClick={(e) => {
                 e.stopPropagation();
                 setConfirming(true);
@@ -102,15 +113,6 @@ export function HistoryItem({ name, verdict, timeAgo, estimatedPrice, isActive, 
             >
               <Trash2 size={14} className="text-text-secondary hover:text-denied" />
             </div>
-          )}
-          {verdict && (
-            <span
-              className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide group-hover:opacity-0 transition-opacity duration-150 ${
-                isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
-              }`}
-            >
-              {verdict}
-            </span>
           )}
         </motion.button>
       )}
