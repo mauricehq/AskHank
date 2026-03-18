@@ -14,7 +14,7 @@ const faqs = [
   {
     question: "Does Hank ever say yes?",
     answer:
-      "About 10% of the time. Make a real case and he'll come around.",
+      "Yes. Make a real case and he'll come around.",
   },
   {
     question: "Does Hank remember past conversations?",
