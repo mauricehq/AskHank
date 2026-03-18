@@ -15,8 +15,14 @@ export function Hero() {
         <span className="text-accent">you don&apos;t need?</span>
       </h1>
 
-      <p className="relative mt-6 text-base md:text-lg text-text max-w-lg leading-relaxed">
-        Tell him what you want to buy. He&apos;ll tell you why you don&apos;t need it.
+      <p className="relative mt-6 text-base md:text-lg font-semibold text-text">
+        Ask Hank.
+      </p>
+
+      <p className="relative mt-2 text-base md:text-lg text-text max-w-lg leading-relaxed">
+        Tell him what you want to buy.
+        <br className="hidden md:inline" />
+        {" "}He&apos;ll tell you why you don&apos;t need it.
       </p>
 
       <p className="relative mt-4 text-sm text-text-secondary max-w-md leading-relaxed">
