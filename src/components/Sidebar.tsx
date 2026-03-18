@@ -14,7 +14,6 @@ import { HistoryItem } from "./HistoryItem";
 import { useRouter, useParams } from "next/navigation";
 import { useAppLayout } from "./AppLayoutContext";
 import type { Id } from "../../convex/_generated/dataModel";
-import Link from "next/link";
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Math.max(0, Date.now() - timestamp);
@@ -63,12 +62,12 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
     <div className="flex h-full w-[280px] flex-col">
       {/* Header */}
       <div className="flex h-[60px] shrink-0 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <img src="/AskHankIcon.svg" alt="" width={22} height={22} />
           <span className="text-base font-bold tracking-tight text-text">
             Ask <span className="text-accent">Hank</span>
           </span>
-        </Link>
+        </div>
         <button
           onClick={isDesktop ? onToggle : onClose}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-surface hover:text-text"
