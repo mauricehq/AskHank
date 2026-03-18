@@ -53,6 +53,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
   const activeConversationId = params.id as Id<"conversations"> | undefined;
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
 
   const filteredHistory = history?.filter((item) =>
     searchQuery === "" || item.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -170,6 +171,9 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
                   estimatedPrice={item.estimatedPrice}
                   timeAgo={formatRelativeTime(item.createdAt)}
                   isActive={activeConversationId === item._id}
+                  itemId={item._id}
+                  swipeOpenId={swipeOpenId}
+                  onSwipeOpen={setSwipeOpenId}
                   onClick={() => {
                     if (!isDesktop) onClose();
                     router.push(`/conversations/${item._id}`);
