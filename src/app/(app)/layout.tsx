@@ -23,6 +23,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     isDesktop,
     creditsModalOpen,
     setCreditsModalOpen,
+    activeConversationId,
   } = useAppLayout();
 
   // Handle Stripe return URL
@@ -98,7 +99,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Credits modal */}
-      <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} />
+      <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} conversationId={activeConversationId} />
     </div>
   );
 }

@@ -23,7 +23,10 @@ const PRICE_ENV_MAP: Record<PackId, string> = {
 };
 
 export const createCheckoutSession = action({
-  args: { packId: v.union(v.literal("small"), v.literal("medium"), v.literal("large")) },
+  args: {
+    packId: v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
+    conversationId: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -40,6 +43,13 @@ export const createCheckoutSession = action({
     if (!priceId) throw new Error(`Stripe price not configured for pack: ${args.packId}`);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+    // Sanitize conversationId to prevent path traversal in redirect URLs
+    const safeConversationId =
+      args.conversationId && /^[a-zA-Z0-9_]+$/.test(args.conversationId)
+        ? args.conversationId
+        : undefined;
+
     const stripe = getStripe();
 
     // Create or reuse Stripe Customer
@@ -66,8 +76,8 @@ export const createCheckoutSession = action({
         allow_redisplay_filters: ["always", "limited"],
       },
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/conversations?credits=success`,
-      cancel_url: `${appUrl}/conversations?credits=cancelled`,
+      success_url: `${appUrl}${safeConversationId ? `/conversations/${safeConversationId}` : "/conversations"}?credits=success`,
+      cancel_url: `${appUrl}${safeConversationId ? `/conversations/${safeConversationId}` : "/conversations"}?credits=cancelled`,
       metadata: {
         userId: user._id,
         packId: args.packId,

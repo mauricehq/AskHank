@@ -19,9 +19,10 @@ const PACKS: { id: PackId; credits: number; price: string; label: string; highli
 interface CreditsModalProps {
   open: boolean;
   onClose: () => void;
+  conversationId?: string | null;
 }
 
-export function CreditsModal({ open, onClose }: CreditsModalProps) {
+export function CreditsModal({ open, onClose, conversationId }: CreditsModalProps) {
   const credits = useQuery(api.credits.getBalance);
   const createCheckout = useAction(api.stripe.createCheckoutSession);
   const chargeSaved = useAction(api.stripe.chargeSavedMethod);
@@ -73,7 +74,7 @@ export function CreditsModal({ open, onClose }: CreditsModalProps) {
 
     // No saved card or charge failed — redirect to Stripe Checkout
     try {
-      const { url } = await createCheckout({ packId });
+      const { url } = await createCheckout({ packId, conversationId: conversationId ?? undefined });
       if (url) {
         window.location.href = url;
       }

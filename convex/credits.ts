@@ -65,6 +65,10 @@ export const addCredits = internalMutation({
       .unique();
     if (existing) return;
 
+    // Verify user exists before granting credits
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error(`User not found: ${args.userId}`);
+
     // Insert purchase record
     await ctx.db.insert("purchases", {
       userId: args.userId,

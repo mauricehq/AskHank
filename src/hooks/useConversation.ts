@@ -3,12 +3,14 @@
 import { useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { MESSAGE_COST } from "../../convex/lib/credits";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { Message, Verdict, VerdictType } from "@/types/chat";
 
 export function useConversation() {
   const [conversationId, setConversationId] = useState<Id<"conversations"> | null>(null);
-  const [outOfCredits, setOutOfCredits] = useState(false);
+  const credits = useQuery(api.credits.getBalance);
+  const outOfCredits = credits !== undefined && credits.balance < MESSAGE_COST;
 
   const conversation = useQuery(
     api.conversations.getConversation,
@@ -48,22 +50,12 @@ export function useConversation() {
   const send = useCallback(
     async (content: string) => {
       if (conversation?.status === "closed") return;
-      try {
-        setOutOfCredits(false);
-        const id = await sendMutation({
-          conversationId: conversationId ?? undefined,
-          content,
-        });
-        if (!conversationId) {
-          setConversationId(id);
-        }
-      } catch (error: any) {
-        const msg = String(error?.message ?? error?.data ?? "");
-        if (msg.includes("INSUFFICIENT_CREDITS")) {
-          setOutOfCredits(true);
-        } else {
-          throw error;
-        }
+      const id = await sendMutation({
+        conversationId: conversationId ?? undefined,
+        content,
+      });
+      if (!conversationId) {
+        setConversationId(id);
       }
     },
     [sendMutation, conversationId, conversation?.status]
@@ -71,7 +63,6 @@ export function useConversation() {
 
   const reset = useCallback(() => {
     setConversationId(null);
-    setOutOfCredits(false);
   }, []);
 
   const loadConversation = useCallback((id: Id<"conversations">) => {

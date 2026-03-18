@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { CREDIT_PACKS, type PackId } from "./lib/credits";
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
@@ -49,13 +50,14 @@ export const handleWebhook = internalAction({
           }
 
           const credits = parseInt(metadata.credits, 10);
-          if (isNaN(credits) || credits <= 0) {
-            console.error("Invalid credits metadata:", metadata.credits);
+          const expectedPack = CREDIT_PACKS[metadata.packId as PackId];
+          if (isNaN(credits) || credits <= 0 || !expectedPack || credits !== expectedPack.credits) {
+            console.error("Invalid or mismatched credits metadata:", metadata.credits, metadata.packId);
             await ctx.runMutation(internal.credits.logWebhookEvent, {
               eventId: event.id,
               eventType: event.type,
               status: "error",
-              error: `Invalid credits metadata: ${metadata.credits}`,
+              error: `Invalid or mismatched credits metadata: credits=${metadata.credits} packId=${metadata.packId}`,
             });
             return;
           }

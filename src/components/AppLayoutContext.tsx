@@ -13,6 +13,8 @@ interface AppLayoutContextValue {
   mobileSidebarOpen: boolean;
   setMobileSidebarOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   isDesktop: boolean;
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
 }
 
 const AppLayoutContext = createContext<AppLayoutContextValue | null>(null);
@@ -22,6 +24,7 @@ export function AppLayoutProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useLocalStorage("hank-sidebar-open", true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [creditsModalOpen, setCreditsModalOpen] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   return (
     <AppLayoutContext.Provider
@@ -34,6 +37,8 @@ export function AppLayoutProvider({ children }: { children: ReactNode }) {
         mobileSidebarOpen,
         setMobileSidebarOpen,
         isDesktop,
+        activeConversationId,
+        setActiveConversationId,
       }}
     >
       {children}

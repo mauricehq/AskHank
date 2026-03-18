@@ -27,13 +27,20 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
-  const { openCreditsModal } = useAppLayout();
+  const { openCreditsModal, setActiveConversationId } = useAppLayout();
   const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, category, verdictSummary, shareScore, outOfCredits, thinkingSince } = useConversation();
   const { isAdmin } = useUserAccess();
   const currentUser = useQuery(api.users.currentUser);
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
 
   const activeConversationId = hookConversationId ?? externalId;
+
+  // Sync active conversation ID to layout context for Stripe return URLs
+  useEffect(() => {
+    setActiveConversationId(activeConversationId ?? null);
+    return () => setActiveConversationId(null);
+  }, [activeConversationId, setActiveConversationId]);
+
   const traceSummaries = useQuery(
     api.llmTraces.getTraceSummariesForConversation,
     isAdmin && activeConversationId ? { conversationId: activeConversationId } : "skip"
@@ -106,11 +113,7 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
   }, [messages, isThinking, isError]);
 
   const handleSend = async (text: string) => {
-    try {
-      await send(text);
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
+    await send(text);
   };
 
   const handleNewConversation = () => {

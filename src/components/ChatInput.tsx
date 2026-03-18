@@ -5,7 +5,7 @@ import { ArrowUp } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface ChatInputProps {
-  onSend: (text: string) => void;
+  onSend: (text: string) => Promise<void>;
   hasMessages: boolean;
   disabled?: boolean;
   outOfCredits?: boolean;
@@ -14,11 +14,12 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, hasMessages, disabled, outOfCredits, centered }: ChatInputProps) {
   const [value, setValue] = useState("");
+  const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !disabled && !outOfCredits;
+  const canSend = trimmed.length > 0 && !disabled && !outOfCredits && !sending;
 
   const adjustHeight = () => {
     const el = textareaRef.current;
@@ -27,13 +28,20 @@ export function ChatInput({ onSend, hasMessages, disabled, outOfCredits, centere
     el.style.height = `${el.scrollHeight}px`;
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!canSend) return;
-    onSend(trimmed);
-    setValue("");
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
+    setSending(true);
+    try {
+      await onSend(trimmed);
+      setValue("");
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = "auto";
+      }
+    } catch {
+      // Keep text in textarea on failure
+    } finally {
+      setSending(false);
     }
   };
 
