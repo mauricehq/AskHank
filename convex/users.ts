@@ -188,7 +188,32 @@ export const deleteAccount = mutation({
       for (const trace of traces) {
         await ctx.db.delete(trace._id);
       }
+      // Delete decision ledger entries for this conversation
+      const ledgerEntries = await ctx.db
+        .query("decisionLedger")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conv._id))
+        .collect();
+      for (const entry of ledgerEntries) {
+        await ctx.db.delete(entry._id);
+      }
+      // Delete share cards for this conversation
+      const shareCards = await ctx.db
+        .query("shareCards")
+        .withIndex("by_conversation_and_type", (q) => q.eq("conversationId", conv._id))
+        .collect();
+      for (const card of shareCards) {
+        await ctx.db.delete(card._id);
+      }
       await ctx.db.delete(conv._id);
+    }
+
+    // Delete any user-level share cards (not tied to a conversation)
+    const userShareCards = await ctx.db
+      .query("shareCards")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const card of userShareCards) {
+      await ctx.db.delete(card._id);
     }
 
     // Delete credits row

@@ -1,5 +1,6 @@
 import type { DecisionCardData } from "@/lib/cards/types";
 import { getCardTextSizes, sizeToClass } from "@/lib/cards/cardDensity";
+import { getHankScoreLabel } from "@/lib/hankScore";
 import "./styles/card.css";
 
 // Design tokens — keep in sync with docs/style-guide.html
@@ -20,19 +21,6 @@ const COLOR = {
   surfaceBorder: "rgba(61, 55, 50, 0.8)",
   track: "#2A2520",
 } as const;
-
-const HANK_SCORE_LABELS: Record<number, string> = {
-  1: "Pure impulse",
-  2: "Pure impulse",
-  3: "Gut feeling",
-  4: "Gut feeling",
-  5: "Half-examined",
-  6: "Half-examined",
-  7: "Well-considered",
-  8: "Well-considered",
-  9: "Thoroughly examined",
-  10: "Thoroughly examined",
-};
 
 const FONT_MONO = "var(--font-mono)";
 
@@ -66,7 +54,7 @@ export function DecisionShareCard({ data }: DecisionShareCardProps) {
 
   const stampLabel = decision === "buying" ? "BUYING IT" : decision === "skipping" ? "SKIPPING IT" : "THINKING";
   const stampSub = hankScore != null
-    ? `Hank Score: ${hankScore}/10 — ${HANK_SCORE_LABELS[hankScore] ?? "Unknown"}`
+    ? `Hank Score: ${hankScore}/10 — ${getHankScoreLabel(hankScore)}`
     : decision === "buying" ? "They're buying it" : decision === "skipping" ? "Smart move" : "Need more time";
 
   const hasScore = hankScore != null;

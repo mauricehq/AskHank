@@ -154,6 +154,24 @@ export const deleteConversation = mutation({
       await ctx.db.delete(trace._id);
     }
 
+    // Delete decision ledger entries
+    const ledgerEntries = await ctx.db
+      .query("decisionLedger")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+    for (const entry of ledgerEntries) {
+      await ctx.db.delete(entry._id);
+    }
+
+    // Delete share cards
+    const shareCards = await ctx.db
+      .query("shareCards")
+      .withIndex("by_conversation_and_type", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+    for (const card of shareCards) {
+      await ctx.db.delete(card._id);
+    }
+
     // Delete the conversation itself
     await ctx.db.delete(args.conversationId);
   },
@@ -402,7 +420,7 @@ export const saveResponseWithDecision = internalMutation({
         decision: args.decision,
         reactionText: args.reactionText,
         hankScore: args.hankScore,
-        createdAt: conversation.createdAt,
+        createdAt: Date.now(),
       });
     }
 

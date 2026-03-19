@@ -5,20 +5,8 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { DecisionCardData } from "@/lib/cards/types";
+import { getHankScoreLabel } from "@/lib/hankScore";
 import { ShareCardModal } from "./share/ShareCardModal";
-
-const HANK_SCORE_LABELS: Record<number, string> = {
-  1: "Pure impulse",
-  2: "Pure impulse",
-  3: "Gut feeling",
-  4: "Gut feeling",
-  5: "Half-examined",
-  6: "Half-examined",
-  7: "Well-considered",
-  8: "Well-considered",
-  9: "Thoroughly examined",
-  10: "Thoroughly examined",
-};
 
 const DECISION_CONFIG = {
   buying: {
@@ -107,7 +95,7 @@ export function DecisionCard({
           <div className="mb-3">
             <div className="flex items-center justify-center gap-2 text-[0.75rem] text-text-secondary">
               <span className="font-semibold">Hank Score: {hankScore}/10</span>
-              <span className="text-text-secondary/70">— {HANK_SCORE_LABELS[hankScore] ?? "Unknown"}</span>
+              <span className="text-text-secondary/70">— {getHankScoreLabel(hankScore)}</span>
             </div>
             <div className="mt-1.5 mx-auto max-w-[200px] h-1.5 rounded-full bg-border overflow-hidden">
               <div

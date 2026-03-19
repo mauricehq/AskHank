@@ -103,6 +103,31 @@ const VALID_INTENTS = new Set(["want", "need", "replace", "upgrade", "gift"]);
 const VALID_CATEGORIES = new Set(["electronics", "vehicles", "fashion", "furniture", "kitchen", "travel", "entertainment", "sports_fitness", "beauty", "subscriptions", "hardware", "essentials", "safety_health", "other"]);
 const VALID_CONTRADICTION_SEVERITIES = new Set(["refinement", "soft", "hard"]);
 
+/** Parse lastAssessment JSON into a typed PersistedContext, or null on failure. */
+function parsePersistedContext(json: string): PersistedContext | null {
+  try {
+    const parsed = JSON.parse(json);
+    return {
+      item: typeof parsed.item === "string" ? parsed.item : "unknown",
+      estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
+      category: typeof parsed.category === "string" ? parsed.category : "other",
+      intent: VALID_INTENTS.has(parsed.intent) ? parsed.intent : "want",
+      coverageMap: parsed.coverageMap ?? initCoverageMap(parsed.intent ?? "want"),
+      turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
+      contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
+      consecutiveNonAnswers: typeof parsed.consecutiveNonAnswers === "number" ? parsed.consecutiveNonAnswers : 0,
+      consecutiveLowEngagement: typeof parsed.consecutiveLowEngagement === "number" ? parsed.consecutiveLowEngagement : 0,
+      turnsSinceCoverageAdvanced: typeof parsed.turnsSinceCoverageAdvanced === "number" ? parsed.turnsSinceCoverageAdvanced : 0,
+      territoryAssignmentCounts: parsed.territoryAssignmentCounts ?? {},
+      lastAssignedTerritory: parsed.lastAssignedTerritory ?? null,
+      memoryNudgeText: typeof parsed.memoryNudgeText === "string" ? parsed.memoryNudgeText : undefined,
+      memoryNudges: Array.isArray(parsed.memoryNudges) ? parsed.memoryNudges : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
   // Parse contradiction
   let contradiction: TurnAssessment["contradiction"] = null;
@@ -562,28 +587,9 @@ export const generateReaction = internalAction({
       );
 
       // 2. Parse persisted context
-      let previousContext: PersistedContext | null = null;
-      if (conversation.lastAssessment) {
-        try {
-          const parsed = JSON.parse(conversation.lastAssessment);
-          previousContext = {
-            item: typeof parsed.item === "string" ? parsed.item : "unknown",
-            estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
-            category: typeof parsed.category === "string" ? parsed.category : "other",
-            intent: VALID_INTENTS.has(parsed.intent) ? parsed.intent : "want",
-            coverageMap: parsed.coverageMap ?? initCoverageMap(parsed.intent ?? "want"),
-            turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
-            contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
-            consecutiveNonAnswers: typeof parsed.consecutiveNonAnswers === "number" ? parsed.consecutiveNonAnswers : 0,
-            consecutiveLowEngagement: typeof parsed.consecutiveLowEngagement === "number" ? parsed.consecutiveLowEngagement : 0,
-            turnsSinceCoverageAdvanced: typeof parsed.turnsSinceCoverageAdvanced === "number" ? parsed.turnsSinceCoverageAdvanced : 0,
-            territoryAssignmentCounts: parsed.territoryAssignmentCounts ?? {},
-            lastAssignedTerritory: parsed.lastAssignedTerritory ?? null,
-          };
-        } catch {
-          previousContext = null;
-        }
-      }
+      const previousContext = conversation.lastAssessment
+        ? parsePersistedContext(conversation.lastAssessment)
+        : null;
 
       // 3. Compute Hank Score
       const coverageMap = previousContext?.coverageMap ?? initCoverageMap("want");
@@ -775,30 +781,9 @@ export const respond = internalAction({
         }
 
         // Parse previous context (v2 shape)
-        let previousContext: PersistedContext | null = null;
-        if (conversation.lastAssessment) {
-          try {
-            const parsed = JSON.parse(conversation.lastAssessment);
-            previousContext = {
-              item: typeof parsed.item === "string" ? parsed.item : "unknown",
-              estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
-              category: typeof parsed.category === "string" ? parsed.category : "other",
-              intent: VALID_INTENTS.has(parsed.intent) ? parsed.intent : "want",
-              coverageMap: parsed.coverageMap ?? initCoverageMap(parsed.intent ?? "want"),
-              turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
-              contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
-              consecutiveNonAnswers: typeof parsed.consecutiveNonAnswers === "number" ? parsed.consecutiveNonAnswers : 0,
-              consecutiveLowEngagement: typeof parsed.consecutiveLowEngagement === "number" ? parsed.consecutiveLowEngagement : 0,
-              turnsSinceCoverageAdvanced: typeof parsed.turnsSinceCoverageAdvanced === "number" ? parsed.turnsSinceCoverageAdvanced : 0,
-              territoryAssignmentCounts: parsed.territoryAssignmentCounts ?? {},
-              lastAssignedTerritory: parsed.lastAssignedTerritory ?? null,
-              memoryNudgeText: typeof parsed.memoryNudgeText === "string" ? parsed.memoryNudgeText : undefined,
-              memoryNudges: Array.isArray(parsed.memoryNudges) ? parsed.memoryNudges : undefined,
-            };
-          } catch {
-            previousContext = null;
-          }
-        }
+        const previousContext = conversation.lastAssessment
+          ? parsePersistedContext(conversation.lastAssessment)
+          : null;
 
         const userInfo = await ctx.runQuery(
           internal.conversations.internalGetUserInfo,
