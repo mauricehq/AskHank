@@ -126,10 +126,6 @@ export default defineSchema({
     // Call 2 prompt swap (opener/reaction)
     call2SystemPrompt: v.optional(v.string()),
 
-    // Call 3 reaction trace (auto-resolve only)
-    call3SystemPrompt: v.optional(v.string()),
-    call3RawResponse: v.optional(v.string()),
-
     // Tool calling
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),

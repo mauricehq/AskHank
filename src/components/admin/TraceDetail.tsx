@@ -117,7 +117,7 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
             {toolCalled && toolResult != null ? (
               <div>
                 <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-                  Tool Result (Stance Returned)
+                  Tool Result (Compass)
                 </div>
                 <JsonBlock data={toolResult} />
               </div>
@@ -169,30 +169,6 @@ export function TraceDetail({ traceId }: TraceDetailProps) {
           <pre className="max-h-[300px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
             {trace.call2SystemPrompt}
           </pre>
-        </CollapsibleSection>
-      )}
-
-      {/* Call 3 — Verdict Summary (only on closing turns) */}
-      {trace.call3RawResponse && (
-        <CollapsibleSection title="Call 3 — Verdict Summary" defaultOpen>
-          {trace.call3SystemPrompt && (
-            <div className="mb-2">
-              <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-                System Prompt
-              </div>
-              <pre className="max-h-[200px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
-                {trace.call3SystemPrompt}
-              </pre>
-            </div>
-          )}
-          <div>
-            <div className="text-[10px] font-semibold uppercase text-text-secondary mb-1">
-              Raw Response
-            </div>
-            <pre className="max-h-[200px] overflow-auto rounded-lg bg-bg-surface p-3 text-xs text-text font-mono whitespace-pre-wrap break-words">
-              {trace.call3RawResponse}
-            </pre>
-          </div>
         </CollapsibleSection>
       )}
 

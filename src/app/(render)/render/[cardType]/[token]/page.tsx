@@ -2,8 +2,8 @@ import { headers } from "next/headers";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "../../../../../../convex/_generated/api";
 import { isValidCardType } from "@/lib/cards/registry";
-import { VerdictShareCard } from "@/components/share/VerdictShareCard";
-import type { VerdictCardData } from "@/lib/cards/types";
+import { DecisionShareCard } from "@/components/share/DecisionShareCard";
+import type { DecisionCardData } from "@/lib/cards/types";
 
 type Props = {
   params: Promise<{ cardType: string; token: string }>;
@@ -31,19 +31,19 @@ export default async function RenderPage({ params, searchParams }: Props) {
     return <div>Card not found</div>;
   }
 
-  const data = card.data as VerdictCardData;
+  const data = card.data as DecisionCardData;
 
   if (format === "og") {
     return (
       <OgLayout>
-        {cardType === "verdict" && <VerdictShareCard data={data} />}
+        {cardType === "decision" && <DecisionShareCard data={data} />}
       </OgLayout>
     );
   }
 
   return (
     <DownloadLayout>
-      {cardType === "verdict" && <VerdictShareCard data={data} />}
+      {cardType === "decision" && <DecisionShareCard data={data} />}
     </DownloadLayout>
   );
 }

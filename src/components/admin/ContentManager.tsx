@@ -96,7 +96,7 @@ export function ContentManager() {
       <div className="space-y-1">
         {cuts.map((cut) => {
           const isExpanded = expandedId === cut._id;
-          const isDenied = cut.verdict === "denied";
+          const isSkipping = cut.decision === "skipping";
           return (
             <div
               key={cut._id}
@@ -117,12 +117,12 @@ export function ContentManager() {
                       </span>
                       <span
                         className={`shrink-0 rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold uppercase ${
-                          isDenied
-                            ? "bg-denied/15 text-denied"
-                            : "bg-approved/15 text-approved"
+                          isSkipping
+                            ? "bg-approved/15 text-approved"
+                            : "bg-accent/15 text-accent"
                         }`}
                       >
-                        {cut.verdict}
+                        {cut.decision}
                       </span>
                     </div>
                     <div className="mt-0.5 truncate text-xs text-text-secondary">
@@ -218,9 +218,9 @@ export function ContentManager() {
                       </div>
                     );
                   })}
-                  {cut.verdictSummary && (
+                  {cut.reactionText && (
                     <div className="pt-1 text-xs italic text-text-secondary">
-                      {cut.verdictSummary}
+                      {cut.reactionText}
                     </div>
                   )}
                 </div>

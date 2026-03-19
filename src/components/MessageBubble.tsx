@@ -10,30 +10,20 @@ interface MessageBubbleProps {
 
 const DECISION_COLORS: Record<string, string> = {
   normal: "bg-blue-500/20 text-blue-300",
-  "normal (stance capped)": "bg-blue-500/20 text-blue-300",
   casual: "bg-zinc-500/20 text-zinc-300",
   "out-of-scope": "bg-zinc-500/20 text-zinc-300",
   "directed-question": "bg-cyan-500/20 text-cyan-300",
-  concede: "bg-green-500/20 text-green-300",
-  "user-backed-down": "bg-green-500/20 text-green-300",
-  "disengagement-increment": "bg-yellow-500/20 text-yellow-300",
-  "disengagement-denied": "bg-red-500/20 text-red-300",
-  "stagnation-denied": "bg-red-500/20 text-red-300",
-  "collapse-denied": "bg-red-500/20 text-red-300",
+  "non-answer-warning": "bg-yellow-500/20 text-yellow-300",
+  "non-answer-disengaged": "bg-red-500/20 text-red-300",
+  "stagnation-warning": "bg-yellow-500/20 text-yellow-300",
+  "stagnation-disengaged": "bg-red-500/20 text-red-300",
+  "auto-resolve-buying": "bg-green-500/20 text-green-300",
+  "auto-resolve-skipping": "bg-green-500/20 text-green-300",
+  "user-resolve-buying": "bg-green-500/20 text-green-300",
+  "user-resolve-skipping": "bg-green-500/20 text-green-300",
+  "user-resolve-thinking": "bg-green-500/20 text-green-300",
   error: "bg-red-500/20 text-red-300",
 };
-
-function parseScoreAndDelta(scoringResult: string): { score: number; delta: number } | null {
-  try {
-    const parsed = JSON.parse(scoringResult);
-    const score = typeof parsed.runningScore === "number" ? parsed.runningScore : null;
-    if (score === null) return null;
-    const delta = typeof parsed.delta === "number" ? parsed.delta : 0;
-    return { score, delta };
-  } catch {
-    return null;
-  }
-}
 
 // Fields to skip in assessment display (shown elsewhere or internal)
 const ASSESSMENT_SKIP = new Set(["item"]);
@@ -41,10 +31,14 @@ const ASSESSMENT_SKIP = new Set(["item"]);
 // Render assessment enum/boolean values with color hints
 const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
   intent: { want: "text-red-400", need: "text-green-400", replace: "text-green-400", upgrade: "text-blue-400", gift: "text-yellow-400" },
-  challenge_addressed: { true: "text-green-400", false: "text-red-400" },
-  evidence_provided: { true: "text-green-400", false: "text-zinc-500" },
-  new_angle: { true: "text-green-400", false: "text-zinc-500" },
+  response_type: { direct_counter: "text-green-400", partial: "text-yellow-400", pivot: "text-orange-400", dodge: "text-red-400", none: "text-zinc-500" },
+  evidence_tier: { concrete: "text-green-400", specific: "text-green-400", anecdotal: "text-yellow-400", assertion: "text-orange-400", none: "text-zinc-500" },
+  argument_type: { same_as_before: "text-red-400", new_usage: "text-green-400", new_deficiency: "text-green-400", new_financial: "text-green-400", new_comparison: "text-green-400", new_other: "text-blue-400" },
+  territory_addressed: {},
   emotional_reasoning: { true: "text-red-400", false: "text-zinc-500" },
+  is_non_answer: { true: "text-red-400", false: "text-zinc-500" },
+  is_out_of_scope: { true: "text-yellow-400", false: "text-zinc-500" },
+  is_directed_question: { true: "text-cyan-400", false: "text-zinc-500" },
 };
 
 function AssessmentValue({ field, value }: { field: string; value: unknown }) {
@@ -77,15 +71,18 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
   const item = assessment?.item;
   const itemLabel = typeof item === "string" && item !== "unknown" ? item : null;
 
-  const stanceTransition =
-    trace.previousStance && trace.newStance
-      ? `${trace.previousStance} → ${trace.newStance}`
-      : trace.newStance || "—";
+  const intensityTransition =
+    trace.previousIntensity && trace.newIntensity
+      ? `${trace.previousIntensity} → ${trace.newIntensity}`
+      : trace.newIntensity || "—";
 
   const decisionColor =
     DECISION_COLORS[trace.decisionType] ?? "bg-white/10 text-zinc-400";
 
-  const scoring = parseScoreAndDelta(trace.scoringResult);
+  // Parse coverage ratio from scoring result
+  const coverageRatio = parsedScoring && typeof parsedScoring.coverageRatio === "number"
+    ? (parsedScoring.coverageRatio * 100).toFixed(0) + "%"
+    : null;
 
   return (
     <div className="border-t border-border mt-2 pt-2">
@@ -95,14 +92,14 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
         className="flex w-full flex-wrap items-center gap-2 text-left font-mono text-[0.65rem] text-zinc-400 hover:text-zinc-300 transition-colors"
       >
         <span className="rounded bg-white/10 px-1.5 py-0.5 font-semibold text-zinc-300">
-          {stanceTransition}
+          {intensityTransition}
         </span>
         <span className={`rounded px-1.5 py-0.5 ${decisionColor}`}>
           {trace.decisionType}
         </span>
-        {scoring !== null && (
+        {coverageRatio !== null && (
           <span className="text-zinc-400 font-semibold">
-            {scoring.score}{scoring.delta !== 0 && <span className={`animate-fade-in ${scoring.delta > 0 ? "text-green-400" : "text-red-400"}`}> ({scoring.delta > 0 ? "+" : ""}{scoring.delta})</span>}
+            {coverageRatio} covered
           </span>
         )}
         {itemLabel && (
@@ -130,7 +127,7 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
 
       {expanded && parsedScoring && (
         <div className="mt-2 space-y-0.5 font-mono text-[0.6rem] text-zinc-500">
-          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Scoring</div>
+          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Compass</div>
           {Object.entries(parsedScoring).map(([key, value]) => (
             <div key={key} className="flex justify-between">
               <span>{key}</span>

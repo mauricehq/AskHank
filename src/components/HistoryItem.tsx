@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Check, MessageCircle, Trash2, X } from "lucide-react";
+import { Check, Clock, MessageCircle, ShoppingCart, Trash2 } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
 
 interface HistoryItemProps {
   name: string;
-  verdict?: "denied" | "approved";
+  decision?: "buying" | "skipping" | "thinking";
   timeAgo: string;
   estimatedPrice?: number;
   isActive?: boolean;
@@ -27,9 +27,27 @@ const FAST_SWIPE_V = 500;
 const spring = { type: "spring" as const, stiffness: 500, damping: 40 };
 const exitSpring = { type: "spring" as const, stiffness: 300, damping: 35 };
 
+const DECISION_ICON_CONFIG = {
+  buying: {
+    icon: ShoppingCart,
+    bgClass: "bg-accent/10 text-accent",
+    badgeClass: "bg-accent/10 text-accent",
+  },
+  skipping: {
+    icon: Check,
+    bgClass: "bg-approved/10 text-approved",
+    badgeClass: "bg-approved/10 text-approved",
+  },
+  thinking: {
+    icon: Clock,
+    bgClass: "bg-text-secondary/10 text-text-secondary",
+    badgeClass: "bg-text-secondary/10 text-text-secondary",
+  },
+} as const;
+
 export function HistoryItem({
   name,
-  verdict,
+  decision,
   timeAgo,
   estimatedPrice,
   isActive,
@@ -39,8 +57,9 @@ export function HistoryItem({
   itemId,
   onSwipeOpen,
 }: HistoryItemProps) {
-  const isDenied = verdict === "denied";
-  const isApproved = verdict === "approved";
+  const config = decision ? DECISION_ICON_CONFIG[decision] : null;
+  const IconComponent = config?.icon ?? MessageCircle;
+  const iconBgClass = config?.bgClass ?? "bg-text-secondary/10 text-text-secondary";
   const x = useMotionValue(0);
   const dragging = useRef(false);
   const isOpen = swipeOpenId === itemId;
@@ -145,23 +164,11 @@ export function HistoryItem({
             : "hover:bg-bg-surface transition-colors"
         }`}
       >
-        {/* Verdict icon */}
+        {/* Decision icon */}
         <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-            isDenied
-              ? "bg-denied/10 text-denied"
-              : isApproved
-                ? "bg-approved/10 text-approved"
-                : "bg-text-secondary/10 text-text-secondary"
-          }`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBgClass}`}
         >
-          {isDenied ? (
-            <X size={14} strokeWidth={2.5} />
-          ) : isApproved ? (
-            <Check size={14} strokeWidth={2.5} />
-          ) : (
-            <MessageCircle size={14} strokeWidth={2.5} />
-          )}
+          <IconComponent size={14} strokeWidth={2.5} />
         </div>
 
         {/* Name + meta */}
@@ -177,14 +184,14 @@ export function HistoryItem({
           </div>
         </div>
 
-        {/* Verdict badge — hides on hover (desktop only) */}
-        {verdict && (
+        {/* Decision badge — hides on hover (desktop only) */}
+        {decision && (
           <span
             className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide group-hover:hidden ${
-              isDenied ? "bg-denied/10 text-denied" : "bg-approved/10 text-approved"
+              config?.badgeClass ?? ""
             }`}
           >
-            {verdict}
+            {decision}
           </span>
         )}
 

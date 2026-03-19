@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowLeft, Check, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Clock, ShoppingCart } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
 import { motion } from "framer-motion";
 import { cascade } from "@/lib/motion";
 
-type VerdictEntry = Doc<"verdictLedger">;
+type DecisionEntry = Doc<"decisionLedger">;
 
-type Filter = "all" | "denied" | "approved";
+type Filter = "all" | "skipping" | "buying";
 
-interface VerdictHistoryProps {
+interface DecisionHistoryProps {
   onBack: () => void;
 }
 
-export function VerdictHistory({ onBack }: VerdictHistoryProps) {
-  const entries = useQuery(api.verdictLedger.listForUser);
+export function DecisionHistory({ onBack }: DecisionHistoryProps) {
+  const entries = useQuery(api.decisionLedger.listForUser);
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -25,7 +25,7 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
     if (!entries) return [];
     const sorted = [...entries].sort((a, b) => b.createdAt - a.createdAt);
     if (filter === "all") return sorted;
-    return sorted.filter((e) => e.verdict === filter);
+    return sorted.filter((e) => e.decision === filter);
   }, [entries, filter]);
 
   const groups = useMemo(() => groupByTime(filtered), [filtered]);
@@ -33,16 +33,16 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
   const savedTotal = useMemo(() => {
     if (!entries) return 0;
     return entries
-      .filter((e) => e.verdict === "denied" && e.estimatedPrice)
+      .filter((e) => e.decision === "skipping" && e.estimatedPrice)
       .reduce((sum, e) => sum + (e.estimatedPrice ?? 0), 0);
   }, [entries]);
 
-  const deniedCount = useMemo(
-    () => entries?.filter((e) => e.verdict === "denied").length ?? 0,
+  const skippedCount = useMemo(
+    () => entries?.filter((e) => e.decision === "skipping").length ?? 0,
     [entries],
   );
-  const approvedCount = useMemo(
-    () => entries?.filter((e) => e.verdict === "approved").length ?? 0,
+  const buyingCount = useMemo(
+    () => entries?.filter((e) => e.decision === "buying").length ?? 0,
     [entries],
   );
 
@@ -54,7 +54,7 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
         <Header onBack={onBack} />
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="text-center">
-            <h2 className="text-lg font-bold text-text">No verdicts yet</h2>
+            <h2 className="text-lg font-bold text-text">No decisions yet</h2>
             <p className="mt-2 text-sm text-text-secondary">
               Start a conversation with Hank to see your purchase decisions
               here.
@@ -88,18 +88,18 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
               {...cascade(1)}
               className="rounded-xl bg-bg-surface p-5 text-center"
             >
-              <div className="text-sm font-semibold text-denied">
-                {deniedCount} denied
+              <div className="text-sm font-semibold text-approved">
+                {skippedCount} skipped
               </div>
-              <div className="mt-1 text-sm font-semibold text-approved">
-                {approvedCount} approved
+              <div className="mt-1 text-sm font-semibold text-accent">
+                {buyingCount} bought
               </div>
             </motion.div>
           </div>
 
           {/* Filter Tabs */}
           <motion.div {...cascade(2)} className="flex gap-2">
-            {(["all", "denied", "approved"] as const).map((tab) => (
+            {(["all", "skipping", "buying"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
@@ -157,7 +157,7 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
                 {isOpen && (
                   <div className="space-y-2">
                     {group.entries.map((entry) => (
-                      <VerdictRow key={entry._id} entry={entry} />
+                      <DecisionRow key={entry._id} entry={entry} />
                     ))}
                   </div>
                 )}
@@ -168,7 +168,7 @@ export function VerdictHistory({ onBack }: VerdictHistoryProps) {
           {/* Filtered empty state */}
           {filtered.length === 0 && (
             <div className="py-8 text-center text-sm text-text-secondary">
-              No {filter} verdicts
+              No {filter} decisions
             </div>
           )}
         </div>
@@ -190,7 +190,7 @@ function Header({ onBack }: { onBack: () => void }) {
             <ArrowLeft size={18} />
           </button>
           <h1 className="text-lg font-bold tracking-tight text-text">
-            Verdict History
+            Decision History
           </h1>
         </div>
       </div>
@@ -198,24 +198,34 @@ function Header({ onBack }: { onBack: () => void }) {
   );
 }
 
-function VerdictRow({ entry }: { entry: VerdictEntry }) {
-  const isDenied = entry.verdict === "denied";
+const DECISION_ROW_CONFIG = {
+  buying: {
+    icon: ShoppingCart,
+    bgClass: "bg-accent/10 text-accent",
+    badgeClass: "bg-accent/10 text-accent",
+  },
+  skipping: {
+    icon: Check,
+    bgClass: "bg-approved/10 text-approved",
+    badgeClass: "bg-approved/10 text-approved",
+  },
+  thinking: {
+    icon: Clock,
+    bgClass: "bg-text-secondary/10 text-text-secondary",
+    badgeClass: "bg-text-secondary/10 text-text-secondary",
+  },
+} as const;
+
+function DecisionRow({ entry }: { entry: DecisionEntry }) {
+  const config = DECISION_ROW_CONFIG[entry.decision];
 
   return (
     <div className="flex items-start gap-3 rounded-xl bg-bg-surface p-4">
       {/* Icon badge */}
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          isDenied
-            ? "bg-denied/10 text-denied"
-            : "bg-approved/10 text-approved"
-        }`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.bgClass}`}
       >
-        {isDenied ? (
-          <X size={14} strokeWidth={2.5} />
-        ) : (
-          <Check size={14} strokeWidth={2.5} />
-        )}
+        <config.icon size={14} strokeWidth={2.5} />
       </div>
 
       {/* Content */}
@@ -236,30 +246,26 @@ function VerdictRow({ entry }: { entry: VerdictEntry }) {
             )}
           </div>
         )}
-        {entry.verdictSummary && (
+        {entry.reactionText && (
           <div className="mt-1 text-[0.8rem] italic text-text-secondary line-clamp-2">
-            &ldquo;{entry.verdictSummary}&rdquo;
+            &ldquo;{entry.reactionText}&rdquo;
           </div>
         )}
       </div>
 
-      {/* Verdict pill */}
+      {/* Decision pill */}
       <span
-        className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
-          isDenied
-            ? "bg-denied/10 text-denied"
-            : "bg-approved/10 text-approved"
-        }`}
+        className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${config.badgeClass}`}
       >
-        {entry.verdict}
+        {entry.decision}
       </span>
     </div>
   );
 }
 
-type TimeGroup = { label: string; key: string; entries: VerdictEntry[] };
+type TimeGroup = { label: string; key: string; entries: DecisionEntry[] };
 
-function groupByTime(entries: VerdictEntry[]): TimeGroup[] {
+function groupByTime(entries: DecisionEntry[]): TimeGroup[] {
   const now = new Date();
 
   // Start of week (Monday-based)
@@ -272,9 +278,9 @@ function groupByTime(entries: VerdictEntry[]): TimeGroup[] {
   // Start of month
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const thisWeek: VerdictEntry[] = [];
-  const thisMonth: VerdictEntry[] = [];
-  const older = new Map<string, VerdictEntry[]>();
+  const thisWeek: DecisionEntry[] = [];
+  const thisMonth: DecisionEntry[] = [];
+  const older = new Map<string, DecisionEntry[]>();
 
   for (const entry of entries) {
     const date = new Date(entry.createdAt);

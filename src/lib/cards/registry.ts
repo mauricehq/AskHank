@@ -1,4 +1,4 @@
-import type { CardType, VerdictCardData } from "./types";
+import type { CardType, DecisionCardData } from "./types";
 
 interface CardRegistryEntry {
   generateTitle: (data: any) => string;
@@ -6,16 +6,18 @@ interface CardRegistryEntry {
 }
 
 const cardRegistry: Record<string, CardRegistryEntry> = {
-  verdict: {
-    generateTitle: (data: VerdictCardData) => {
-      const verdict = data.verdict === "denied" ? "NO" : "YES";
-      return `Hank says ${verdict} to ${data.item}`;
+  decision: {
+    generateTitle: (data: DecisionCardData) => {
+      const label = data.decision === "buying" ? "buying" : data.decision === "skipping" ? "skipping" : "thinking about";
+      return `${label} ${data.item} — AskHank`;
     },
-    generateDescription: (data: VerdictCardData) => {
-      if (data.verdictSummary) return data.verdictSummary;
-      return data.verdict === "denied"
-        ? `Hank shut down this purchase.`
-        : `Hank approved this purchase.`;
+    generateDescription: (data: DecisionCardData) => {
+      if (data.reactionText) return data.reactionText;
+      return data.decision === "skipping"
+        ? `Decided to skip this purchase.`
+        : data.decision === "buying"
+          ? `Decided to buy it.`
+          : `Still thinking about it.`;
     },
   },
 };

@@ -7,7 +7,8 @@ import { api } from "../../convex/_generated/api";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
-import { VerdictCard } from "./VerdictCard";
+import { DecisionCard } from "./DecisionCard";
+import { DecisionBar } from "./DecisionBar";
 import { ScrollToBottom } from "./ScrollToBottom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useConversation } from "@/hooks/useConversation";
@@ -28,7 +29,12 @@ interface ChatScreenProps {
 
 export function ChatScreen({ conversationId: externalId, onConversationCreated, onNewConversation }: ChatScreenProps) {
   const { openCreditsModal, setActiveConversationId } = useAppLayout();
-  const { messages, isThinking, isError, send, reset, verdict, conversationId: hookConversationId, loadConversation, item, estimatedPrice, category, verdictSummary, shareScore, outOfCredits, thinkingSince } = useConversation();
+  const {
+    messages, isThinking, isError, isResolved, isPaused,
+    send, resolve, reset, decision, reactionText, hankScore,
+    conversationId: hookConversationId, loadConversation,
+    item, estimatedPrice, category, outOfCredits, thinkingSince,
+  } = useConversation();
   const { isAdmin } = useUserAccess();
   const currentUser = useQuery(api.users.currentUser);
   const [showDebug, setShowDebug] = useLocalStorage("hank-debug-bar", true);
@@ -66,9 +72,6 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
   }, [externalId, loadConversation, reset]);
 
   // Sync newly-created conversation ID back to parent.
-  // Use a ref for externalId so this effect only fires when hookConversationId
-  // changes — not when externalId changes (which would cause a ping-pong loop
-  // between the two effects when switching conversations).
   const externalIdRef: RefObject<Id<"conversations"> | null | undefined> = useRef(externalId);
   externalIdRef.current = externalId;
   useEffect(() => {
@@ -129,6 +132,12 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
   }, [firstName]);
 
   const isGreeting = messages.length === 0 && !isThinking && !externalId;
+
+  // Show DecisionBar when active/paused and at least one exchange happened
+  const showDecisionBar = !isResolved && !isThinking && messages.length >= 2 && (
+    !isPaused // show when active
+    // don't show when paused — user already chose "need to think"
+  );
 
   return (
     <AnimatePresence mode="wait">
@@ -223,15 +232,27 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
                     </button>
                   </div>
                 )}
-                {verdict && (
-                  <VerdictCard verdict={verdict} item={item} estimatedPrice={estimatedPrice} category={category} verdictSummary={verdictSummary} shareScore={shareScore} conversationId={activeConversationId ?? undefined} onNewConversation={handleNewConversation} />
+                {isResolved && decision && (
+                  <DecisionCard
+                    decision={decision}
+                    reactionText={reactionText}
+                    hankScore={hankScore}
+                    item={item}
+                    estimatedPrice={estimatedPrice}
+                    category={category}
+                    conversationId={activeConversationId ?? undefined}
+                    onNewConversation={handleNewConversation}
+                  />
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
             <ScrollToBottom visible={showScrollToBottom} onClick={scrollToBottom} />
           </div>
-          {!verdict && (
+          {showDecisionBar && (
+            <DecisionBar onResolve={resolve} disabled={isError} />
+          )}
+          {!isResolved && (
             <ChatInput
               onSend={handleSend}
               hasMessages={messages.length > 0}

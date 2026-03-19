@@ -52,7 +52,10 @@ export const send = mutation({
       if (conversation.status === "thinking") {
         throw new Error("Hank is still thinking.");
       }
-      // If paused, resume to active
+      // Resume conversation (paused, active, or error) — set to thinking for LLM generation
+      if (conversation.status === "error") {
+        console.warn(`Retrying conversation ${conversationId} from error state`);
+      }
       await ctx.db.patch(conversationId, { status: "thinking", thinkingSince: Date.now() });
     }
 
@@ -351,7 +354,7 @@ export const saveResponseWithDecision = internalMutation({
   args: {
     conversationId: v.id("conversations"),
     content: v.string(),
-    decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
+    decision: v.union(v.literal("buying"), v.literal("skipping")),
     intensity: v.string(),
     coverageRatio: v.number(),
     category: v.optional(v.string()),
@@ -445,6 +448,48 @@ export const patchReactionText = internalMutation({
   },
 });
 
+export const resolve = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.userId !== user._id) {
+      throw new Error("Conversation not found.");
+    }
+    if (conversation.status !== "active" && conversation.status !== "paused") {
+      throw new Error("Conversation cannot be resolved from current state.");
+    }
+
+    if (args.decision === "thinking") {
+      // Pause the conversation
+      await ctx.db.patch(args.conversationId, { status: "paused" });
+      return;
+    }
+
+    // buying or skipping — set to thinking while we generate the reaction
+    await ctx.db.patch(args.conversationId, {
+      status: "thinking",
+      thinkingSince: Date.now(),
+    });
+
+    // Schedule reaction generation
+    await ctx.scheduler.runAfter(0, internal.llm.generate.generateReaction, {
+      conversationId: args.conversationId,
+      userId: user._id,
+      decision: args.decision,
+    });
+
+    // Safety net: recover if still thinking after 60s
+    await ctx.scheduler.runAfter(60_000, internal.conversations.recoverStuckConversation, {
+      conversationId: args.conversationId,
+    });
+  },
+});
+
 // --- Test helpers (internal only, used by testChat) ---
 
 export const internalGetFirstAdmin = internalQuery({
@@ -479,6 +524,7 @@ export const insertTestMessage = internalMutation({
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) throw new Error("Conversation not found");
     if (conversation.status === "resolved") throw new Error("Conversation is resolved");
+    if (conversation.status === "thinking") throw new Error("Hank is still thinking");
 
     await ctx.db.patch(args.conversationId, { status: "thinking", thinkingSince: Date.now() });
     await ctx.db.insert("messages", {

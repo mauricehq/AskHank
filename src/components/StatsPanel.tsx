@@ -100,7 +100,7 @@ export function StatsPanel({ onBack, onOpenSettings }: StatsPanelProps) {
 
           {/* Overview grid */}
           <div className="grid grid-cols-2 gap-3">
-            <StatCard index={1} icon={<ShieldCheck size={16} />} value={String(stats.deniedCount)} label="Resisted" />
+            <StatCard index={1} icon={<ShieldCheck size={16} />} value={String(stats.skippedCount)} label="Skipped" />
             <StatCard index={2} icon={<TrendingUp size={16} />} value={stats.resistanceRate !== null ? `${stats.resistanceRate}%` : "0%"} label="Resistance Rate" />
             <StatCard index={3} icon={<MessageSquare size={16} />} value={String(stats.totalConversations)} label="Conversations" />
             <StatCard index={4} icon={<Flame size={16} />} value={String(stats.currentStreak)} label="Resist Streak" />

@@ -1,27 +1,27 @@
-export interface VerdictCardData {
-  verdict: "approved" | "denied";
+export interface DecisionCardData {
+  decision: "buying" | "skipping" | "thinking";
   item: string;
   estimatedPrice?: number;
   category?: string;
-  verdictSummary?: string;
-  shareScore?: number;
+  reactionText?: string;
+  hankScore?: number;
 }
 
 export interface RoastCardData {
   bestQuote: string;
   item: string;
-  verdict: "approved" | "denied";
+  decision: "buying" | "skipping" | "thinking";
 }
 
 export interface SavedTotalCardData {
   savedTotal: number;
-  deniedCount: number;
-  approvedCount: number;
+  skippedCount: number;
+  buyingCount: number;
 }
 
-export type CardType = "verdict" | "roast" | "savedTotal";
+export type CardType = "decision" | "roast" | "savedTotal";
 
 export type CardData =
-  | { cardType: "verdict"; data: VerdictCardData }
+  | { cardType: "decision"; data: DecisionCardData }
   | { cardType: "roast"; data: RoastCardData }
   | { cardType: "savedTotal"; data: SavedTotalCardData };

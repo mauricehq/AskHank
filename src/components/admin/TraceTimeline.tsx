@@ -9,16 +9,18 @@ import { TraceDetail } from "./TraceDetail";
 
 const DECISION_COLORS: Record<string, string> = {
   normal: "bg-blue-500/15 text-blue-400",
-  "normal (stance capped)": "bg-blue-500/15 text-blue-400",
   casual: "bg-bg-surface text-text-secondary",
   "out-of-scope": "bg-bg-surface text-text-secondary",
   "directed-question": "bg-cyan-500/15 text-cyan-400",
-  concede: "bg-approved/15 text-approved",
-  "user-backed-down": "bg-approved/15 text-approved",
-  "disengagement-increment": "bg-yellow-500/15 text-yellow-400",
-  "disengagement-denied": "bg-denied/15 text-denied",
-  "stagnation-denied": "bg-denied/15 text-denied",
-  "collapse-denied": "bg-denied/15 text-denied",
+  "non-answer-warning": "bg-yellow-500/15 text-yellow-400",
+  "non-answer-disengaged": "bg-denied/15 text-denied",
+  "stagnation-warning": "bg-yellow-500/15 text-yellow-400",
+  "stagnation-disengaged": "bg-denied/15 text-denied",
+  "auto-resolve-buying": "bg-approved/15 text-approved",
+  "auto-resolve-skipping": "bg-approved/15 text-approved",
+  "user-resolve-buying": "bg-approved/15 text-approved",
+  "user-resolve-skipping": "bg-approved/15 text-approved",
+  "user-resolve-thinking": "bg-approved/15 text-approved",
   error: "bg-denied/15 text-denied",
 };
 
@@ -113,7 +115,7 @@ export function TraceTimeline({ conversationId }: TraceTimelineProps) {
                   {trace.decisionType}
                 </span>
                 <span className="text-xs text-text-secondary">
-                  {trace.previousStance} → {trace.newStance}
+                  {trace.previousIntensity} → {trace.newIntensity}
                 </span>
                 <span className="ml-auto text-xs text-text-secondary shrink-0">
                   {trace.durationMs}ms · {trace.tokenUsage.totalTokens} tok

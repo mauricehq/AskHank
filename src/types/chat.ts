@@ -9,15 +9,9 @@ export interface Message {
   content: string;
 }
 
-export type VerdictType = "denied" | "approved";
-
-export interface Verdict {
-  type: VerdictType;
-  quote: string;
-}
-
-export type Stance = "IMMOVABLE" | "FIRM" | "SKEPTICAL" | "RELUCTANT" | "CONCEDE";
-export type ConversationStatus = "active" | "thinking" | "error" | "closed";
+export type DecisionType = "buying" | "skipping" | "thinking";
+export type Intensity = "CURIOUS" | "PROBING" | "POINTED" | "WRAPPING";
+export type ConversationStatus = "active" | "thinking" | "error" | "resolved" | "paused";
 
 export type TraceSummary = NonNullable<
   FunctionReturnType<typeof api.llmTraces.getTraceSummariesForConversation>

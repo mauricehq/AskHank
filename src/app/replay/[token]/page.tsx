@@ -15,10 +15,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Replay — AskHank" };
   }
 
-  const verdict = cut.verdict === "denied" ? "NO" : "YES";
-  const title = `Hank says ${verdict} to ${cut.item}`;
+  const label = cut.decision === "buying" ? "buying" : cut.decision === "skipping" ? "skipping" : "thinking about";
+  const title = `${label} ${cut.item} — AskHank`;
   const description =
-    cut.verdictSummary ?? `Watch Hank ${cut.verdict === "denied" ? "shut down" : "approve"} this purchase.`;
+    cut.reactionText ?? `Watch Hank challenge this purchase decision.`;
 
   return {
     title,

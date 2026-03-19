@@ -91,19 +91,14 @@ export const debugDump = internalQuery({
           coverageRatio: compassResult?.coverageRatio ?? null,
           estimatedPrice: t.estimatedPrice ?? null,
           category: t.category ?? null,
-          guidance: toolResult?.guidance ?? null,
+          consecutiveNonAnswers: t.consecutiveNonAnswers,
+          turnsSinceCoverageAdvanced: t.turnsSinceCoverageAdvanced,
         },
 
         // --- Call 2: Response ---
         call2: {
           systemPrompt: t.call2SystemPrompt ?? null,
         },
-
-        // --- Call 3: Reaction (auto-resolve only) ---
-        call3: (t.call3SystemPrompt || t.call3RawResponse) ? {
-          systemPrompt: t.call3SystemPrompt ?? null,
-          rawResponse: t.call3RawResponse ?? null,
-        } : null,
 
         // --- Context ---
         persistedContext,
@@ -144,8 +139,6 @@ export const saveTrace = internalMutation({
     }),
     durationMs: v.number(),
     call2SystemPrompt: v.optional(v.string()),
-    call3SystemPrompt: v.optional(v.string()),
-    call3RawResponse: v.optional(v.string()),
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),

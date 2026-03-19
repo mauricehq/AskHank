@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MESSAGE_COST } from "../../convex/lib/credits";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { Message, Verdict, VerdictType } from "@/types/chat";
+import type { Message, DecisionType } from "@/types/chat";
 
 export function useConversation() {
   const [conversationId, setConversationId] = useState<Id<"conversations"> | null>(null);
@@ -23,6 +23,7 @@ export function useConversation() {
   );
 
   const sendMutation = useMutation(api.conversations.send);
+  const resolveMutation = useMutation(api.conversations.resolve);
 
   const messages: Message[] = useMemo(
     () =>
@@ -36,20 +37,16 @@ export function useConversation() {
 
   const isThinking = conversation?.status === "thinking";
   const isError = conversation?.status === "error";
+  const isResolved = conversation?.status === "resolved";
+  const isPaused = conversation?.status === "paused";
 
-  const verdict: Verdict | null = useMemo(() => {
-    if (!conversation?.verdict || conversation?.status !== "closed") return null;
-    const hankMessages = messages.filter((m) => m.role === "hank");
-    const lastHankMsg = hankMessages[hankMessages.length - 1];
-    return {
-      type: conversation.verdict as VerdictType,
-      quote: lastHankMsg?.content ?? "",
-    };
-  }, [conversation?.verdict, conversation?.status, messages]);
+  const decision: DecisionType | null = conversation?.decision ?? null;
+  const reactionText: string | null = conversation?.reactionText ?? null;
+  const hankScore: number | null = conversation?.hankScore ?? null;
 
   const send = useCallback(
     async (content: string) => {
-      if (conversation?.status === "closed") return;
+      if (conversation?.status === "resolved") return;
       const id = await sendMutation({
         conversationId: conversationId ?? undefined,
         content,
@@ -61,6 +58,18 @@ export function useConversation() {
     [sendMutation, conversationId, conversation?.status]
   );
 
+  const resolve = useCallback(
+    async (dec: DecisionType) => {
+      if (!conversationId) return;
+      try {
+        await resolveMutation({ conversationId, decision: dec });
+      } catch (error) {
+        console.error("Failed to resolve conversation:", error);
+      }
+    },
+    [resolveMutation, conversationId]
+  );
+
   const reset = useCallback(() => {
     setConversationId(null);
   }, []);
@@ -69,5 +78,24 @@ export function useConversation() {
     setConversationId(id);
   }, []);
 
-  return { messages, isThinking, isError, send, reset, verdict, conversationId, loadConversation, item: conversation?.item, estimatedPrice: conversation?.estimatedPrice, category: conversation?.category, verdictSummary: conversation?.verdictSummary, shareScore: conversation?.shareScore, outOfCredits, thinkingSince: conversation?.thinkingSince ?? null };
+  return {
+    messages,
+    isThinking,
+    isError,
+    isResolved,
+    isPaused,
+    send,
+    resolve,
+    reset,
+    decision,
+    reactionText,
+    hankScore,
+    conversationId,
+    loadConversation,
+    item: conversation?.item,
+    estimatedPrice: conversation?.estimatedPrice,
+    category: conversation?.category,
+    outOfCredits,
+    thinkingSince: conversation?.thinkingSince ?? null,
+  };
 }

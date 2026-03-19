@@ -30,8 +30,8 @@ interface DemoConversation {
   shortLabel: string;
   icon: LucideIcon;
   price: number;
-  verdict: "denied" | "approved";
-  verdictQuote: string;
+  decision: "buying" | "skipping";
+  reactionQuote: string;
   messages: Message[];
 }
 
@@ -42,8 +42,8 @@ const CONVERSATIONS: DemoConversation[] = [
     shortLabel: "Sneakers",
     icon: Footprints,
     price: 180,
-    verdict: "denied",
-    verdictQuote: "You folded faster than a lawn chair at a discount shoe sale.",
+    decision: "skipping",
+    reactionQuote: "You folded faster than a lawn chair at a discount shoe sale.",
     messages: [
       { role: "user", content: "Found some running shoes marked down from $300 to $180. 40% off, seems like a steal." },
       { role: "hank", content: "$180 shoes because they were $300. You keep receipts like trophies for purchases you never actually use." },
@@ -58,8 +58,8 @@ const CONVERSATIONS: DemoConversation[] = [
     shortLabel: "Washer",
     icon: Droplets,
     price: 200,
-    verdict: "approved",
-    verdictQuote: "Just promise me you'll use it more than once a season.",
+    decision: "buying",
+    reactionQuote: "Just promise me you'll use it more than once a season.",
     messages: [
       { role: "user", content: "Looking at buying a pressure washer to wash my car. Around $200." },
       { role: "hank", content: "You already wash your car without one. What's wrong with the hose and bucket method?" },
@@ -75,8 +75,8 @@ const CONVERSATIONS: DemoConversation[] = [
     shortLabel: "Candles",
     icon: Flame,
     price: 45,
-    verdict: "denied",
-    verdictQuote: "Happiness isn't stored in pumpkin chai wax.",
+    decision: "skipping",
+    reactionQuote: "Happiness isn't stored in pumpkin chai wax.",
     messages: [
       { role: "user", content: "I want to buy some scented candles, $45 from this brand I saw on TikTok." },
       { role: "hank", content: "TikTok told you to want these. TikTok also told you to want the last thing you barely used. What's different this time?" },
@@ -90,8 +90,8 @@ const CONVERSATIONS: DemoConversation[] = [
     shortLabel: "Monitor",
     icon: Monitor,
     price: 800,
-    verdict: "denied",
-    verdictQuote: "You're not upgrading, you're just shopping with extra steps.",
+    decision: "skipping",
+    reactionQuote: "You're not upgrading, you're just shopping with extra steps.",
     messages: [
       { role: "user", content: "I want a new 4K gaming monitor. About $800." },
       { role: "hank", content: "What's your current monitor failing at, exactly?" },
@@ -139,32 +139,32 @@ function DemoUserTypingIndicator() {
 }
 
 // ---------------------------------------------------------------------------
-// Verdict card (simplified — no share/new-conversation buttons)
+// Decision card (simplified — no share/new-conversation buttons)
 // ---------------------------------------------------------------------------
-function DemoVerdict({
-  verdict,
+function DemoDecision({
+  decision,
   price,
   quote,
 }: {
-  verdict: "denied" | "approved";
+  decision: "buying" | "skipping";
   price: number;
   quote: string;
 }) {
-  const isDenied = verdict === "denied";
+  const isSkipping = decision === "skipping";
   return (
     <div
-      className={`animate-verdict-in text-center p-5 rounded-xl mt-2 mb-6 border-[1.5px] ${
-        isDenied
-          ? "border-denied bg-[rgba(198,90,46,0.08)]"
-          : "border-approved bg-[rgba(90,138,94,0.08)]"
+      className={`animate-decision-in text-center p-5 rounded-xl mt-2 mb-6 border-[1.5px] ${
+        isSkipping
+          ? "border-approved bg-[rgba(90,138,94,0.08)]"
+          : "border-accent bg-[rgba(198,90,46,0.08)]"
       }`}
     >
       <div
         className={`text-[0.8rem] font-bold uppercase tracking-[0.12em] mb-2 ${
-          isDenied ? "text-denied" : "text-approved"
+          isSkipping ? "text-approved" : "text-accent"
         }`}
       >
-        CASE CLOSED &mdash; {isDenied ? "DENIED" : "APPROVED"} ($
+        {isSkipping ? "SKIPPING IT" : "BUYING IT"} ($
         {price.toLocaleString()})
       </div>
       <p className="text-[0.9rem] italic text-text-secondary">
@@ -185,7 +185,7 @@ export function ChatDemo() {
   const [isTyping, setIsTyping] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [conversationDone, setConversationDone] = useState(false);
-  const [showVerdict, setShowVerdict] = useState(false);
+  const [showDecision, setShowDecision] = useState(false);
   const [autoCycleEnabled, setAutoCycleEnabled] = useState(true);
   const [showProgress, setShowProgress] = useState(false);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -197,7 +197,7 @@ export function ChatDemo() {
   useEffect(() => {
     const el = chatContainerRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [visibleCount, isTyping, isUserTyping, showVerdict]);
+  }, [visibleCount, isTyping, isUserTyping, showDecision]);
 
   // Play through current conversation's messages
   useEffect(() => {
@@ -207,7 +207,7 @@ export function ChatDemo() {
     setIsTyping(false);
     setIsUserTyping(false);
     setConversationDone(false);
-    setShowVerdict(false);
+    setShowDecision(false);
     setShowProgress(false);
 
     let cancelled = false;
@@ -269,8 +269,8 @@ export function ChatDemo() {
       }
     });
 
-    // Show verdict after last message
-    schedule(() => setShowVerdict(true), elapsed + 1000);
+    // Show decision after last message
+    schedule(() => setShowDecision(true), elapsed + 1000);
     schedule(() => setConversationDone(true), elapsed + 1200);
 
     return () => {
@@ -416,11 +416,11 @@ export function ChatDemo() {
             {isTyping && <DemoTypingIndicator />}
             {isUserTyping && <DemoUserTypingIndicator />}
 
-            {showVerdict && (
-              <DemoVerdict
-                verdict={currentConversation.verdict}
+            {showDecision && (
+              <DemoDecision
+                decision={currentConversation.decision}
                 price={currentConversation.price}
-                quote={currentConversation.verdictQuote}
+                quote={currentConversation.reactionQuote}
               />
             )}
           </div>

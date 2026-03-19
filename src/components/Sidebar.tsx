@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Coins, Gavel, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins, Scale, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { cascade } from "@/lib/motion";
 import { ThemeToggle } from "./ThemeToggle";
@@ -117,17 +117,17 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
         </div>
       </div>
 
-      {/* Verdict History link */}
+      {/* Decision History link */}
       <div className="px-3 pb-1">
         <button
           onClick={() => {
             if (!isDesktop) onClose();
-            router.push("/verdicts");
+            router.push("/decisions");
           }}
           className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
         >
-          <Gavel size={16} />
-          <span className="flex-1 text-left">Verdict History</span>
+          <Scale size={16} />
+          <span className="flex-1 text-left">Decision History</span>
           <ChevronRight size={14} className="text-text-secondary/50" />
         </button>
       </div>
@@ -167,7 +167,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
               <motion.div key={item._id} {...cascade(i, { maxIndex: 8 })}>
                 <HistoryItem
                   name={item.title}
-                  verdict={item.verdict}
+                  decision={item.decision}
                   estimatedPrice={item.estimatedPrice}
                   timeAgo={formatRelativeTime(item.createdAt)}
                   isActive={activeConversationId === item._id}
@@ -287,7 +287,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
               {([
                 { icon: <Plus size={16} />, label: "New conversation", accent: true, onClick: () => router.push("/conversations/new") },
                 { icon: <Search size={16} />, label: "Search", onClick: onToggle },
-                { icon: <Gavel size={16} />, label: "Verdict History", onClick: () => router.push("/verdicts") },
+                { icon: <Scale size={16} />, label: "Decision History", onClick: () => router.push("/decisions") },
               ] as const).map((cfg, i) => (
                 <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + i * 40}ms`, animationFillMode: "both" }}>
                   <IconButton icon={cfg.icon} label={cfg.label} accent={"accent" in cfg} onClick={cfg.onClick} />
@@ -368,12 +368,12 @@ function SidebarStats({
   onClose,
 }: {
   user: { savedTotal?: number; incomeAmount?: number; incomeType?: string } | undefined | null;
-  history: { verdict?: string }[] | undefined;
+  history: { decision?: string }[] | undefined;
   isDesktop: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const deniedCount = history?.filter((c) => c.verdict === "denied").length ?? 0;
+  const skippedCount = history?.filter((c) => c.decision === "skipping").length ?? 0;
   const savedTotal = user?.savedTotal ?? 0;
 
   let hoursSaved: number | null = null;
@@ -388,7 +388,7 @@ function SidebarStats({
   const animatedSaved = useCountUp(savedTotal);
   const rightValue = hoursSaved !== null
     ? (hoursSaved >= 16 ? Math.round((hoursSaved / 8) * 10) / 10 : hoursSaved)
-    : deniedCount;
+    : skippedCount;
   const animatedRight = useCountUp(rightValue);
 
   const formatRight = hoursSaved !== null
@@ -416,7 +416,7 @@ function SidebarStats({
             {formatRight(animatedRight)}
           </div>
           <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-text-secondary">
-            {hoursSaved !== null ? (hoursSaved >= 16 ? "days saved" : "hours saved") : "resisted"}
+            {hoursSaved !== null ? (hoursSaved >= 16 ? "days saved" : "hours saved") : "skipped"}
           </div>
         </div>
       </button>

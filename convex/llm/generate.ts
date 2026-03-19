@@ -531,6 +531,193 @@ function extractReactionText(result: {
   return result.content ?? "";
 }
 
+export const generateReaction = internalAction({
+  args: {
+    conversationId: v.id("conversations"),
+    userId: v.id("users"),
+    decision: v.union(v.literal("buying"), v.literal("skipping")),
+  },
+  handler: async (ctx, args) => {
+    const primaryModel = (await ctx.runQuery(
+      internal.conversations.internalGetSetting,
+      { key: "hank_model" }
+    )) as string;
+
+    try {
+      // 1. Load conversation + messages + persisted context
+      const conversation = await ctx.runQuery(
+        internal.conversations.internalGetConversation,
+        { conversationId: args.conversationId }
+      );
+      if (!conversation) throw new Error("Conversation not found");
+
+      const messages = await ctx.runQuery(
+        internal.conversations.internalGetMessages,
+        { conversationId: args.conversationId }
+      );
+
+      const userInfo = await ctx.runQuery(
+        internal.conversations.internalGetUserInfo,
+        { userId: args.userId }
+      );
+
+      // 2. Parse persisted context
+      let previousContext: PersistedContext | null = null;
+      if (conversation.lastAssessment) {
+        try {
+          const parsed = JSON.parse(conversation.lastAssessment);
+          previousContext = {
+            item: typeof parsed.item === "string" ? parsed.item : "unknown",
+            estimated_price: typeof parsed.estimated_price === "number" ? parsed.estimated_price : 0,
+            category: typeof parsed.category === "string" ? parsed.category : "other",
+            intent: VALID_INTENTS.has(parsed.intent) ? parsed.intent : "want",
+            coverageMap: parsed.coverageMap ?? initCoverageMap(parsed.intent ?? "want"),
+            turnSummaries: Array.isArray(parsed.turnSummaries) ? parsed.turnSummaries : [],
+            contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
+            consecutiveNonAnswers: typeof parsed.consecutiveNonAnswers === "number" ? parsed.consecutiveNonAnswers : 0,
+            consecutiveLowEngagement: typeof parsed.consecutiveLowEngagement === "number" ? parsed.consecutiveLowEngagement : 0,
+            turnsSinceCoverageAdvanced: typeof parsed.turnsSinceCoverageAdvanced === "number" ? parsed.turnsSinceCoverageAdvanced : 0,
+            territoryAssignmentCounts: parsed.territoryAssignmentCounts ?? {},
+            lastAssignedTerritory: parsed.lastAssignedTerritory ?? null,
+          };
+        } catch {
+          previousContext = null;
+        }
+      }
+
+      // 3. Compute Hank Score
+      const coverageMap = previousContext?.coverageMap ?? initCoverageMap("want");
+      const turnSummaries = previousContext?.turnSummaries ?? [];
+      const hankScoreResult = computeHankScore(coverageMap, turnSummaries);
+
+      // 4. Build reaction prompt
+      const item = previousContext?.item ?? conversation.item;
+      const estimatedPrice = previousContext?.estimated_price ?? conversation.estimatedPrice;
+      const category = previousContext?.category ?? conversation.category ?? "other";
+      const coverageSummary = buildExaminationProgress(coverageMap);
+
+      const reactionPrompt = buildReactionPrompt({
+        displayName: userInfo.displayName ?? undefined,
+        estimatedPrice,
+        category,
+        item,
+        decision: args.decision,
+        hankScore: hankScoreResult.score,
+        hankScoreLabel: hankScoreResult.label,
+        coverageSummary,
+      });
+
+      // 5. Build messages for LLM
+      const conversationMsgs = buildConversationMessages(
+        messages.map((m) => ({ role: m.role, content: m.content }))
+      );
+      const llmMessages: ChatMessage[] = [
+        { role: "system", content: reactionPrompt },
+        ...conversationMsgs,
+      ];
+
+      // 6. LLM call with closing_reaction tool
+      const closingTool = buildReactionToolDefinition();
+      const llmStart = Date.now();
+      const result = await chatCompletion({
+        messages: llmMessages,
+        modelId: primaryModel,
+        temperature: TEMPERATURE_RESPONSE,
+        maxTokens: 400,
+        tools: [closingTool],
+        tool_choice: { type: "function", function: { name: "closing_reaction" } },
+      });
+
+      let responseText = extractReactionText(result);
+      let totalUsage = result.usage;
+
+      // Retry once if empty
+      if (!responseText) {
+        console.warn("generateReaction: reaction_text empty — retrying");
+        const retry = await chatCompletion({
+          messages: llmMessages,
+          modelId: primaryModel,
+          temperature: TEMPERATURE_RESPONSE,
+          maxTokens: 400,
+          tools: [closingTool],
+          tool_choice: { type: "function", function: { name: "closing_reaction" } },
+        });
+        responseText = extractReactionText(retry);
+        totalUsage = addUsage(totalUsage, retry.usage);
+      }
+
+      // Hardcoded fallback
+      if (!responseText) {
+        responseText = args.decision === "buying" ? "Go buy it." : "Good call.";
+      }
+
+      const currentIntensity = toIntensity(conversation.intensity);
+      const coverageRatio = computeCoverageRatio(coverageMap);
+      const durationMs = Date.now() - llmStart;
+
+      // 7. Save via saveResponseWithDecision
+      const messageId = await ctx.runMutation(
+        internal.conversations.saveResponseWithDecision,
+        {
+          conversationId: args.conversationId,
+          content: responseText,
+          decision: args.decision,
+          intensity: currentIntensity,
+          coverageRatio,
+          category,
+          estimatedPrice,
+          item,
+          lastAssessment: conversation.lastAssessment,
+          consecutiveNonAnswers: conversation.consecutiveNonAnswers ?? 0,
+          reactionText: responseText,
+          hankScore: hankScoreResult.score,
+        }
+      );
+
+      // 8. Save LLM trace for debugging
+      try {
+        await ctx.runMutation(internal.llmTraces.saveTrace, {
+          conversationId: args.conversationId,
+          messageId,
+          systemPrompt: reactionPrompt,
+          messagesArray: JSON.stringify(llmMessages),
+          modelId: primaryModel,
+          temperature: TEMPERATURE_RESPONSE,
+          maxTokens: 400,
+          rawResponse: responseText,
+          parsedResponse: JSON.stringify({ reactionText: responseText }),
+          rawScores: "{}",
+          sanitizedScores: conversation.lastAssessment ?? "{}",
+          scoringResult: JSON.stringify({
+            hankScore: hankScoreResult.score,
+            hankScoreLabel: hankScoreResult.label,
+            coverageRatio,
+          }),
+          previousIntensity: currentIntensity,
+          newIntensity: currentIntensity,
+          decisionType: `user-resolve-${args.decision}`,
+          category,
+          estimatedPrice,
+          consecutiveNonAnswers: conversation.consecutiveNonAnswers ?? 0,
+          turnsSinceCoverageAdvanced: 0,
+          tokenUsage: totalUsage,
+          durationMs,
+          toolCalled: true,
+          toolArguments: JSON.stringify({ decision: args.decision }),
+          toolResult: JSON.stringify({ reactionText: responseText }),
+        });
+      } catch (traceError) {
+        console.error("generateReaction: trace save failed (non-fatal):", traceError);
+      }
+    } catch (error) {
+      console.error("generateReaction failed:", error);
+      await ctx.runMutation(internal.conversations.setError, {
+        conversationId: args.conversationId,
+      });
+    }
+  },
+});
+
 export const respond = internalAction({
   args: {
     conversationId: v.id("conversations"),

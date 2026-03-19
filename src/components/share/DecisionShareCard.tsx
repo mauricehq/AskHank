@@ -1,4 +1,4 @@
-import type { VerdictCardData } from "@/lib/cards/types";
+import type { DecisionCardData } from "@/lib/cards/types";
 import { getCardTextSizes, sizeToClass } from "@/lib/cards/cardDensity";
 import "./styles/card.css";
 
@@ -10,36 +10,66 @@ const COLOR = {
   textMuted: "#9A9A9A",
   textSubtle: "#7A7A7A",
   brand: "#C65A2E",
-  denied: "#C65A2E",
-  deniedRgb: "198, 90, 46",
-  approved: "#6B9E6F",
-  approvedRgb: "107, 158, 111",
+  buying: "#C65A2E",
+  buyingRgb: "198, 90, 46",
+  skipping: "#6B9E6F",
+  skippingRgb: "107, 158, 111",
+  thinking: "#9A9A9A",
+  thinkingRgb: "154, 154, 154",
   surface: "rgba(42, 37, 32, 0.6)",
   surfaceBorder: "rgba(61, 55, 50, 0.8)",
   track: "#2A2520",
 } as const;
 
+const HANK_SCORE_LABELS: Record<number, string> = {
+  1: "Pure impulse",
+  2: "Pure impulse",
+  3: "Gut feeling",
+  4: "Gut feeling",
+  5: "Half-examined",
+  6: "Half-examined",
+  7: "Well-considered",
+  8: "Well-considered",
+  9: "Thoroughly examined",
+  10: "Thoroughly examined",
+};
+
 const FONT_MONO = "var(--font-mono)";
 
-interface VerdictShareCardProps {
-  data: VerdictCardData;
+interface DecisionShareCardProps {
+  data: DecisionCardData;
 }
 
-export function VerdictShareCard({ data }: VerdictShareCardProps) {
-  const { verdict, item, estimatedPrice, verdictSummary, shareScore } = data;
-  const isDenied = verdict === "denied";
+export function DecisionShareCard({ data }: DecisionShareCardProps) {
+  const { decision, item, estimatedPrice, reactionText, hankScore } = data;
 
   const priceLabel = estimatedPrice
     ? `$${estimatedPrice.toLocaleString()}`
     : null;
 
-  const quoteText = verdictSummary ?? "";
+  const quoteText = reactionText ?? "";
   const sizes = getCardTextSizes(item, quoteText);
 
-  const accent = isDenied ? COLOR.denied : COLOR.approved;
-  const accentRgb = isDenied ? COLOR.deniedRgb : COLOR.approvedRgb;
+  const accentMap = {
+    buying: COLOR.buying,
+    skipping: COLOR.skipping,
+    thinking: COLOR.thinking,
+  };
+  const accentRgbMap = {
+    buying: COLOR.buyingRgb,
+    skipping: COLOR.skippingRgb,
+    thinking: COLOR.thinkingRgb,
+  };
 
-  const hasScore = shareScore != null;
+  const accent = accentMap[decision];
+  const accentRgb = accentRgbMap[decision];
+
+  const stampLabel = decision === "buying" ? "BUYING IT" : decision === "skipping" ? "SKIPPING IT" : "THINKING";
+  const stampSub = hankScore != null
+    ? `Hank Score: ${hankScore}/10 — ${HANK_SCORE_LABELS[hankScore] ?? "Unknown"}`
+    : decision === "buying" ? "They're buying it" : decision === "skipping" ? "Smart move" : "Need more time";
+
+  const hasScore = hankScore != null;
 
   // Shared fragments rendered identically in both layouts
   const logoBlock = (
@@ -63,14 +93,14 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
         className="card-text-stamp font-black uppercase"
         style={{ color: accent, letterSpacing: "0.06em" }}
       >
-        {isDenied ? "DENIED" : "APPROVED"}
+        {stampLabel}
       </span>
     </>
   );
 
   const stampSubBlock = (
     <span className="card-stamp-sub font-bold uppercase" style={{ color: accent }}>
-      Hank says {isDenied ? "no" : "yes"}
+      {stampSub}
     </span>
   );
 
@@ -114,19 +144,19 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
           className="card-text-score-label font-semibold uppercase"
           style={{ color: COLOR.textMuted, letterSpacing: "0.1em" }}
         >
-          Your case
+          Hank Score
         </span>
         <span
           className="card-text-score-value"
           style={{ color: accent, fontFamily: FONT_MONO, fontWeight: 500 }}
         >
-          {shareScore} / 100
+          {hankScore} / 10
         </span>
       </div>
       <div className="card-score-track" style={{ background: COLOR.track }}>
         <div
           className="card-score-fill"
-          style={{ width: `${shareScore}%`, background: accent }}
+          style={{ width: `${(hankScore! / 10) * 100}%`, background: accent }}
         />
       </div>
     </div>
@@ -154,12 +184,6 @@ export function VerdictShareCard({ data }: VerdictShareCardProps) {
         }}
       />
 
-      {/*
-       * Both portrait and landscape DOMs are always rendered, toggled via
-       * CSS `display: none` in card.css container queries. This avoids
-       * JS-side aspect ratio detection and works correctly in Puppeteer
-       * SSR for image generation.
-       */}
       <div className="relative h-full z-10 card-layout">
         {/* ── PORTRAIT ── */}
         <div className="card-portrait">

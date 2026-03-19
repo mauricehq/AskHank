@@ -7,34 +7,38 @@ interface ReplayCut {
   item: string;
   estimatedPrice?: number;
   category?: string;
-  verdict: "approved" | "denied";
-  verdictSummary?: string;
+  decision: "buying" | "skipping" | "thinking";
+  reactionText?: string;
 }
 
 type PlaybackState =
   | { phase: "idle" }
   | { phase: "message"; index: number }
   | { phase: "typing"; index: number }
-  | { phase: "verdict" }
+  | { phase: "decision" }
   | { phase: "done" };
 
 interface ReplayScreenProps {
   cut: ReplayCut;
 }
 
+const DECISION_LABEL = {
+  buying: "BUYING IT",
+  skipping: "SKIPPING IT",
+  thinking: "STILL THINKING",
+} as const;
+
 export function ReplayScreen({ cut }: ReplayScreenProps) {
   const [state, setState] = useState<PlaybackState>({ phase: "idle" });
   const [visibleCount, setVisibleCount] = useState(0);
   const [showTyping, setShowTyping] = useState(false);
-  const [showVerdict, setShowVerdict] = useState(false);
+  const [showDecision, setShowDecision] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const start = useCallback(() => {
     setVisibleCount(0);
     setShowTyping(false);
-    setShowVerdict(false);
-    // Reset to idle, then the mount effect pattern will be handled by
-    // the state machine transition on next render
+    setShowDecision(false);
     setState({ phase: "message", index: 0 });
   }, []);
 
@@ -53,11 +57,9 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
     if (state.phase === "message") {
       const { index } = state;
       if (index >= cut.messages.length) {
-        // All messages shown, show verdict
-        setState({ phase: "verdict" });
+        setState({ phase: "decision" });
         return;
       }
-      // Show this message
       setShowTyping(false);
       setVisibleCount(index + 1);
       const msg = cut.messages[index];
@@ -70,12 +72,11 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
 
       const timer = setTimeout(() => {
         if (nextMsg && nextMsg.role === "hank") {
-          // Show typing before next Hank message
           setState({ phase: "typing", index: nextIndex });
         } else if (nextIndex < cut.messages.length) {
           setState({ phase: "message", index: nextIndex });
         } else {
-          setState({ phase: "verdict" });
+          setState({ phase: "decision" });
         }
       }, pauseMs);
       return () => clearTimeout(timer);
@@ -90,10 +91,10 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
       return () => clearTimeout(timer);
     }
 
-    if (state.phase === "verdict") {
+    if (state.phase === "decision") {
       let doneTimer: ReturnType<typeof setTimeout>;
       const timer = setTimeout(() => {
-        setShowVerdict(true);
+        setShowDecision(true);
         doneTimer = setTimeout(() => setState({ phase: "done" }), 3000);
       }, 300);
       return () => {
@@ -103,15 +104,19 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
     }
   }, [state, cut.messages]);
 
-  // Auto-scroll to bottom when new messages appear or verdict shows
+  // Auto-scroll to bottom when new messages appear or decision shows
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [visibleCount, showVerdict]);
+  }, [visibleCount, showDecision]);
 
-  const isDenied = cut.verdict === "denied";
+  const isSkipping = cut.decision === "skipping";
   const priceLabel = cut.estimatedPrice
     ? ` · $${cut.estimatedPrice.toLocaleString()}`
     : "";
+
+  const decisionColorClass = isSkipping
+    ? "border-approved bg-[rgba(90,138,94,0.08)] text-approved"
+    : "border-accent bg-[rgba(198,90,46,0.08)] text-accent";
 
   return (
     <div className="flex h-dvh flex-col items-center bg-bg font-sans">
@@ -173,25 +178,17 @@ export function ReplayScreen({ cut }: ReplayScreenProps) {
             </div>
           )}
 
-          {/* Verdict card */}
-          {showVerdict && (
+          {/* Decision card */}
+          {showDecision && (
             <div
-              className={`animate-verdict-in text-center p-5 rounded-xl mt-2 border-[1.5px] ${
-                isDenied
-                  ? "border-denied bg-[rgba(198,90,46,0.08)]"
-                  : "border-approved bg-[rgba(90,138,94,0.08)]"
-              }`}
+              className={`animate-decision-in text-center p-5 rounded-xl mt-2 border-[1.5px] ${decisionColorClass}`}
             >
-              <div
-                className={`text-[0.8rem] font-bold uppercase tracking-[0.12em] mb-2 ${
-                  isDenied ? "text-denied" : "text-approved"
-                }`}
-              >
-                CASE CLOSED — {isDenied ? "DENIED" : "APPROVED"}: <span className="capitalize">{cut.item}</span>{cut.estimatedPrice ? ` ($${cut.estimatedPrice.toLocaleString()})` : ""}
+              <div className="text-[0.8rem] font-bold uppercase tracking-[0.12em] mb-2">
+                {DECISION_LABEL[cut.decision]}: <span className="capitalize">{cut.item}</span>{cut.estimatedPrice ? ` ($${cut.estimatedPrice.toLocaleString()})` : ""}
               </div>
-              {cut.verdictSummary && (
+              {cut.reactionText && (
                 <p className="text-[0.9rem] italic text-text-secondary">
-                  {cut.verdictSummary}
+                  {cut.reactionText}
                 </p>
               )}
             </div>

@@ -20,7 +20,7 @@ const steps = [
   },
   {
     number: "03",
-    title: 'You get a verdict. Usually "no."',
+    title: "You decide. Hank scores your case.",
     description:
       "When the case is closed, you see exactly how much you didn't spend — or didn't need to.",
     icon: Scale,

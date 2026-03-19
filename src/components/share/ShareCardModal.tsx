@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, Download, Share2, Check, ExternalLink, Loader2 } from "lucide-react";
-import { VerdictShareCard } from "./VerdictShareCard";
+import { DecisionShareCard } from "./DecisionShareCard";
 import { shareUrl } from "@/lib/cards/shareUrl";
-import type { VerdictCardData } from "@/lib/cards/types";
+import type { DecisionCardData } from "@/lib/cards/types";
 import type { CardType } from "@/lib/cards/types";
 
 interface ShareCardModalProps {
@@ -13,7 +13,7 @@ interface ShareCardModalProps {
   onClose: () => void;
   token: string;
   cardType: CardType;
-  cardData: VerdictCardData;
+  cardData: DecisionCardData;
 }
 
 export function ShareCardModal({ open, onClose, token, cardType, cardData }: ShareCardModalProps) {
@@ -93,7 +93,7 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
 
     try {
       // Copy URL immediately (before user gesture context expires)
-      const result = await shareUrl(cardUrl, `AskHank verdict: ${cardData.item}`);
+      const result = await shareUrl(cardUrl, `AskHank: ${cardData.item}`);
       setShareStatus(result === "shared" ? "shared" : result === "copied" ? "copied" : null);
       if (result !== "error") {
         setTimeout(() => setShareStatus(null), 2000);
@@ -159,7 +159,7 @@ export function ShareCardModal({ open, onClose, token, cardType, cardData }: Sha
         <div className="relative w-full max-w-md sm:max-w-lg flex flex-col items-center animate-in zoom-in-95 duration-300">
           {/* Card preview - aspect-[4/5] required for container queries to work */}
           <div className="relative w-full aspect-[4/5]">
-            <VerdictShareCard data={cardData} />
+            <DecisionShareCard data={cardData} />
           </div>
 
           {/* Error State */}

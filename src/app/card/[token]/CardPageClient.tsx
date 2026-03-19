@@ -1,7 +1,7 @@
 "use client";
 
-import { VerdictShareCard } from "@/components/share/VerdictShareCard";
-import type { VerdictCardData } from "@/lib/cards/types";
+import { DecisionShareCard } from "@/components/share/DecisionShareCard";
+import type { DecisionCardData } from "@/lib/cards/types";
 
 type CardData = {
   cardType: string;
@@ -32,7 +32,7 @@ export function CardPageClient({
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-8" style={{ background: "#110F0D" }}>
       {/* Card display */}
       <div className="w-full max-w-[480px]" style={{ aspectRatio: "4/5" }}>
-        {card.cardType === "verdict" && <VerdictShareCard data={card.data as VerdictCardData} />}
+        {card.cardType === "decision" && <DecisionShareCard data={card.data as DecisionCardData} />}
       </div>
 
       {/* CTA */}

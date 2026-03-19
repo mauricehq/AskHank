@@ -60,23 +60,25 @@ export function ConversationPicker({
               <span className="truncate text-sm font-medium text-text">
                 {c.userName}
               </span>
-              {c.verdict && (
+              {c.decision && (
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                    c.verdict === "approved"
+                    c.decision === "skipping"
                       ? "bg-approved/15 text-approved"
-                      : "bg-denied/15 text-denied"
+                      : c.decision === "buying"
+                        ? "bg-accent/15 text-accent"
+                        : "bg-bg-surface text-text-secondary"
                   }`}
                 >
-                  {c.verdict}
+                  {c.decision}
                 </span>
               )}
-              {!c.verdict && c.status === "closed" && (
+              {!c.decision && c.status === "resolved" && (
                 <span className="shrink-0 rounded-full bg-bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase text-text-secondary">
-                  closed
+                  resolved
                 </span>
               )}
-              {!c.verdict && c.status !== "closed" && (
+              {!c.decision && c.status !== "resolved" && (
                 <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
                   {c.status}
                 </span>
@@ -87,8 +89,8 @@ export function ConversationPicker({
               {c.estimatedPrice != null && (
                 <span>${c.estimatedPrice.toLocaleString()}</span>
               )}
-              {c.score != null && <span>Score: {c.score}</span>}
-              {c.stance && <span>{c.stance}</span>}
+              {c.coverageRatio != null && <span>{Math.round(c.coverageRatio * 100)}%</span>}
+              {c.intensity && <span>{c.intensity}</span>}
               <span className="ml-auto shrink-0">{relativeTime(c.createdAt)}</span>
             </div>
           </button>
