@@ -13,7 +13,7 @@ function generateToken(length = 22): string {
     .join("");
 }
 
-export const createVerdictCard = mutation({
+export const createDecisionCard = mutation({
   args: {
     conversationId: v.id("conversations"),
   },
@@ -23,15 +23,15 @@ export const createVerdictCard = mutation({
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) throw new Error("Conversation not found");
     if (conversation.userId !== user._id) throw new Error("Not your conversation");
-    if (conversation.status !== "closed" || !conversation.verdict) {
-      throw new Error("Conversation is not closed with a verdict");
+    if (conversation.status !== "resolved" || !conversation.decision) {
+      throw new Error("Conversation is not resolved with a decision");
     }
 
     // Idempotent: return existing card if already created
     const existing = await ctx.db
       .query("shareCards")
       .withIndex("by_conversation_and_type", (q) =>
-        q.eq("conversationId", args.conversationId).eq("cardType", "verdict")
+        q.eq("conversationId", args.conversationId).eq("cardType", "decision")
       )
       .unique();
 
@@ -41,16 +41,16 @@ export const createVerdictCard = mutation({
 
     await ctx.db.insert("shareCards", {
       token,
-      cardType: "verdict",
+      cardType: "decision",
       conversationId: args.conversationId,
       userId: user._id,
       data: {
-        verdict: conversation.verdict,
+        decision: conversation.decision,
         item: conversation.item ?? "Unknown item",
         estimatedPrice: conversation.estimatedPrice,
         category: conversation.category,
-        verdictSummary: conversation.verdictSummary,
-        shareScore: conversation.shareScore,
+        reactionText: conversation.reactionText,
+        hankScore: conversation.hankScore,
       },
       createdAt: Date.now(),
     });

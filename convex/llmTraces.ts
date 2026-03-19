@@ -31,7 +31,7 @@ export const debugDump = internalQuery({
     return traces.map((t, i) => {
       const assessment = safeJsonParse(t.rawScores);
       const persistedContext = safeJsonParse(t.sanitizedScores);
-      const scoring = safeJsonParse(t.scoringResult);
+      const compassResult = safeJsonParse(t.scoringResult);
       const toolArgs = safeJsonParse(t.toolArguments);
       const toolResult = safeJsonParse(t.toolResult);
 
@@ -70,29 +70,28 @@ export const debugDump = internalQuery({
           intent: assessment.intent,
           estimated_price: assessment.estimated_price,
           category: assessment.category,
-          challenge_addressed: assessment.challenge_addressed,
-          evidence_provided: assessment.evidence_provided,
-          new_angle: assessment.new_angle,
+          hanks_question: assessment.hanks_question,
+          territory_addressed: assessment.territory_addressed,
+          response_type: assessment.response_type,
+          evidence_tier: assessment.evidence_tier,
+          argument_type: assessment.argument_type,
           emotional_reasoning: assessment.emotional_reasoning,
+          contradiction: assessment.contradiction,
           challenge_topic: assessment.challenge_topic,
           is_non_answer: assessment.is_non_answer ?? toolArgs?.assessment?.is_non_answer,
           is_out_of_scope: assessment.is_out_of_scope ?? toolArgs?.assessment?.is_out_of_scope,
-          user_backed_down: assessment.user_backed_down ?? toolArgs?.assessment?.user_backed_down,
+          user_resolved: assessment.user_resolved ?? toolArgs?.assessment?.user_resolved,
           is_directed_question: assessment.is_directed_question ?? toolArgs?.assessment?.is_directed_question,
         } : null,
 
-        // --- Scoring ---
-        scoring: {
-          stance: `${t.previousStance} → ${t.newStance}`,
+        // --- Compass ---
+        compass: {
+          intensity: `${t.previousIntensity} → ${t.newIntensity}`,
           decisionType: t.decisionType,
-          runningScore: scoring?.runningScore ?? null,
-          delta: scoring?.delta ?? null,
-          thresholdMultiplier: scoring?.thresholdMultiplier ?? null,
-          priceModifier: scoring?.priceModifier ?? null,
+          coverageRatio: compassResult?.coverageRatio ?? null,
           estimatedPrice: t.estimatedPrice ?? null,
           category: t.category ?? null,
           guidance: toolResult?.guidance ?? null,
-          verdict: toolResult?.verdict ?? null,
         },
 
         // --- Call 2: Response ---
@@ -100,7 +99,7 @@ export const debugDump = internalQuery({
           systemPrompt: t.call2SystemPrompt ?? null,
         },
 
-        // --- Call 3: Verdict summary (closing turns only) ---
+        // --- Call 3: Reaction (auto-resolve only) ---
         call3: (t.call3SystemPrompt || t.call3RawResponse) ? {
           systemPrompt: t.call3SystemPrompt ?? null,
           rawResponse: t.call3RawResponse ?? null,
@@ -131,13 +130,13 @@ export const saveTrace = internalMutation({
     rawScores: v.string(),
     sanitizedScores: v.string(),
     scoringResult: v.string(),
-    previousStance: v.string(),
-    newStance: v.string(),
+    previousIntensity: v.string(),
+    newIntensity: v.string(),
     decisionType: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
-    disengagementCount: v.number(),
-    stagnationCount: v.number(),
+    consecutiveNonAnswers: v.number(),
+    turnsSinceCoverageAdvanced: v.number(),
     tokenUsage: v.object({
       promptTokens: v.number(),
       completionTokens: v.number(),
@@ -176,15 +175,15 @@ export const getTraceSummariesForConversation = query({
       return {
         _id: t._id,
         messageId: t.messageId,
-        previousStance: t.previousStance,
-        newStance: t.newStance,
+        previousIntensity: t.previousIntensity,
+        newIntensity: t.newIntensity,
         rawScores: t.rawScores,
         sanitizedScores: t.sanitizedScores,
         scoringResult: t.scoringResult,
         category: t.category,
         estimatedPrice: t.estimatedPrice,
-        disengagementCount: t.disengagementCount,
-        stagnationCount: t.stagnationCount,
+        consecutiveNonAnswers: t.consecutiveNonAnswers,
+        turnsSinceCoverageAdvanced: t.turnsSinceCoverageAdvanced,
         decisionType: t.decisionType,
         toolCalled: t.toolCalled,
         durationMs: t.durationMs,

@@ -7,8 +7,8 @@ export interface PastConversation {
   item?: string;
   category?: string;
   estimatedPrice?: number;
-  verdict?: "approved" | "denied";
-  verdictSummary?: string;
+  decision?: "buying" | "skipping" | "thinking";
+  reactionText?: string;
   createdAt: number;
   memoryReferenceCount?: number;
 }
@@ -17,8 +17,8 @@ export interface MemoryNudge {
   conversationId: string;
   item: string;
   estimatedPrice?: number;
-  verdict: "approved" | "denied";
-  verdictSummary?: string;
+  decision: "buying" | "skipping";
+  reactionText?: string;
   dateLabel: string;
 }
 
@@ -28,9 +28,8 @@ export function sanitizeForYaml(value: string): string {
 
 /**
  * Select ONE past conversation to reference.
- * Called on turn 2+ when no nudge has been stored yet.
  * Filters to: valid item + category matches currentCategory + category is not "other"
- * + conversation must have a verdict (only closed/resolved conversations).
+ * + conversation must have a decision of buying/skipping (only resolved conversations).
  * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
  */
 export function selectMemoryNudge(
@@ -48,7 +47,7 @@ export function selectMemoryNudge(
       c.category &&
       c.category !== "other" &&
       c.category === currentCategory &&
-      (c.verdict === "denied" || c.verdict === "approved")
+      (c.decision === "skipping" || c.decision === "buying")
   );
 
   if (candidates.length === 0) return null;
@@ -67,16 +66,15 @@ export function selectMemoryNudge(
     conversationId: pick._id,
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
-    verdict: pick.verdict!,
-    verdictSummary: pick.verdictSummary,
+    decision: pick.decision as "buying" | "skipping",
+    reactionText: pick.reactionText,
     dateLabel: formatRelativeDate(pick.createdAt, now, timezone),
   };
 }
 
 /**
- * Format the memory directive injected into the system prompt on stance softening.
- * Structured data so the LLM narrates in its own voice instead of parroting a sentence.
- * Includes verdict and reason so the LLM knows the outcome and can reference it accurately.
+ * Format the memory directive injected into the system prompt.
+ * Structured data so the LLM narrates in its own voice.
  */
 export function formatNudgePrompt(nudge: MemoryNudge): string {
   const lines: string[] = [];
@@ -86,13 +84,13 @@ export function formatNudgePrompt(nudge: MemoryNudge): string {
     lines.push(`  price: $${nudge.estimatedPrice}`);
   }
   lines.push(`  date: "${nudge.dateLabel}"`);
-  lines.push(`  verdict: ${nudge.verdict}`);
-  if (nudge.verdictSummary) {
-    lines.push(`  reason: "${sanitizeForYaml(nudge.verdictSummary)}"`);
+  lines.push(`  decision: ${nudge.decision}`);
+  if (nudge.reactionText) {
+    lines.push(`  reason: "${sanitizeForYaml(nudge.reactionText)}"`);
   }
   lines.push("Reference this once, naturally, in your voice:");
-  if (nudge.verdict === "denied") {
-    lines.push("- You shut this down before. Use it to reinforce your skepticism.");
+  if (nudge.decision === "skipping") {
+    lines.push("- They walked away from this before. Use it to reinforce your skepticism.");
   } else {
     lines.push("- They made a real case last time. Acknowledge it, but the bar is still high.");
   }

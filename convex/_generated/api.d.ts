@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as appSettings from "../appSettings.js";
 import type * as conversations from "../conversations.js";
 import type * as credits from "../credits.js";
+import type * as decisionLedger from "../decisionLedger.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_credits from "../lib/credits.js";
@@ -19,12 +20,12 @@ import type * as lib_dates from "../lib/dates.js";
 import type * as lib_roleConstants from "../lib/roleConstants.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as llmTraces from "../llmTraces.js";
+import type * as llm_compass from "../llm/compass.js";
 import type * as llm_generate from "../llm/generate.js";
 import type * as llm_memory from "../llm/memory.js";
 import type * as llm_moves from "../llm/moves.js";
 import type * as llm_openrouter from "../llm/openrouter.js";
 import type * as llm_prompt from "../llm/prompt.js";
-import type * as llm_scoring from "../llm/scoring.js";
 import type * as llm_testChat from "../llm/testChat.js";
 import type * as llm_workHours from "../llm/workHours.js";
 import type * as replayCuts from "../replayCuts.js";
@@ -33,7 +34,6 @@ import type * as stats from "../stats.js";
 import type * as stripe from "../stripe.js";
 import type * as stripeWebhook from "../stripeWebhook.js";
 import type * as users from "../users.js";
-import type * as verdictLedger from "../verdictLedger.js";
 
 import type {
   ApiFromModules,
@@ -46,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   appSettings: typeof appSettings;
   conversations: typeof conversations;
   credits: typeof credits;
+  decisionLedger: typeof decisionLedger;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/credits": typeof lib_credits;
@@ -53,12 +54,12 @@ declare const fullApi: ApiFromModules<{
   "lib/roleConstants": typeof lib_roleConstants;
   "lib/roles": typeof lib_roles;
   llmTraces: typeof llmTraces;
+  "llm/compass": typeof llm_compass;
   "llm/generate": typeof llm_generate;
   "llm/memory": typeof llm_memory;
   "llm/moves": typeof llm_moves;
   "llm/openrouter": typeof llm_openrouter;
   "llm/prompt": typeof llm_prompt;
-  "llm/scoring": typeof llm_scoring;
   "llm/testChat": typeof llm_testChat;
   "llm/workHours": typeof llm_workHours;
   replayCuts: typeof replayCuts;
@@ -67,7 +68,6 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   stripeWebhook: typeof stripeWebhook;
   users: typeof users;
-  verdictLedger: typeof verdictLedger;
 }>;
 
 /**

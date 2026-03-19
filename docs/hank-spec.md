@@ -1,4 +1,6 @@
-# "Do I Need This?" — Product Spec
+# "Do I Need This?" — Product Spec (v1)
+
+> **This describes v1 (debate format — Hank decides).** For v2 changes (examination format — user decides, Conversation Compass, Hank Score), see `hank-v2.md`.
 
 ## One-Liner
 

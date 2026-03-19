@@ -37,7 +37,7 @@ async function insertCut(
 
   const conversation = await ctx.db.get(args.conversationId);
   if (!conversation) throw new Error("Conversation not found");
-  if (!conversation.verdict) throw new Error("Conversation has no verdict");
+  if (!conversation.decision) throw new Error("Conversation has no decision");
 
   await ctx.db.insert("replayCuts", {
     conversationId: args.conversationId,
@@ -46,8 +46,8 @@ async function insertCut(
     item: conversation.item ?? "Unknown item",
     estimatedPrice: conversation.estimatedPrice,
     category: conversation.category,
-    verdict: conversation.verdict,
-    verdictSummary: conversation.verdictSummary,
+    decision: conversation.decision,
+    reactionText: conversation.reactionText,
     createdAt: Date.now(),
   });
 
@@ -129,8 +129,8 @@ export const getByToken = query({
       item: cut.item,
       estimatedPrice: cut.estimatedPrice,
       category: cut.category,
-      verdict: cut.verdict,
-      verdictSummary: cut.verdictSummary,
+      decision: cut.decision,
+      reactionText: cut.reactionText,
     };
   },
 });
@@ -177,7 +177,7 @@ export const internalListConversations = internalQuery({
       item: c.item,
       estimatedPrice: c.estimatedPrice,
       category: c.category,
-      verdict: c.verdict,
+      decision: c.decision,
       createdAt: c.createdAt,
     }));
   },

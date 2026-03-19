@@ -13,49 +13,49 @@ export const getStats = query({
       .collect();
 
     const savedTotal = user.savedTotal ?? 0;
-    const deniedCount = user.deniedCount ?? 0;
+    const skippedCount = user.skippedCount ?? 0;
     const totalConversations = conversations.length;
 
-    const approvedCount = conversations.filter(
-      (c) => c.verdict === "approved"
+    const buyingCount = conversations.filter(
+      (c) => c.decision === "buying"
     ).length;
 
-    const totalVerdicts = deniedCount + approvedCount;
+    const totalDecisions = skippedCount + buyingCount;
     const resistanceRate =
-      totalVerdicts > 0
-        ? Math.round((deniedCount / totalVerdicts) * 100)
+      totalDecisions > 0
+        ? Math.round((skippedCount / totalDecisions) * 100)
         : null;
 
-    const deniedConversations = conversations.filter(
-      (c) => c.verdict === "denied"
+    const skippedConversations = conversations.filter(
+      (c) => c.decision === "skipping"
     );
 
-    // Biggest save: find the denied conversation with the highest price
+    // Biggest save: find the skipped conversation with the highest price
     let biggestSave: { amount: number; item: string | null; date: number } | null = null;
-    for (const conv of deniedConversations) {
+    for (const conv of skippedConversations) {
       const price = conv.estimatedPrice ?? 0;
       if (price > 0 && (biggestSave === null || price > biggestSave.amount)) {
         biggestSave = { amount: price, item: conv.item ?? null, date: conv.createdAt };
       }
     }
 
-    // Current streak: count consecutive denied from most recent backward
+    // Current streak: count consecutive skipped from most recent backward
     const sorted = [...conversations].sort(
       (a, b) => b.createdAt - a.createdAt
     );
     let currentStreak = 0;
     for (const conv of sorted) {
-      if (!conv.verdict) continue; // skip active conversations
-      if (conv.verdict === "denied") {
+      if (!conv.decision) continue; // skip active conversations
+      if (conv.decision === "skipping") {
         currentStreak++;
       } else {
         break;
       }
     }
 
-    // Category breakdown: top 5 from denied conversations, with total saved amount
+    // Category breakdown: top 5 from skipped conversations, with total saved amount
     const categoryData = new Map<string, { count: number; amount: number }>();
-    for (const conv of deniedConversations) {
+    for (const conv of skippedConversations) {
       if (conv.category) {
         const existing = categoryData.get(conv.category) ?? { count: 0, amount: 0 };
         existing.count++;
@@ -74,9 +74,9 @@ export const getStats = query({
 
     return {
       savedTotal,
-      deniedCount,
+      skippedCount,
       totalConversations,
-      approvedCount,
+      buyingCount,
       resistanceRate,
       biggestSave,
       currentStreak,

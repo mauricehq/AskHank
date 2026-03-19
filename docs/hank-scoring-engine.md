@@ -1,3 +1,9 @@
+# Hank's Scoring Engine (v1)
+
+> **This is the v1 scoring engine (debate-based).** For the v2 system (Conversation Compass — coverage-based, user decides), see `hank-v2.md`.
+
+---
+
 # Hank's Scoring Engine (v3)
 
 ## What Changed (v2 → v3)

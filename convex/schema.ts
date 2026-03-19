@@ -16,7 +16,7 @@ export default defineSchema({
     stripeCustomerId: v.optional(v.string()),
     timezone: v.optional(v.string()),
     savedTotal: v.optional(v.number()),
-    deniedCount: v.optional(v.number()),
+    skippedCount: v.optional(v.number()),
     incomeAmount: v.optional(v.number()),
     incomeType: v.optional(v.union(v.literal("hourly"), v.literal("annual"))),
     updatedAt: v.number(),
@@ -35,21 +35,23 @@ export default defineSchema({
       v.literal("active"),
       v.literal("thinking"),
       v.literal("error"),
-      v.literal("closed")
+      v.literal("resolved"),
+      v.literal("paused")
     ),
     createdAt: v.number(),
-    // Phase 2b: Scoring engine fields
-    stance: v.optional(v.string()),
-    score: v.optional(v.number()),
+    // v2 engine fields
+    intensity: v.optional(v.string()),
+    coverageRatio: v.optional(v.number()),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     item: v.optional(v.string()),
     lastAssessment: v.optional(v.string()),
-    disengagementCount: v.number(),
-    stagnationCount: v.number(),
-    verdict: v.optional(v.union(v.literal("approved"), v.literal("denied"))),
-    verdictSummary: v.optional(v.string()),
-    shareScore: v.optional(v.number()),
+    consecutiveNonAnswers: v.number(),
+    decision: v.optional(
+      v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking"))
+    ),
+    reactionText: v.optional(v.string()),
+    hankScore: v.optional(v.number()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),
@@ -97,21 +99,21 @@ export default defineSchema({
     rawResponse: v.string(),
     parsedResponse: v.string(),
 
-    // Scores
+    // Scores (JSON strings — v2 compass data)
     rawScores: v.string(),
     sanitizedScores: v.string(),
     scoringResult: v.string(),
 
-    // Stance
-    previousStance: v.string(),
-    newStance: v.string(),
+    // Intensity (v2 — was stance)
+    previousIntensity: v.string(),
+    newIntensity: v.string(),
 
     // Decision
     decisionType: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
-    disengagementCount: v.number(),
-    stagnationCount: v.number(),
+    consecutiveNonAnswers: v.number(),
+    turnsSinceCoverageAdvanced: v.number(),
 
     // Metrics
     tokenUsage: v.object({
@@ -121,14 +123,14 @@ export default defineSchema({
     }),
     durationMs: v.number(),
 
-    // Call 2 prompt swap (opener/closer)
+    // Call 2 prompt swap (opener/reaction)
     call2SystemPrompt: v.optional(v.string()),
 
-    // Call 3 verdict summary trace
+    // Call 3 reaction trace (auto-resolve only)
     call3SystemPrompt: v.optional(v.string()),
     call3RawResponse: v.optional(v.string()),
 
-    // Tool calling (v2)
+    // Tool calling
     toolCalled: v.optional(v.boolean()),
     toolArguments: v.optional(v.string()),
     toolResult: v.optional(v.string()),
@@ -158,8 +160,8 @@ export default defineSchema({
     item: v.string(),
     estimatedPrice: v.optional(v.number()),
     category: v.optional(v.string()),
-    verdict: v.union(v.literal("approved"), v.literal("denied")),
-    verdictSummary: v.optional(v.string()),
+    decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
+    reactionText: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_token", ["token"])
@@ -168,7 +170,7 @@ export default defineSchema({
   shareCards: defineTable({
     token: v.string(),
     cardType: v.union(
-      v.literal("verdict"),
+      v.literal("decision"),
       v.literal("roast"),
       v.literal("savedTotal")
     ),
@@ -176,25 +178,22 @@ export default defineSchema({
     userId: v.id("users"),
     data: v.union(
       v.object({
-        verdict: v.union(v.literal("approved"), v.literal("denied")),
+        decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
         item: v.string(),
         estimatedPrice: v.optional(v.number()),
         category: v.optional(v.string()),
-        verdictSummary: v.optional(v.string()),
-        shareScore: v.optional(v.number()),
-        // Legacy — kept so old share cards pass schema validation
-        score: v.optional(v.number()),
-        thresholdMultiplier: v.optional(v.number()),
+        reactionText: v.optional(v.string()),
+        hankScore: v.optional(v.number()),
       }),
       v.object({
         bestQuote: v.string(),
         item: v.string(),
-        verdict: v.union(v.literal("approved"), v.literal("denied")),
+        decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
       }),
       v.object({
         savedTotal: v.number(),
-        deniedCount: v.number(),
-        approvedCount: v.number(),
+        skippedCount: v.number(),
+        buyingCount: v.number(),
       })
     ),
     ogImageUrl: v.optional(v.string()),
@@ -205,14 +204,15 @@ export default defineSchema({
     .index("by_conversation_and_type", ["conversationId", "cardType"])
     .index("by_user", ["userId"]),
 
-  verdictLedger: defineTable({
+  decisionLedger: defineTable({
     userId: v.id("users"),
     conversationId: v.id("conversations"),
     item: v.string(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
-    verdict: v.union(v.literal("approved"), v.literal("denied")),
-    verdictSummary: v.optional(v.string()),
+    decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
+    reactionText: v.optional(v.string()),
+    hankScore: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])

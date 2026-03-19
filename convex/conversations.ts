@@ -37,8 +37,7 @@ export const send = mutation({
         userId: user._id,
         status: "thinking",
         createdAt: Date.now(),
-        disengagementCount: 0,
-        stagnationCount: 0,
+        consecutiveNonAnswers: 0,
         thinkingSince: Date.now(),
       });
     } else {
@@ -47,12 +46,13 @@ export const send = mutation({
       if (!conversation || conversation.userId !== user._id) {
         throw new Error("Conversation not found.");
       }
-      if (conversation.status === "closed") {
-        throw new Error("This conversation is closed.");
+      if (conversation.status === "resolved") {
+        throw new Error("This conversation is resolved.");
       }
       if (conversation.status === "thinking") {
         throw new Error("Hank is still thinking.");
       }
+      // If paused, resume to active
       await ctx.db.patch(conversationId, { status: "thinking", thinkingSince: Date.now() });
     }
 
@@ -110,10 +110,11 @@ export const listForUser = query({
         return {
           _id: conv._id,
           title: conv.item ?? fallbackTitle,
-          verdict: conv.verdict,
+          decision: conv.decision,
           status: conv.status,
           createdAt: conv.createdAt,
           estimatedPrice: conv.estimatedPrice,
+          hankScore: conv.hankScore,
         };
       })
     );
@@ -222,6 +223,7 @@ export const saveResponse = internalMutation({
   args: {
     conversationId: v.id("conversations"),
     content: v.string(),
+    lastAssessment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -230,7 +232,11 @@ export const saveResponse = internalMutation({
       content: args.content,
       createdAt: Date.now(),
     });
-    await ctx.db.patch(args.conversationId, { status: "active", thinkingSince: undefined });
+    await ctx.db.patch(args.conversationId, {
+      status: "active",
+      thinkingSince: undefined,
+      ...(args.lastAssessment ? { lastAssessment: args.lastAssessment } : {}),
+    });
     return messageId;
   },
 });
@@ -270,18 +276,17 @@ export const internalGetConversation = internalQuery({
   },
 });
 
-export const saveResponseWithScoring = internalMutation({
+export const saveResponseWithCompass = internalMutation({
   args: {
     conversationId: v.id("conversations"),
     content: v.string(),
-    score: v.number(),
-    stance: v.string(),
+    intensity: v.string(),
+    coverageRatio: v.number(),
     category: v.optional(v.string()),
     estimatedPrice: v.optional(v.number()),
     item: v.optional(v.string()),
     lastAssessment: v.optional(v.string()),
-    disengagementCount: v.number(),
-    stagnationCount: v.number(),
+    consecutiveNonAnswers: v.number(),
   },
   handler: async (ctx, args) => {
     const messageId = await ctx.db.insert("messages", {
@@ -292,14 +297,13 @@ export const saveResponseWithScoring = internalMutation({
     });
     await ctx.db.patch(args.conversationId, {
       status: "active",
-      score: args.score,
-      stance: args.stance,
+      intensity: args.intensity,
+      coverageRatio: args.coverageRatio,
       category: args.category,
       estimatedPrice: args.estimatedPrice,
       item: args.item,
       lastAssessment: args.lastAssessment,
-      disengagementCount: args.disengagementCount,
-      stagnationCount: args.stagnationCount,
+      consecutiveNonAnswers: args.consecutiveNonAnswers,
       thinkingSince: undefined,
     });
     return messageId;
@@ -324,8 +328,8 @@ export const internalGetPastConversations = internalQuery({
         item: c.item,
         category: c.category,
         estimatedPrice: c.estimatedPrice,
-        verdict: c.verdict,
-        verdictSummary: c.verdictSummary,
+        decision: c.decision,
+        reactionText: c.reactionText,
         createdAt: c.createdAt,
         memoryReferenceCount: c.memoryReferenceCount,
       }));
@@ -340,6 +344,104 @@ export const internalIncrementMemoryRef = internalMutation({
     await ctx.db.patch(args.conversationId, {
       memoryReferenceCount: (conversation.memoryReferenceCount ?? 0) + 1,
     });
+  },
+});
+
+export const saveResponseWithDecision = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    content: v.string(),
+    decision: v.union(v.literal("buying"), v.literal("skipping"), v.literal("thinking")),
+    intensity: v.string(),
+    coverageRatio: v.number(),
+    category: v.optional(v.string()),
+    estimatedPrice: v.optional(v.number()),
+    item: v.optional(v.string()),
+    lastAssessment: v.optional(v.string()),
+    consecutiveNonAnswers: v.number(),
+    reactionText: v.optional(v.string()),
+    hankScore: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const messageId = await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "hank",
+      content: args.content,
+      createdAt: Date.now(),
+    });
+    await ctx.db.patch(args.conversationId, {
+      status: "resolved",
+      decision: args.decision,
+      intensity: args.intensity,
+      coverageRatio: args.coverageRatio,
+      category: args.category,
+      estimatedPrice: args.estimatedPrice,
+      item: args.item,
+      lastAssessment: args.lastAssessment,
+      consecutiveNonAnswers: args.consecutiveNonAnswers,
+      reactionText: args.reactionText,
+      hankScore: args.hankScore,
+      thinkingSince: undefined,
+    });
+
+    // Fetch conversation for userId (needed for ledger + user stats)
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return messageId;
+
+    // Insert decision into ledger
+    if (args.item) {
+      await ctx.db.insert("decisionLedger", {
+        userId: conversation.userId,
+        conversationId: args.conversationId,
+        item: args.item,
+        category: args.category,
+        estimatedPrice: args.estimatedPrice,
+        decision: args.decision,
+        reactionText: args.reactionText,
+        hankScore: args.hankScore,
+        createdAt: conversation.createdAt,
+      });
+    }
+
+    // Increment user's savedTotal and skippedCount on skipping decisions
+    if (args.decision === "skipping") {
+      const user = await ctx.db.get(conversation.userId);
+      if (user) {
+        await ctx.db.patch(user._id, {
+          skippedCount: (user.skippedCount ?? 0) + 1,
+          ...(args.estimatedPrice && args.estimatedPrice > 0
+            ? { savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice }
+            : {}),
+        });
+      }
+    }
+
+    return messageId;
+  },
+});
+
+export const patchReactionText = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    reactionText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      reactionText: args.reactionText,
+    });
+
+    // Also patch the decision ledger entry
+    const ledgerEntry = await ctx.db
+      .query("decisionLedger")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .unique();
+    if (ledgerEntry) {
+      await ctx.db.patch(ledgerEntry._id, {
+        reactionText: args.reactionText,
+      });
+    }
   },
 });
 
@@ -362,8 +464,7 @@ export const createTestConversation = internalMutation({
       userId: args.userId,
       status: "thinking",
       createdAt: Date.now(),
-      disengagementCount: 0,
-      stagnationCount: 0,
+      consecutiveNonAnswers: 0,
       thinkingSince: Date.now(),
     });
   },
@@ -377,7 +478,7 @@ export const insertTestMessage = internalMutation({
   handler: async (ctx, args) => {
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) throw new Error("Conversation not found");
-    if (conversation.status === "closed") throw new Error("Conversation is closed");
+    if (conversation.status === "resolved") throw new Error("Conversation is resolved");
 
     await ctx.db.patch(args.conversationId, { status: "thinking", thinkingSince: Date.now() });
     await ctx.db.insert("messages", {
@@ -386,103 +487,5 @@ export const insertTestMessage = internalMutation({
       content: args.content,
       createdAt: Date.now(),
     });
-  },
-});
-
-export const patchVerdictSummary = internalMutation({
-  args: {
-    conversationId: v.id("conversations"),
-    verdictSummary: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.conversationId, {
-      verdictSummary: args.verdictSummary,
-    });
-
-    // Also patch the verdict ledger entry
-    const ledgerEntry = await ctx.db
-      .query("verdictLedger")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .unique();
-    if (ledgerEntry) {
-      await ctx.db.patch(ledgerEntry._id, {
-        verdictSummary: args.verdictSummary,
-      });
-    }
-  },
-});
-
-export const saveResponseWithVerdict = internalMutation({
-  args: {
-    conversationId: v.id("conversations"),
-    content: v.string(),
-    verdict: v.union(v.literal("approved"), v.literal("denied")),
-    score: v.number(),
-    stance: v.string(),
-    category: v.optional(v.string()),
-    estimatedPrice: v.optional(v.number()),
-    item: v.optional(v.string()),
-    lastAssessment: v.optional(v.string()),
-    disengagementCount: v.number(),
-    stagnationCount: v.number(),
-    verdictSummary: v.optional(v.string()),
-    shareScore: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const messageId = await ctx.db.insert("messages", {
-      conversationId: args.conversationId,
-      role: "hank",
-      content: args.content,
-      createdAt: Date.now(),
-    });
-    await ctx.db.patch(args.conversationId, {
-      status: "closed",
-      verdict: args.verdict,
-      score: args.score,
-      stance: args.stance,
-      category: args.category,
-      estimatedPrice: args.estimatedPrice,
-      item: args.item,
-      lastAssessment: args.lastAssessment,
-      disengagementCount: args.disengagementCount,
-      stagnationCount: args.stagnationCount,
-      verdictSummary: args.verdictSummary,
-      shareScore: args.shareScore,
-      thinkingSince: undefined,
-    });
-
-    // Fetch conversation for userId (needed for ledger + user stats)
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return messageId;
-
-    // Insert verdict into ledger
-    if (args.item) {
-      await ctx.db.insert("verdictLedger", {
-        userId: conversation.userId,
-        conversationId: args.conversationId,
-        item: args.item,
-        category: args.category,
-        estimatedPrice: args.estimatedPrice,
-        verdict: args.verdict,
-        createdAt: conversation.createdAt,
-      });
-    }
-
-    // Increment user's savedTotal and deniedCount on denied verdicts
-    if (args.verdict === "denied") {
-      const user = await ctx.db.get(conversation.userId);
-      if (user) {
-        await ctx.db.patch(user._id, {
-          deniedCount: (user.deniedCount ?? 0) + 1,
-          ...(args.estimatedPrice && args.estimatedPrice > 0
-            ? { savedTotal: (user.savedTotal ?? 0) + args.estimatedPrice }
-            : {}),
-        });
-      }
-    }
-
-    return messageId;
   },
 });
