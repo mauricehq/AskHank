@@ -16,8 +16,6 @@ const DECISION_COLORS: Record<string, string> = {
   "non-answer-disengaged": "bg-denied/15 text-denied",
   "stagnation-warning": "bg-yellow-500/15 text-yellow-400",
   "stagnation-disengaged": "bg-denied/15 text-denied",
-  "auto-resolve-buying": "bg-approved/15 text-approved",
-  "auto-resolve-skipping": "bg-approved/15 text-approved",
   "user-resolve-buying": "bg-approved/15 text-approved",
   "user-resolve-skipping": "bg-approved/15 text-approved",
   "user-resolve-thinking": "bg-approved/15 text-approved",

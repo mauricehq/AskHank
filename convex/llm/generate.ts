@@ -88,7 +88,6 @@ const DEFAULT_ASSESSMENT: TurnAssessment = {
   contradiction: null,
   is_non_answer: false,
   is_out_of_scope: false,
-  user_resolved: null,
   is_directed_question: false,
   challenge_topic: "",
 };
@@ -179,12 +178,6 @@ function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
     contradiction,
     is_non_answer: raw.is_non_answer === true,
     is_out_of_scope: raw.is_out_of_scope === true,
-    user_resolved:
-      raw.user_resolved === "buying"
-        ? "buying"
-        : raw.user_resolved === "skipping"
-          ? "skipping"
-          : null,
     is_directed_question: raw.is_directed_question === true,
     challenge_topic: typeof raw.challenge_topic === "string" ? raw.challenge_topic : "",
   };
@@ -348,30 +341,7 @@ function executeCompass(
     };
   }
 
-  // 4-5. user_resolved: 'buying' or 'skipping' → auto-resolve
-  if (assessment.user_resolved === "buying" || assessment.user_resolved === "skipping") {
-    const decision = assessment.user_resolved;
-    const hankScoreResult = computeHankScore(prevCoverageMap, prevSummaries);
-    return {
-      intensity: currentIntensity,
-      coverageRatio: computeCoverageRatio(prevCoverageMap),
-      nextTerritory: null,
-      turnsSinceCoverageAdvanced: prevStagnation,
-      decisionType: `auto-resolve-${decision}`,
-      closing: true,
-      decision,
-      hankScore: hankScoreResult.score,
-      hankScoreLabel: hankScoreResult.label,
-      coverageSummary: buildExaminationProgress(prevCoverageMap),
-      _consecutiveNonAnswers: 0,
-      _category: category,
-      _estimatedPrice: estimatedPrice,
-      _item: item,
-      _persistedContext: makeContext({ consecutiveNonAnswers: 0 }),
-    };
-  }
-
-  // 6. Normal turn → update coverage, compute intensity, assign territory
+  // 4. Normal turn → update coverage, compute intensity, assign territory
 
   // Update coverage map
   const newCoverageMap = updateCoverage(prevCoverageMap, assessment, lastAssigned, turnCount);

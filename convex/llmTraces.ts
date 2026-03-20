@@ -80,7 +80,6 @@ export const debugDump = internalQuery({
           challenge_topic: assessment.challenge_topic,
           is_non_answer: assessment.is_non_answer ?? toolArgs?.assessment?.is_non_answer,
           is_out_of_scope: assessment.is_out_of_scope ?? toolArgs?.assessment?.is_out_of_scope,
-          user_resolved: assessment.user_resolved ?? toolArgs?.assessment?.user_resolved,
           is_directed_question: assessment.is_directed_question ?? toolArgs?.assessment?.is_directed_question,
         } : null,
 

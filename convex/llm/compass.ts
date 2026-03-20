@@ -82,7 +82,6 @@ export interface TurnAssessment {
   // Flags
   is_non_answer: boolean;
   is_out_of_scope: boolean;
-  user_resolved: "buying" | "skipping" | null;
   is_directed_question: boolean;
   // Trace
   challenge_topic: string;

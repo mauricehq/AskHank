@@ -640,10 +640,9 @@ export const createTestConversation = internalMutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("conversations", {
       userId: args.userId,
-      status: "thinking",
+      status: "active",
       createdAt: Date.now(),
       consecutiveNonAnswers: 0,
-      thinkingSince: Date.now(),
     });
   },
 });

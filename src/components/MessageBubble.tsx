@@ -18,8 +18,6 @@ const DECISION_COLORS: Record<string, string> = {
   "stagnation-warning": "bg-yellow-500/20 text-yellow-300",
   "stagnation-disengaged": "bg-red-500/20 text-red-300",
   "territory-exhausted": "bg-orange-500/20 text-orange-300",
-  "auto-resolve-buying": "bg-green-500/20 text-green-300",
-  "auto-resolve-skipping": "bg-green-500/20 text-green-300",
   "user-resolve-buying": "bg-green-500/20 text-green-300",
   "user-resolve-skipping": "bg-green-500/20 text-green-300",
   "user-resolve-thinking": "bg-green-500/20 text-green-300",
