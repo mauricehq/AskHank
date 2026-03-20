@@ -106,3 +106,19 @@ export function buildRecentMovesSection(
 
   return `RECENT MOVES (vary your approach):\n${moveList} Try a different pattern or none at all.`;
 }
+
+/**
+ * Build a recent approaches prompt section, or null if no moves detected.
+ * LLM-friendly version without jargon.
+ */
+export function buildRecentApproachesSection(
+  recentMoves: DetectedMove[] | undefined
+): string | null {
+  if (!recentMoves || recentMoves.length === 0) return null;
+
+  const moveList = recentMoves
+    .map((m) => `Turn ${m.turn}: ${m.move}.`)
+    .join(" ");
+
+  return `WHAT YOU'VE DONE RECENTLY (don't repeat yourself):\n${moveList} Try a different approach or say nothing at all.`;
+}

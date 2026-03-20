@@ -597,15 +597,22 @@ export function computeHankScore(
 /**
  * Build examination progress text from coverage map.
  */
+const DEPTH_DISPLAY: Record<TerritoryDepth, string> = {
+  unexplored: "not discussed yet",
+  touched: "mentioned but not answered",
+  explored: "partially covered",
+  settled: "thoroughly answered",
+};
+
 export function buildExaminationProgress(coverageMap: CoverageMap): string {
   const lines: string[] = [];
   for (const territory of ALL_TERRITORIES) {
     const state = coverageMap[territory];
     if (!state.relevant) continue;
     const label = TERRITORY_LABELS[territory];
-    lines.push(`  ${label}: ${state.depth}${state.bestEvidence !== "none" ? ` (evidence: ${state.bestEvidence})` : ""}`);
+    lines.push(`  ${label}: ${DEPTH_DISPLAY[state.depth]}${state.bestEvidence !== "none" ? ` (evidence: ${state.bestEvidence})` : ""}`);
   }
-  return `EXAMINATION PROGRESS:\n${lines.join("\n")}`;
+  return `WHAT'S BEEN COVERED:\n${lines.join("\n")}`;
 }
 
 /**
@@ -617,7 +624,7 @@ export function buildTerritoryGuidance(
   exhaustedTerritory?: Territory
 ): string {
   if (!territory) {
-    return "TERRITORY: All relevant territories have been covered. Push toward a decision.";
+    return "YOUR NEXT QUESTION: All relevant topics have been covered. Push toward a decision.";
   }
 
   const state = coverageMap[territory];
@@ -628,7 +635,7 @@ export function buildTerritoryGuidance(
       ? "Partially covered. Push for specifics."
       : "Unexplored. Open it up.";
 
-  let guidance = `TERRITORY ASSIGNMENT: Ask about "${label}". ${depthNote}`;
+  let guidance = `YOUR NEXT QUESTION: Ask about "${label}". ${depthNote}`;
 
   if (exhaustedTerritory) {
     const exhaustedLabel = TERRITORY_LABELS[exhaustedTerritory];
