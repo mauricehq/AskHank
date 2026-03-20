@@ -227,14 +227,18 @@ export const HANK_SCORE_LABELS: Record<string, string> = {
   "10": "Thoroughly examined",
 };
 
-const TERRITORY_LABELS: Record<Territory, string> = {
-  trigger: "What triggered this",
-  current_solution: "Current solution",
-  usage_reality: "Usage reality",
-  real_cost: "Real cost",
-  pattern: "Spending pattern",
-  alternatives: "Alternatives",
-  emotional_check: "Emotional check",
+/** Maps Hank Score ranges to plain words for prompt injection (no numeric score in LLM prompt). */
+export const EXAMINATION_QUALITY_LABELS: Record<string, string> = {
+  "1": "barely",
+  "2": "barely",
+  "3": "poorly",
+  "4": "poorly",
+  "5": "partially",
+  "6": "partially",
+  "7": "thoroughly",
+  "8": "thoroughly",
+  "9": "completely",
+  "10": "completely",
 };
 
 const EVIDENCE_VALUES: Record<EvidenceTier, number> = {
@@ -595,28 +599,22 @@ export function computeHankScore(
 // === Helpers for prompt building ===
 
 /**
- * Build examination progress text from coverage map.
+ * Build examination progress as structured YAML from coverage map.
+ * Uses raw territory keys and depth enum values — no prose the LLM can parrot.
  */
-const DEPTH_DISPLAY: Record<TerritoryDepth, string> = {
-  unexplored: "not discussed yet",
-  touched: "mentioned but not answered",
-  explored: "partially covered",
-  settled: "thoroughly answered",
-};
-
 export function buildExaminationProgress(coverageMap: CoverageMap): string {
   const lines: string[] = [];
   for (const territory of ALL_TERRITORIES) {
     const state = coverageMap[territory];
     if (!state.relevant) continue;
-    const label = TERRITORY_LABELS[territory];
-    lines.push(`  ${label}: ${DEPTH_DISPLAY[state.depth]}${state.bestEvidence !== "none" ? ` (evidence: ${state.bestEvidence})` : ""}`);
+    lines.push(`  ${territory}: ${state.depth}${state.bestEvidence !== "none" ? ` (best_evidence: ${state.bestEvidence})` : ""}`);
   }
   return `WHAT'S BEEN COVERED:\n${lines.join("\n")}`;
 }
 
 /**
- * Build territory guidance text for the assigned territory.
+ * Build territory guidance as structured YAML for the assigned territory.
+ * No prose sentences the LLM can parrot — just terse keys and values.
  */
 export function buildTerritoryGuidance(
   territory: Territory | null,
@@ -624,23 +622,28 @@ export function buildTerritoryGuidance(
   exhaustedTerritory?: Territory
 ): string {
   if (!territory) {
-    return "YOUR NEXT QUESTION: All relevant topics have been covered. Push toward a decision.";
+    return "YOUR NEXT QUESTION:\n  topic: none\n  approach: push_toward_decision";
   }
 
   const state = coverageMap[territory];
-  const label = TERRITORY_LABELS[territory];
-  const depthNote = state.depth === "touched"
-    ? "They've dodged this before. Be direct."
+  const approach = state.depth === "touched"
+    ? "be_direct"
     : state.depth === "explored"
-      ? "Partially covered. Push for specifics."
-      : "Unexplored. Open it up.";
+      ? "push_for_specifics"
+      : "open_it_up";
 
-  let guidance = `YOUR NEXT QUESTION: Ask about "${label}". ${depthNote}`;
+  const lines: string[] = [
+    `YOUR NEXT QUESTION:`,
+    `  topic: ${territory}`,
+    `  status: ${state.depth}`,
+    `  approach: ${approach}`,
+  ];
 
   if (exhaustedTerritory) {
-    const exhaustedLabel = TERRITORY_LABELS[exhaustedTerritory];
-    guidance += `\nNOTE: They've avoided "${exhaustedLabel}" three times. Name the avoidance — "You keep dodging [topic]. That tells me something."`;
+    lines.push(`AVOIDED_TOPIC:`);
+    lines.push(`  topic: ${exhaustedTerritory}`);
+    lines.push(`  times_dodged: 3`);
   }
 
-  return guidance;
+  return lines.join("\n");
 }

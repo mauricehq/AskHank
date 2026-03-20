@@ -82,11 +82,11 @@ export function selectMemoryNudges(
 }
 
 const TERRITORY_GUIDANCE: Partial<Record<Territory, string>> = {
-  pattern: "They have a pattern here. Name it — dates, amounts, decisions.",
-  real_cost: "They've spent on this category before. Reference the total.",
-  alternatives: "They considered alternatives before. Ask what changed.",
-  trigger: "Similar purchase was emotional last time. Probe whether this one is too.",
-  emotional_check: "Similar purchase was emotional last time. Probe whether this one is too.",
+  pattern: "Name the pattern — dates, amounts, decisions.",
+  real_cost: "Reference what they've already spent in this category.",
+  alternatives: "Ask what changed since they last looked at alternatives.",
+  trigger: "Their last similar purchase was emotional. Probe whether this one is too.",
+  emotional_check: "Their last similar purchase was emotional. Probe whether this one is too.",
 };
 
 /**
@@ -113,31 +113,18 @@ export function formatNudgePrompt(
       lines.push(`  price: $${nudge.estimatedPrice}`);
     }
     lines.push(`  date: "${nudge.dateLabel}"`);
-    lines.push(`  decision: ${nudge.decision}`);
+    lines.push(`  outcome: ${nudge.decision}`);
     if (nudge.reactionText) {
-      lines.push(`  reason: "${sanitizeForYaml(nudge.reactionText)}"`);
+      lines.push(`  what_you_said: "${sanitizeForYaml(nudge.reactionText)}"`);
     }
   }
 
-  // Guidance section
-  lines.push("Reference this once, naturally, in your voice:");
-
-  // Territory-specific guidance
+  // Territory-specific guidance for how to use the memory
   const territoryGuidance = territory ? TERRITORY_GUIDANCE[territory] : null;
   if (territoryGuidance) {
-    lines.push(`- ${territoryGuidance}`);
+    lines.push(territoryGuidance);
   }
 
-  // Per-decision guidance
-  const hasSkipping = nudges.some((n) => n.decision === "skipping");
-  const hasBuying = nudges.some((n) => n.decision === "buying");
-  if (hasSkipping) {
-    lines.push("- They walked away from this before. Use it to reinforce your skepticism.");
-  }
-  if (hasBuying) {
-    lines.push("- They made a real case last time. Acknowledge it, but the bar is still high.");
-  }
-
-  lines.push("Do not invent details beyond what's listed. Skip if it feels forced.");
+  lines.push("Reference once, naturally, in your own words. Do not invent details. Skip if forced.");
   return lines.join("\n");
 }

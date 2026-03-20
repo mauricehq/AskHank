@@ -609,7 +609,6 @@ export const generateReaction = internalAction({
         item,
         decision: args.decision,
         hankScore: hankScoreResult.score,
-        hankScoreLabel: hankScoreResult.label,
         coverageSummary,
       });
 
@@ -956,7 +955,6 @@ export const respond = internalAction({
             item: compassResult._item,
             decision: compassResult.decision,
             hankScore: compassResult.hankScore!,
-            hankScoreLabel: compassResult.hankScoreLabel!,
             coverageSummary: compassResult.coverageSummary!,
           });
         } else if (turnCount === 1 && compassResult.decisionType === "normal") {

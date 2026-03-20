@@ -3,7 +3,7 @@
 import type { Intensity, TurnSummary, CoverageMap, Territory, Decision, StoredContradiction } from "./compass";
 import type { ChatMessage, ToolDefinition } from "./openrouter";
 import { buildRecentApproachesSection, type DetectedMove } from "./moves";
-import { ALL_TERRITORIES, HANK_SCORE_LABELS, buildExaminationProgress, buildTerritoryGuidance } from "./compass";
+import { EXAMINATION_QUALITY_LABELS, buildExaminationProgress, buildTerritoryGuidance } from "./compass";
 
 interface ConversationMessage {
   role: "user" | "hank";
@@ -14,13 +14,13 @@ interface ConversationMessage {
 
 const INTENSITY_GUIDANCE: Record<Intensity, string> = {
   CURIOUS:
-    "This is new. You're getting oriented. Ask one clear, specific question about the topic below. Don't push yet — observe.",
+    "Ask one clear, specific question about the topic below. Don't push yet — observe.",
   PROBING:
-    "You have the basics. Push on the topic below. Reference what they've told you so far. If they gave you something real, acknowledge it briefly and go deeper.",
+    "Push on the topic below. Reference what they've told you so far. If they gave you something real, acknowledge it briefly and go deeper.",
   POINTED:
-    "You've found gaps. Be direct about the topic below. If they've been avoiding this, name what they're avoiding.",
+    "Be direct about the topic below. If they've been avoiding this, name what they're avoiding.",
   WRAPPING:
-    "Enough ground is covered. Summarize what you've heard — the strongest point and the biggest gap. Push them toward a decision. 'So what's the call.'",
+    "Summarize what you've heard — the strongest point and the biggest gap. Push them toward a decision.",
 };
 
 // === Tool Definitions ===
@@ -314,8 +314,8 @@ You're talking to ${userName}.`,
 
     // Price context
     (estimatedPrice && estimatedPrice > 0
-      ? `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally when it strengthens your point — "$${estimatedPrice}." as a standalone fragment, "You're describing a $${Math.round(estimatedPrice / 10) * 10} problem" — don't mention price every turn, just when it lands.`
-      : `PRICE CONTEXT: You don't know the price yet. Ask what it costs early on — you need the number for the record. "What are we talking here, price-wise?"`)
+      ? `PRICE:\n  amount: ${estimatedPrice}${category && category !== "other" ? `\n  category: ${category}` : ""}\nReference naturally when it strengthens your point. Don't mention every turn.`
+      : `PRICE:\n  amount: unknown\nAsk what it costs early on — you need the number.`)
     + (config.workHoursBlock ? "\n\n" + config.workHoursBlock : ""),
 
     // Rules (v2 — 8 rules from hank-voice-v2.md)
@@ -425,12 +425,12 @@ RELATIONAL CLAIMS — these are IN SCOPE but probe hard:
 
     // Disengagement context
     consecutiveNonAnswers >= 1
-      ? `NON-ANSWER CONTEXT: ${consecutiveNonAnswers} consecutive non-answer${consecutiveNonAnswers > 1 ? "s" : ""}.${
+      ? `NON_ANSWER_STATE:\n  consecutive_count: ${consecutiveNonAnswers}\n  suggested_approach: ${
           consecutiveNonAnswers === 1
-            ? " They dodged. Push them to engage: 'That's not an answer. What's actually going on.'"
+            ? "push_to_engage"
             : consecutiveNonAnswers === 2
-              ? " They're checked out. One more try, brief: 'I've asked my questions. The buttons are right there.'"
-              : " Disengaged. One-line response. 'I've said my piece.'"
+              ? "brief_final_push"
+              : "one_line_closing"
         }`
       : null,
   ];
@@ -455,9 +455,9 @@ export function buildPriceBlock(
 ): string {
   let block: string;
   if (estimatedPrice && estimatedPrice > 0) {
-    block = `PRICE CONTEXT: The item costs approximately $${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}. You can reference this naturally — "$${estimatedPrice}." as a standalone fragment.`;
+    block = `PRICE:\n  amount: ${estimatedPrice}${category && category !== "other" ? `\n  category: ${category}` : ""}\nReference naturally when it strengthens your point.`;
   } else {
-    block = `PRICE CONTEXT: You don't know the price yet. If it comes up naturally, you can ask.`;
+    block = `PRICE:\n  amount: unknown\nIf it comes up naturally, you can ask.`;
   }
   if (workHoursBlock) {
     block += "\n\n" + workHoursBlock;
@@ -511,54 +511,73 @@ interface ReactionPromptConfig {
   item?: string;
   decision: Decision;
   hankScore: number;
-  hankScoreLabel: string;
   coverageSummary: string;
 }
 
 export function buildReactionPrompt(config: ReactionPromptConfig): string {
   const userName = config.displayName || "this person";
-  const { decision, hankScore, hankScoreLabel, coverageSummary, item, estimatedPrice } = config;
+  const { decision, hankScore, coverageSummary, item, estimatedPrice } = config;
 
-  const itemLabel = item && item !== "unknown"
-    ? estimatedPrice && estimatedPrice > 0 ? `${item} ($${estimatedPrice})` : item
-    : "their item";
+  const qualityWord = EXAMINATION_QUALITY_LABELS[String(hankScore)] ?? "partially";
 
-  // Reaction matrix guidance
+  // Structured context block — no numeric score for the LLM
+  const contextLines = [
+    `CONTEXT:`,
+    `  decision: ${decision}`,
+    `  how_well_they_examined_this: ${qualityWord}`,
+  ];
+  if (item && item !== "unknown") contextLines.push(`  item: ${item}`);
+  if (estimatedPrice && estimatedPrice > 0) contextLines.push(`  price: ${estimatedPrice}`);
+
+  // Reaction guidance — tone/strategy keys, not prose data
   let reactionGuidance: string;
   if (decision === "thinking") {
-    reactionGuidance = `REACTION: They need to think. Brief. One line.
+    reactionGuidance = `REACTION_GUIDANCE:
+  tone: brief
+  strategy: leave_the_door_open
 - "Good. If you still want it in a week, come back. Most people don't."
 - "I'll be here."`;
   } else if (decision === "buying") {
     if (hankScore <= 4) {
-      reactionGuidance = `REACTION: They're buying with a low score (${hankScore}/10 — "${hankScoreLabel}"). Resigned. Name the gap. Drop a closer.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: resigned
+  strategy: name_the_gap_they_avoided
 - "You're buying it. I could tell from turn one. Come back and tell me how it goes."
 - "You never answered [the gap]. I'll ask again next time."
-- "$${estimatedPrice ?? '___'} for something you couldn't explain to me. Your money goes."
 NOT: "Don't come crying to me." / "I can't believe you're doing this."`;
     } else if (hankScore <= 6) {
-      reactionGuidance = `REACTION: They're buying with a mid score (${hankScore}/10 — "${hankScoreLabel}"). Grudging respect. Name what's missing. Drop a closer.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: grudging_respect
+  strategy: name_whats_missing
 - "You did actual thinking on this. There's a gap you didn't close though. But you showed up."
 - "Semi-impulse buy. That's… progress?"
 NOT: "Not enough, but some." / "Your money."`;
     } else {
-      reactionGuidance = `REACTION: They're buying with a high score (${hankScore}/10 — "${hankScoreLabel}"). Genuine respect. Get out of the way.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: genuine_respect
+  strategy: get_out_of_the_way
 - "You made the case. I've got nothing. Go."
 - "The [evidence] was real and you compared options. Go buy it. Don't make me regret this."`;
     }
   } else {
     // skipping
     if (hankScore <= 4) {
-      reactionGuidance = `REACTION: They're skipping with a low score (${hankScore}/10 — "${hankScoreLabel}"). Brief. They already know. Name the thing that tipped it.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: brief
+  strategy: name_what_tipped_it
 - "You already knew. You just needed someone to say it out loud."
 - "Good call. That one was never going anywhere."
 NOT: "That was never going to survive a real question." (smug)`;
     } else if (hankScore <= 6) {
-      reactionGuidance = `REACTION: They're skipping with a mid score (${hankScore}/10 — "${hankScoreLabel}"). Acknowledge it was genuinely close. Respect the difficulty.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: respectful
+  strategy: acknowledge_difficulty
 - "You had half a case. Walking away from half a case takes more spine than buying on a full one."
 - "That wasn't easy. Real reasons, real pull. And you still said no."`;
     } else {
-      reactionGuidance = `REACTION: They're skipping with a high score (${hankScore}/10 — "${hankScoreLabel}"). Surprised. Almost annoyed in a good way.
+      reactionGuidance = `REACTION_GUIDANCE:
+  tone: surprised
+  strategy: respect_the_restraint
 - "You earned it and you're walking away. …I don't even know what to do with that."
 - "I was running out of questions. You had a real case and still said no. Respect."`;
     }
@@ -568,7 +587,7 @@ NOT: "That was never going to survive a real question." (smug)`;
 
 You're talking to ${userName}.
 
-THE DECISION: ${decision === "buying" ? "They're buying" : decision === "skipping" ? "They're skipping" : "They need to think"}. Hank Score: ${hankScore}/10 ("${hankScoreLabel}"). Item: ${itemLabel}.
+${contextLines.join("\n")}
 
 ${coverageSummary}
 
@@ -626,7 +645,7 @@ export function buildCompassBlock(
 ): string {
   const lines: string[] = [
     `CURRENT STATE:`,
-    `  Where you are in this conversation: ${intensity}`,
+    `  phase: ${intensity}`,
     `  ${INTENSITY_GUIDANCE[intensity]}`,
   ];
 
@@ -641,19 +660,22 @@ export function buildCompassBlock(
   if (unresolved && unresolved.length > 0) {
     const contradictionLines: string[] = ["CONTRADICTIONS:"];
     for (const c of unresolved) {
-      contradictionLines.push(`  - [${c.territory}]: They said "${c.priorClaim}" but now say "${c.currentClaim}" (${c.severity})`);
+      contradictionLines.push(`  - territory: ${c.territory}`);
+      contradictionLines.push(`    prior_claim: "${c.priorClaim}"`);
+      contradictionLines.push(`    current_claim: "${c.currentClaim}"`);
+      contradictionLines.push(`    severity: ${c.severity}`);
     }
     if (nextTerritory && unresolved.some((c) => c.territory === nextTerritory)) {
-      contradictionLines.push("This territory has an unresolved contradiction. Press on it.");
+      contradictionLines.push(`  contradiction_on_next_topic: true`);
     }
     lines.push(contradictionLines.join("\n"));
   }
 
   // Stagnation warning
   if (turnsSinceCoverageAdvanced >= 4) {
-    lines.push("NOTE: Nothing new has come up in 4+ turns. They're circling. One-sentence response, push toward a decision.");
+    lines.push(`STAGNATION:\n  turns_without_progress: ${turnsSinceCoverageAdvanced}\n  approach: one_sentence_push_toward_decision`);
   } else if (turnsSinceCoverageAdvanced >= 3) {
-    lines.push("NOTE: Nothing new has come up in 3 turns. Name it — 'We keep going in circles. What are you actually trying to figure out.'");
+    lines.push(`STAGNATION:\n  turns_without_progress: ${turnsSinceCoverageAdvanced}\n  approach: name_the_circling`);
   }
 
   return lines.join("\n");
