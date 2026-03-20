@@ -37,7 +37,6 @@ export function formatWorkHoursBlock(data: WorkHoursData | null): string | null 
   if (!data) return null;
 
   return `work_hours:
-  hourly_rate_net: ${data.hourlyRateNet.toFixed(2)}
   hours_equivalent: ${data.hoursEquivalent}
-Use ONCE max per conversation. Don't lead with it. Never say their rate out loud. Narrate the hours in your own words.`;
+Use ONCE max per conversation. Don't lead with it. Narrate the hours in your own words.`;
 }

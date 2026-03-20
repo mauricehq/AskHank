@@ -69,22 +69,16 @@ describe("formatWorkHoursBlock", () => {
     expect(formatWorkHoursBlock(null)).toBeNull();
   });
 
-  it("returns YAML structure with correct values", () => {
+  it("returns YAML structure with hours but no rate", () => {
     const block = formatWorkHoursBlock({ hourlyRateNet: 23.44, hoursEquivalent: 21.3 });
     expect(block).not.toBeNull();
     expect(block).toContain("work_hours:");
-    expect(block).toContain("hourly_rate_net: 23.44");
     expect(block).toContain("hours_equivalent: 21.3");
+    expect(block).not.toContain("hourly_rate_net");
   });
 
-  it("formats rate to 2 decimal places", () => {
-    const block = formatWorkHoursBlock({ hourlyRateNet: 18.5, hoursEquivalent: 10 });
-    expect(block).toContain("hourly_rate_net: 18.50");
-  });
-
-  it("includes the anti-parroting directive", () => {
+  it("includes the usage directive", () => {
     const block = formatWorkHoursBlock({ hourlyRateNet: 20, hoursEquivalent: 5 });
-    expect(block).toContain("Use this ONCE max per conversation");
-    expect(block).toContain("Never say their rate out loud");
+    expect(block).toContain("Use ONCE max per conversation");
   });
 });
