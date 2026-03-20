@@ -1024,7 +1024,7 @@ export const respond = internalAction({
           messages: call2Messages,
           modelId,
           temperature: TEMPERATURE_RESPONSE,
-          maxTokens: 400,
+          maxTokens: 200,
           ...(closingTool
             ? {
                 tools: [closingTool],

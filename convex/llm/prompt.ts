@@ -365,7 +365,7 @@ You're talking to ${userName}.`,
 
     // Format rules
     `FORMAT RULES:
-- Your response is plain text. 1-3 sentences. No JSON. No markdown.
+- Your response is plain text. 2 sentences max. No JSON. No markdown.
 - No bullet points, no numbered lists.
 - No quotation marks around your response. Just plain text.
 - Use periods instead of question marks for rhetorical points. "What happened to the French press." not "What happened to the French press?"
