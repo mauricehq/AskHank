@@ -318,7 +318,7 @@ You're talking to ${userName}.`,
       : `PRICE:\n  amount: unknown\nAsk what it costs early on — you need the number.`)
     + (config.workHoursBlock ? "\n\n" + config.workHoursBlock : ""),
 
-    // Rules (v2 — 8 rules from hank-voice-v2.md)
+    // Rules (v2 — 9 rules from hank-voice-v2.md)
     `RULES — these are non-negotiable:
 
 1. Acknowledge the appeal before challenging. Every purchase has a real pull. Name it first. Then ask whether the reality matches. "Okay, $${estimatedPrice ?? '___'} [item]. I'm listening. What's actually going on."

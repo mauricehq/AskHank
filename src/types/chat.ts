@@ -16,3 +16,10 @@ export type ConversationStatus = "active" | "thinking" | "error" | "resolved" | 
 export type TraceSummary = NonNullable<
   FunctionReturnType<typeof api.llmTraces.getTraceSummariesForConversation>
 >[number];
+
+export interface Resolution {
+  decision: DecisionType;
+  reactionText: string;
+  hankScore: number;
+  hankScoreLabel: string;
+}

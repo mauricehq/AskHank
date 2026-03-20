@@ -408,6 +408,20 @@ function executeCompass(
     });
   }
 
+  // Resolve contradictions addressed this turn
+  if (
+    assessment.territory_addressed !== "other" &&
+    assessment.response_type === "direct_counter" &&
+    (assessment.evidence_tier === "specific" || assessment.evidence_tier === "concrete")
+  ) {
+    for (let i = 0; i < newContradictions.length; i++) {
+      const c = newContradictions[i];
+      if (!c.resolved && c.territory === assessment.territory_addressed) {
+        newContradictions[i] = { ...c, resolved: true, turnResolved: turnCount };
+      }
+    }
+  }
+
   // Determine engagement quality
   const isLowEngagement =
     assessment.response_type === "pivot" ||

@@ -20,10 +20,16 @@ export const getStats = query({
       (c) => c.decision === "buying"
     ).length;
 
-    const totalDecisions = skippedCount + buyingCount;
-    const resistanceRate =
-      totalDecisions > 0
-        ? Math.round((skippedCount / totalDecisions) * 100)
+    const resolvedConversations = conversations.filter((c) => c.decision != null);
+    const purchasesQuestioned = resolvedConversations.length;
+
+    const scoredConversations = resolvedConversations.filter((c) => c.hankScore != null);
+    const avgHankScore =
+      scoredConversations.length > 0
+        ? Math.round(
+            scoredConversations.reduce((sum, c) => sum + (c.hankScore ?? 0), 0) /
+              scoredConversations.length
+          )
         : null;
 
     const skippedConversations = conversations.filter(
@@ -78,7 +84,8 @@ export const getStats = query({
       skippedCount,
       totalConversations,
       buyingCount,
-      resistanceRate,
+      avgHankScore,
+      purchasesQuestioned,
       biggestSave,
       currentStreak,
       categories,
