@@ -17,6 +17,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAppLayout } from "./AppLayoutContext";
 import { getGreeting } from "@/lib/greetings";
+import { FollowUpNudge } from "./FollowUpNudge";
 import { cascade } from "@/lib/motion";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { TraceSummary } from "@/types/chat";
@@ -165,8 +166,9 @@ export function ChatScreen({ conversationId: externalId, onConversationCreated, 
           </motion.h1>
           <motion.div
             {...(reducedMotion ? {} : cascade(2))}
-            className="mt-5 w-full max-w-[600px]"
+            className="mt-5 w-full max-w-[600px] flex flex-col items-center"
           >
+            <FollowUpNudge />
             <ChatInput
               onSend={handleSend}
               hasMessages={false}

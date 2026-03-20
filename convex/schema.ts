@@ -52,6 +52,8 @@ export default defineSchema({
     ),
     reactionText: v.optional(v.string()),
     hankScore: v.optional(v.number()),
+    outcome: v.optional(v.union(v.literal("purchased"), v.literal("skipped"), v.literal("unknown"))),
+    outcomeRecordedAt: v.optional(v.number()),
     memoryReferenceCount: v.optional(v.number()),
     thinkingSince: v.optional(v.number()),
   }).index("by_user", ["userId"]),

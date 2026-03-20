@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as appSettings from "../appSettings.js";
 import type * as conversations from "../conversations.js";
 import type * as credits from "../credits.js";
+import type * as crons from "../crons.js";
 import type * as decisionLedger from "../decisionLedger.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   appSettings: typeof appSettings;
   conversations: typeof conversations;
   credits: typeof credits;
+  crons: typeof crons;
   decisionLedger: typeof decisionLedger;
   http: typeof http;
   "lib/auth": typeof lib_auth;

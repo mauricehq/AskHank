@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Coins, Scale, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleCheckBig, Coins, Scale, Plus, Search, Settings, Shield, TrendingUp, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { cascade } from "@/lib/motion";
 import { ThemeToggle } from "./ThemeToggle";
@@ -43,6 +43,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
   const history = useQuery(api.conversations.listForUser);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
   const credits = useQuery(api.credits.getBalance);
+  const pendingFollowUps = useQuery(api.conversations.getPendingFollowUps);
   const { canAccessAdminPanel } = useUserAccess();
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -132,6 +133,25 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
         </button>
       </div>
 
+      {/* Follow-ups link */}
+      {pendingFollowUps && pendingFollowUps.length > 0 && (
+        <div className="px-3 pb-1">
+          <button
+            onClick={() => {
+              if (!isDesktop) onClose();
+              router.push("/follow-ups");
+            }}
+            className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-surface hover:text-text transition-colors"
+          >
+            <CircleCheckBig size={16} />
+            <span className="flex-1 text-left">Follow-ups</span>
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[0.6rem] font-bold text-user-text">
+              {pendingFollowUps.length}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* RECENTS label */}
       <div className="px-3 pt-3 pb-1.5">
         <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
@@ -168,6 +188,7 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
                 <HistoryItem
                   name={item.title}
                   decision={item.decision}
+                  outcome={item.outcome}
                   estimatedPrice={item.estimatedPrice}
                   timeAgo={formatRelativeTime(item.createdAt)}
                   isActive={activeConversationId === item._id}
@@ -286,11 +307,14 @@ export function Sidebar({ isOpen, isDesktop, onClose, onToggle }: SidebarProps) 
             <div className="flex flex-col items-center gap-1 py-1">
               {([
                 { icon: <Plus size={16} />, label: "New conversation", accent: true, onClick: () => router.push("/conversations/new") },
-                { icon: <Search size={16} />, label: "Search", onClick: onToggle },
-                { icon: <Scale size={16} />, label: "Decision History", onClick: () => router.push("/decisions") },
-              ] as const).map((cfg, i) => (
+                { icon: <Search size={16} />, label: "Search", accent: false, onClick: onToggle },
+                { icon: <Scale size={16} />, label: "Decision History", accent: false, onClick: () => router.push("/decisions") },
+                ...(pendingFollowUps && pendingFollowUps.length > 0
+                  ? [{ icon: <span className="relative"><CircleCheckBig size={16} /><span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent" /></span>, label: "Follow-ups", accent: false, onClick: () => router.push("/follow-ups") }]
+                  : []),
+              ]).map((cfg, i) => (
                 <div key={cfg.label} className="animate-fade-in opacity-0" style={{ animationDelay: `${250 + i * 40}ms`, animationFillMode: "both" }}>
-                  <IconButton icon={cfg.icon} label={cfg.label} accent={"accent" in cfg} onClick={cfg.onClick} />
+                  <IconButton icon={cfg.icon} label={cfg.label} accent={cfg.accent} onClick={cfg.onClick} />
                 </div>
               ))}
             </div>

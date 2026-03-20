@@ -40,13 +40,14 @@ export const getStats = query({
     }
 
     // Current streak: count consecutive skipped from most recent backward
+    // Streak breaks if user said skipping but actually purchased
     const sorted = [...conversations].sort(
       (a, b) => b.createdAt - a.createdAt
     );
     let currentStreak = 0;
     for (const conv of sorted) {
       if (!conv.decision) continue; // skip active conversations
-      if (conv.decision === "skipping") {
+      if (conv.decision === "skipping" && conv.outcome !== "purchased") {
         currentStreak++;
       } else {
         break;

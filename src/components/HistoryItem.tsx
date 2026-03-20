@@ -7,6 +7,7 @@ import { motion, useMotionValue, useTransform, animate, type PanInfo } from "fra
 interface HistoryItemProps {
   name: string;
   decision?: "buying" | "skipping" | "thinking";
+  outcome?: "purchased" | "skipped" | "unknown";
   timeAgo: string;
   estimatedPrice?: number;
   isActive?: boolean;
@@ -45,9 +46,25 @@ const DECISION_ICON_CONFIG = {
   },
 } as const;
 
+function getOutcomeBadge(
+  decision?: "buying" | "skipping" | "thinking",
+  outcome?: "purchased" | "skipped" | "unknown"
+): { text: string; className: string } | null {
+  if (outcome === "unknown") return null;
+  if (outcome === "skipped") return { text: "SAVED", className: "bg-approved/10 text-approved" };
+  if (outcome === "purchased") return { text: "BOUGHT", className: "bg-accent/10 text-accent" };
+  // No outcome yet — show decision badge as before
+  if (!decision) return null;
+  if (decision === "buying") return { text: "BUYING", className: "bg-accent/10 text-accent" };
+  if (decision === "skipping") return { text: "SKIPPING", className: "bg-approved/10 text-approved" };
+  if (decision === "thinking") return { text: "THINKING", className: "bg-text-secondary/10 text-text-secondary" };
+  return null;
+}
+
 export function HistoryItem({
   name,
   decision,
+  outcome,
   timeAgo,
   estimatedPrice,
   isActive,
@@ -184,16 +201,18 @@ export function HistoryItem({
           </div>
         </div>
 
-        {/* Decision badge — hides on hover (desktop only) */}
-        {decision && (
-          <span
-            className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide group-hover:hidden ${
-              config?.badgeClass ?? ""
-            }`}
-          >
-            {decision}
-          </span>
-        )}
+        {/* Decision/outcome badge — hides on hover (desktop only) */}
+        {(() => {
+          const badge = getOutcomeBadge(decision, outcome);
+          if (!badge) return null;
+          return (
+            <span
+              className={`shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide group-hover:hidden ${badge.className}`}
+            >
+              {badge.text}
+            </span>
+          );
+        })()}
 
         {/* Trash icon — desktop hover only */}
         {onDelete && (

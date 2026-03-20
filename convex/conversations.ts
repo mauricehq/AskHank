@@ -5,6 +5,120 @@ import { requireUser } from "./lib/auth";
 import { DEFAULTS } from "./appSettings";
 import { MESSAGE_COST } from "./lib/credits";
 
+// --- Follow-up system ---
+
+export const getPendingFollowUps = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    return conversations
+      .filter(
+        (c) =>
+          c.status === "resolved" &&
+          (c.decision === "buying" || c.decision === "skipping") &&
+          c.outcome === undefined &&
+          c.createdAt > sevenDaysAgo
+      )
+      .map((c) => ({
+        _id: c._id,
+        item: c.item,
+        decision: c.decision,
+        hankScore: c.hankScore,
+        estimatedPrice: c.estimatedPrice,
+        category: c.category,
+        createdAt: c.createdAt,
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const recordOutcome = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    outcome: v.union(v.literal("purchased"), v.literal("skipped")),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const conversation = await ctx.db.get(args.conversationId);
+
+    if (!conversation || conversation.userId !== user._id) {
+      throw new Error("Conversation not found.");
+    }
+    if (conversation.status !== "resolved") {
+      throw new Error("Conversation is not resolved.");
+    }
+    if (conversation.outcome !== undefined) {
+      throw new Error("Outcome already recorded.");
+    }
+
+    await ctx.db.patch(args.conversationId, {
+      outcome: args.outcome,
+      outcomeRecordedAt: Date.now(),
+    });
+
+    // Adjust savedTotal based on outcome vs original decision
+    if (args.outcome === "skipped" && conversation.decision === "buying") {
+      // User said buying but didn't — surprise save
+      const price = conversation.estimatedPrice ?? 0;
+      if (price > 0) {
+        await ctx.db.patch(user._id, {
+          savedTotal: (user.savedTotal ?? 0) + price,
+          skippedCount: (user.skippedCount ?? 0) + 1,
+        });
+      }
+    } else if (args.outcome === "purchased" && conversation.decision === "skipping") {
+      // User said skipping but bought — reverse the save
+      const price = conversation.estimatedPrice ?? 0;
+      if (price > 0) {
+        await ctx.db.patch(user._id, {
+          savedTotal: Math.max(0, (user.savedTotal ?? 0) - price),
+          skippedCount: Math.max(0, (user.skippedCount ?? 0) - 1),
+        });
+      }
+    }
+
+    return args.outcome;
+  },
+});
+
+export const expireStaleFollowUps = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+
+    // Full table scan — no compound index available. Acceptable for a daily cron.
+    const conversations = await ctx.db
+      .query("conversations")
+      .collect();
+
+    const stale = conversations.filter(
+      (c) =>
+        c.status === "resolved" &&
+        (c.decision === "buying" || c.decision === "skipping") &&
+        c.outcome === undefined &&
+        c.createdAt < sevenDaysAgo
+    );
+
+    for (const conv of stale) {
+      await ctx.db.patch(conv._id, {
+        outcome: "unknown",
+        outcomeRecordedAt: Date.now(),
+      });
+    }
+
+    if (stale.length > 0) {
+      console.log(`Expired ${stale.length} stale follow-ups`);
+    }
+  },
+});
+
 // --- Public API ---
 
 export const send = mutation({
@@ -118,6 +232,7 @@ export const listForUser = query({
           createdAt: conv.createdAt,
           estimatedPrice: conv.estimatedPrice,
           hankScore: conv.hankScore,
+          outcome: conv.outcome,
         };
       })
     );
