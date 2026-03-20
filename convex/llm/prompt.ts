@@ -1,6 +1,6 @@
 "use node";
 
-import type { Intensity, TurnSummary, CoverageMap, Territory, Decision } from "./compass";
+import type { Intensity, TurnSummary, CoverageMap, Territory, Decision, StoredContradiction } from "./compass";
 import type { ChatMessage, ToolDefinition } from "./openrouter";
 import { buildRecentApproachesSection, type DetectedMove } from "./moves";
 import { ALL_TERRITORIES, HANK_SCORE_LABELS, buildExaminationProgress, buildTerritoryGuidance } from "./compass";
@@ -622,6 +622,7 @@ export function buildCompassBlock(
   coverageMap: CoverageMap,
   turnsSinceCoverageAdvanced: number,
   territoryExhausted?: Territory,
+  contradictions?: StoredContradiction[],
 ): string {
   const lines: string[] = [
     `CURRENT STATE:`,
@@ -634,6 +635,19 @@ export function buildCompassBlock(
 
   // Examination progress
   lines.push(buildExaminationProgress(coverageMap));
+
+  // Contradiction context
+  const unresolved = contradictions?.filter((c) => !c.resolved);
+  if (unresolved && unresolved.length > 0) {
+    const contradictionLines: string[] = ["CONTRADICTIONS:"];
+    for (const c of unresolved) {
+      contradictionLines.push(`  - [${c.territory}]: They said "${c.priorClaim}" but now say "${c.currentClaim}" (${c.severity})`);
+    }
+    if (nextTerritory && unresolved.some((c) => c.territory === nextTerritory)) {
+      contradictionLines.push("This territory has an unresolved contradiction. Press on it.");
+    }
+    lines.push(contradictionLines.join("\n"));
+  }
 
   // Stagnation warning
   if (turnsSinceCoverageAdvanced >= 4) {

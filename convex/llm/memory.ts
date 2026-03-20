@@ -1,6 +1,7 @@
 "use node";
 
 import { formatRelativeDate } from "../lib/dates";
+import type { Territory } from "./compass";
 
 export interface PastConversation {
   _id: string;
@@ -28,9 +29,7 @@ export function sanitizeForYaml(value: string): string {
 
 /**
  * Select ONE past conversation to reference.
- * Filters to: valid item + category matches currentCategory + category is not "other"
- * + conversation must have a decision of buying/skipping (only resolved conversations).
- * Sorts by: lowest memoryReferenceCount first, then most recent createdAt.
+ * Delegates to selectMemoryNudges and returns the top pick.
  */
 export function selectMemoryNudge(
   conversations: PastConversation[],
@@ -38,7 +37,20 @@ export function selectMemoryNudge(
   timezone?: string,
   now: number = Date.now()
 ): MemoryNudge | null {
-  if (!currentCategory || currentCategory === "other") return null;
+  return selectMemoryNudges(conversations, currentCategory, timezone, now)[0] ?? null;
+}
+
+/**
+ * Select up to 3 past conversations to reference.
+ * Same filtering/sorting as selectMemoryNudge, returns first 3.
+ */
+export function selectMemoryNudges(
+  conversations: PastConversation[],
+  currentCategory: string,
+  timezone?: string,
+  now: number = Date.now()
+): MemoryNudge[] {
+  if (!currentCategory || currentCategory === "other") return [];
 
   const candidates = conversations.filter(
     (c) =>
@@ -50,9 +62,8 @@ export function selectMemoryNudge(
       (c.decision === "skipping" || c.decision === "buying")
   );
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
 
-  // Sort: lowest ref count first, then most recent
   candidates.sort((a, b) => {
     const refA = a.memoryReferenceCount ?? 0;
     const refB = b.memoryReferenceCount ?? 0;
@@ -60,40 +71,73 @@ export function selectMemoryNudge(
     return b.createdAt - a.createdAt;
   });
 
-  const pick = candidates[0];
-
-  return {
+  return candidates.slice(0, 3).map((pick) => ({
     conversationId: pick._id,
     item: pick.item!,
     estimatedPrice: pick.estimatedPrice,
     decision: pick.decision as "buying" | "skipping",
     reactionText: pick.reactionText,
     dateLabel: formatRelativeDate(pick.createdAt, now, timezone),
-  };
+  }));
 }
+
+const TERRITORY_GUIDANCE: Partial<Record<Territory, string>> = {
+  pattern: "They have a pattern here. Name it — dates, amounts, decisions.",
+  real_cost: "They've spent on this category before. Reference the total.",
+  alternatives: "They considered alternatives before. Ask what changed.",
+  trigger: "Similar purchase was emotional last time. Probe whether this one is too.",
+  emotional_check: "Similar purchase was emotional last time. Probe whether this one is too.",
+};
 
 /**
  * Format the memory directive injected into the system prompt.
- * Structured data so the LLM narrates in its own voice.
+ * Accepts a single nudge (backward compat) or array of nudges with optional territory.
  */
-export function formatNudgePrompt(nudge: MemoryNudge): string {
+export function formatNudgePrompt(nudge: MemoryNudge): string;
+export function formatNudgePrompt(nudges: MemoryNudge[], territory?: Territory | null): string;
+export function formatNudgePrompt(
+  nudgeOrNudges: MemoryNudge | MemoryNudge[],
+  territory?: Territory | null,
+): string {
+  const nudges = Array.isArray(nudgeOrNudges) ? nudgeOrNudges : [nudgeOrNudges];
+  if (nudges.length === 0) return "";
+
   const lines: string[] = [];
-  lines.push("MEMORY:");
-  lines.push(`  item: "${sanitizeForYaml(nudge.item)}"`);
-  if (nudge.estimatedPrice && nudge.estimatedPrice > 0) {
-    lines.push(`  price: $${nudge.estimatedPrice}`);
+
+  for (let i = 0; i < nudges.length; i++) {
+    const nudge = nudges[i];
+    const label = nudges.length === 1 ? "MEMORY" : `MEMORY_${i + 1}`;
+    lines.push(`${label}:`);
+    lines.push(`  item: "${sanitizeForYaml(nudge.item)}"`);
+    if (nudge.estimatedPrice && nudge.estimatedPrice > 0) {
+      lines.push(`  price: $${nudge.estimatedPrice}`);
+    }
+    lines.push(`  date: "${nudge.dateLabel}"`);
+    lines.push(`  decision: ${nudge.decision}`);
+    if (nudge.reactionText) {
+      lines.push(`  reason: "${sanitizeForYaml(nudge.reactionText)}"`);
+    }
   }
-  lines.push(`  date: "${nudge.dateLabel}"`);
-  lines.push(`  decision: ${nudge.decision}`);
-  if (nudge.reactionText) {
-    lines.push(`  reason: "${sanitizeForYaml(nudge.reactionText)}"`);
-  }
+
+  // Guidance section
   lines.push("Reference this once, naturally, in your voice:");
-  if (nudge.decision === "skipping") {
+
+  // Territory-specific guidance
+  const territoryGuidance = territory ? TERRITORY_GUIDANCE[territory] : null;
+  if (territoryGuidance) {
+    lines.push(`- ${territoryGuidance}`);
+  }
+
+  // Per-decision guidance
+  const hasSkipping = nudges.some((n) => n.decision === "skipping");
+  const hasBuying = nudges.some((n) => n.decision === "buying");
+  if (hasSkipping) {
     lines.push("- They walked away from this before. Use it to reinforce your skepticism.");
-  } else {
+  }
+  if (hasBuying) {
     lines.push("- They made a real case last time. Acknowledge it, but the bar is still high.");
   }
+
   lines.push("Do not invent details beyond what's listed. Skip if it feels forced.");
   return lines.join("\n");
 }

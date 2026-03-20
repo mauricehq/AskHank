@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { selectMemoryNudge, formatNudgePrompt, type PastConversation, type MemoryNudge } from "./memory";
+import { selectMemoryNudge, selectMemoryNudges, formatNudgePrompt, type PastConversation, type MemoryNudge } from "./memory";
+import { buildCompassBlock } from "./prompt";
+import { initCoverageMap, type StoredContradiction } from "./compass";
 
 // Fixed reference time so all tests are deterministic (no Date.now() drift)
 const NOW = Date.UTC(2026, 2, 13, 12, 0); // March 13, 2026 12:00 UTC
@@ -285,5 +287,213 @@ describe("formatNudgePrompt", () => {
     };
     const result = formatNudgePrompt(nudge);
     expect(result).toContain("reason: \"User said 'I need this' but had no justification\"");
+  });
+});
+
+describe("selectMemoryNudges", () => {
+  it("returns empty array for empty input", () => {
+    expect(selectMemoryNudges([], "electronics", undefined, NOW)).toEqual([]);
+  });
+
+  it("returns empty array when current category is 'other'", () => {
+    const convs = [makeConversation({ item: "Gadget", category: "other", decision: "skipping" })];
+    expect(selectMemoryNudges(convs, "other", undefined, NOW)).toEqual([]);
+  });
+
+  it("returns up to 3 nudges", () => {
+    const convs = [
+      makeConversation({ _id: "c1", item: "Phone", category: "electronics", decision: "skipping", daysAgo: 1 }),
+      makeConversation({ _id: "c2", item: "Laptop", category: "electronics", decision: "buying", daysAgo: 2 }),
+      makeConversation({ _id: "c3", item: "Tablet", category: "electronics", decision: "skipping", daysAgo: 3 }),
+      makeConversation({ _id: "c4", item: "Monitor", category: "electronics", decision: "buying", daysAgo: 4 }),
+    ];
+    const result = selectMemoryNudges(convs, "electronics", undefined, NOW);
+    expect(result).toHaveLength(3);
+    expect(result.map((r) => r.conversationId)).toEqual(["c1", "c2", "c3"]);
+  });
+
+  it("respects sort order: lowest ref count first, then most recent", () => {
+    const convs = [
+      makeConversation({ _id: "high", item: "Headphones", category: "electronics", decision: "skipping", memoryReferenceCount: 3, daysAgo: 1 }),
+      makeConversation({ _id: "low1", item: "Phone", category: "electronics", decision: "skipping", memoryReferenceCount: 0, daysAgo: 5 }),
+      makeConversation({ _id: "low2", item: "Laptop", category: "electronics", decision: "buying", memoryReferenceCount: 0, daysAgo: 2 }),
+    ];
+    const result = selectMemoryNudges(convs, "electronics", undefined, NOW);
+    expect(result[0].conversationId).toBe("low2"); // lowest ref, most recent
+    expect(result[1].conversationId).toBe("low1"); // lowest ref, older
+    expect(result[2].conversationId).toBe("high"); // higher ref count
+  });
+
+  it("returns fewer than 3 when fewer candidates exist", () => {
+    const convs = [
+      makeConversation({ _id: "c1", item: "Phone", category: "electronics", decision: "skipping" }),
+    ];
+    const result = selectMemoryNudges(convs, "electronics", undefined, NOW);
+    expect(result).toHaveLength(1);
+    expect(result[0].conversationId).toBe("c1");
+  });
+});
+
+describe("formatNudgePrompt — array + territory", () => {
+  const nudge1: MemoryNudge = {
+    conversationId: "conv_1",
+    item: "headphones",
+    estimatedPrice: 550,
+    decision: "skipping",
+    dateLabel: "a few days ago",
+  };
+  const nudge2: MemoryNudge = {
+    conversationId: "conv_2",
+    item: "speakers",
+    estimatedPrice: 300,
+    decision: "buying",
+    dateLabel: "last week",
+  };
+
+  it("uses MEMORY label for single nudge (backward compat)", () => {
+    const result = formatNudgePrompt(nudge1);
+    expect(result).toContain("MEMORY:");
+    expect(result).not.toContain("MEMORY_1:");
+  });
+
+  it("uses numbered labels for multiple nudges", () => {
+    const result = formatNudgePrompt([nudge1, nudge2]);
+    expect(result).toContain("MEMORY_1:");
+    expect(result).toContain("MEMORY_2:");
+    expect(result).not.toContain("MEMORY:");
+  });
+
+  it("includes both skipping and buying guidance for mixed nudges", () => {
+    const result = formatNudgePrompt([nudge1, nudge2]);
+    expect(result).toContain("walked away");
+    expect(result).toContain("made a real case");
+  });
+
+  it("adds territory-specific guidance for 'pattern'", () => {
+    const result = formatNudgePrompt([nudge1], "pattern");
+    expect(result).toContain("They have a pattern here");
+  });
+
+  it("adds territory-specific guidance for 'real_cost'", () => {
+    const result = formatNudgePrompt([nudge1], "real_cost");
+    expect(result).toContain("They've spent on this category before");
+  });
+
+  it("adds territory-specific guidance for 'alternatives'", () => {
+    const result = formatNudgePrompt([nudge1], "alternatives");
+    expect(result).toContain("They considered alternatives before");
+  });
+
+  it("adds territory-specific guidance for 'trigger'", () => {
+    const result = formatNudgePrompt([nudge1], "trigger");
+    expect(result).toContain("Similar purchase was emotional last time");
+  });
+
+  it("adds territory-specific guidance for 'emotional_check'", () => {
+    const result = formatNudgePrompt([nudge1], "emotional_check");
+    expect(result).toContain("Similar purchase was emotional last time");
+  });
+
+  it("uses generic guidance when territory is null", () => {
+    const result = formatNudgePrompt([nudge1], null);
+    expect(result).not.toContain("They have a pattern");
+    expect(result).not.toContain("They've spent on this");
+    expect(result).toContain("walked away"); // still has decision guidance
+  });
+
+  it("uses generic guidance for unmapped territory", () => {
+    const result = formatNudgePrompt([nudge1], "current_solution");
+    expect(result).not.toContain("They have a pattern");
+    expect(result).toContain("walked away");
+  });
+
+  it("returns empty string for empty array", () => {
+    const result = formatNudgePrompt([], null);
+    expect(result).toBe("");
+  });
+});
+
+describe("buildCompassBlock — contradiction narration", () => {
+  const coverageMap = initCoverageMap("want");
+
+  const softContradiction: StoredContradiction = {
+    territory: "real_cost",
+    turnDetected: 3,
+    priorClaim: "I never spend on electronics",
+    currentClaim: "I bought a laptop last month",
+    severity: "soft",
+    resolved: false,
+  };
+
+  const hardContradiction: StoredContradiction = {
+    territory: "trigger",
+    turnDetected: 4,
+    priorClaim: "My old one works fine",
+    currentClaim: "My old one is broken",
+    severity: "hard",
+    resolved: false,
+  };
+
+  const resolvedContradiction: StoredContradiction = {
+    territory: "usage_reality",
+    turnDetected: 2,
+    priorClaim: "I'd use it daily",
+    currentClaim: "Maybe weekly",
+    severity: "soft",
+    resolved: true,
+    turnResolved: 3,
+  };
+
+  it("omits section when no contradictions", () => {
+    const result = buildCompassBlock("PROBING", "real_cost", coverageMap, 0);
+    expect(result).not.toContain("CONTRADICTIONS:");
+  });
+
+  it("omits section when contradictions array is empty", () => {
+    const result = buildCompassBlock("PROBING", "real_cost", coverageMap, 0, undefined, []);
+    expect(result).not.toContain("CONTRADICTIONS:");
+  });
+
+  it("omits section when all contradictions are resolved", () => {
+    const result = buildCompassBlock("PROBING", "real_cost", coverageMap, 0, undefined, [resolvedContradiction]);
+    expect(result).not.toContain("CONTRADICTIONS:");
+  });
+
+  it("narrates unresolved contradictions", () => {
+    const result = buildCompassBlock("PROBING", "pattern", coverageMap, 0, undefined, [softContradiction]);
+    expect(result).toContain("CONTRADICTIONS:");
+    expect(result).toContain('[real_cost]: They said "I never spend on electronics" but now say "I bought a laptop last month" (soft)');
+  });
+
+  it("narrates multiple unresolved contradictions", () => {
+    const result = buildCompassBlock("PROBING", "pattern", coverageMap, 0, undefined, [softContradiction, hardContradiction]);
+    expect(result).toContain("[real_cost]:");
+    expect(result).toContain("[trigger]:");
+    expect(result).toContain("(hard)");
+  });
+
+  it("filters out resolved, shows only unresolved", () => {
+    const result = buildCompassBlock("PROBING", "pattern", coverageMap, 0, undefined, [softContradiction, resolvedContradiction]);
+    expect(result).toContain("[real_cost]:");
+    expect(result).not.toContain("[usage_reality]:");
+  });
+
+  it("adds emphasis when assigned territory has a contradiction", () => {
+    const result = buildCompassBlock("PROBING", "real_cost", coverageMap, 0, undefined, [softContradiction]);
+    expect(result).toContain("This territory has an unresolved contradiction. Press on it.");
+  });
+
+  it("omits emphasis when assigned territory has no contradiction", () => {
+    const result = buildCompassBlock("PROBING", "pattern", coverageMap, 0, undefined, [softContradiction]);
+    expect(result).not.toContain("Press on it.");
+  });
+
+  it("places contradictions after examination progress and before stagnation", () => {
+    const result = buildCompassBlock("PROBING", "real_cost", coverageMap, 3, undefined, [softContradiction]);
+    const contradictionIdx = result.indexOf("CONTRADICTIONS:");
+    const stagnationIdx = result.indexOf("NOTE: Nothing new");
+    const progressIdx = result.indexOf("EXAMINATION PROGRESS:");
+    expect(progressIdx).toBeLessThan(contradictionIdx);
+    expect(contradictionIdx).toBeLessThan(stagnationIdx);
   });
 });

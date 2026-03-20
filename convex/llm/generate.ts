@@ -17,7 +17,7 @@ import {
   buildCompassBlock,
 } from "./prompt";
 import { extractRecentMoves } from "./moves";
-import { selectMemoryNudge, formatNudgePrompt } from "./memory";
+import { selectMemoryNudges, formatNudgePrompt } from "./memory";
 import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
 
 import {
@@ -920,18 +920,26 @@ export const respond = internalAction({
         });
         traceData.toolResult = toolResultStr;
 
-        // Select memory nudge on turn 1+ if not yet stored
+        // Select memory nudges on turn 1+ (up to 3)
         // v2: fetch on turn 1 (not turn 2) to arm territory assignment
-        let memoryNudgeConversationId: Id<"conversations"> | null = null;
+        let memoryNudgeConversationIds: Id<"conversations">[] = [];
 
-        if (
-          !compassResult._persistedContext.memoryNudgeText &&
-          !compassResult.closing
-        ) {
-          const nudge = selectMemoryNudge(pastConversations as any, compassResult._category, userTimezone);
-          if (nudge) {
-            memoryNudgeConversationId = nudge.conversationId as Id<"conversations">;
-            compassResult._persistedContext.memoryNudgeText = formatNudgePrompt(nudge);
+        if (!compassResult.closing) {
+          const existingNudges = compassResult._persistedContext.memoryNudges;
+          if (!existingNudges || existingNudges.length === 0) {
+            // First time: select nudges
+            const nudges = selectMemoryNudges(pastConversations as any, compassResult._category, userTimezone);
+            if (nudges.length > 0) {
+              compassResult._persistedContext.memoryNudges = nudges;
+              memoryNudgeConversationIds = nudges.map((n) => n.conversationId as Id<"conversations">);
+              compassResult._persistedContext.memoryNudgeText = formatNudgePrompt(nudges, compassResult.nextTerritory);
+            }
+          } else {
+            // Re-format if territory changed
+            const lastTerritory = compassResult._persistedContext.lastAssignedTerritory;
+            if (compassResult.nextTerritory !== lastTerritory) {
+              compassResult._persistedContext.memoryNudgeText = formatNudgePrompt(existingNudges, compassResult.nextTerritory);
+            }
           }
         }
 
@@ -1010,6 +1018,7 @@ export const respond = internalAction({
             compassResult._persistedContext.coverageMap,
             compassResult.turnsSinceCoverageAdvanced,
             compassResult.territoryExhausted,
+            compassResult._persistedContext.contradictions,
           );
           call2SystemPrompt = call2Base + "\n\n" + compassBlock;
         }
@@ -1154,12 +1163,12 @@ export const respond = internalAction({
           traceData.messageId = messageId;
         }
 
-        // Increment memory reference count
-        if (memoryNudgeConversationId) {
+        // Increment memory reference count for all nudged conversations
+        for (const nudgeId of memoryNudgeConversationIds) {
           try {
             await ctx.runMutation(
               internal.conversations.internalIncrementMemoryRef,
-              { conversationId: memoryNudgeConversationId }
+              { conversationId: nudgeId }
             );
           } catch (e) {
             console.error("Failed to increment memory ref (non-fatal):", e);
