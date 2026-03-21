@@ -38,6 +38,8 @@ const ASSESSMENT_HIGHLIGHTS: Record<string, Record<string, string>> = {
   is_non_answer: { true: "text-red-400", false: "text-zinc-500" },
   is_out_of_scope: { true: "text-yellow-400", false: "text-zinc-500" },
   is_directed_question: { true: "text-cyan-400", false: "text-zinc-500" },
+  financial_distress: { true: "text-red-400", false: "text-zinc-500" },
+  user_conceded: { true: "text-yellow-400", false: "text-zinc-500" },
 };
 
 function AssessmentValue({ field, value }: { field: string; value: unknown }) {
@@ -101,6 +103,16 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
             {coverageRatio} covered
           </span>
         )}
+        {trace.bangerFired && (
+          <span className="rounded px-1.5 py-0.5 bg-amber-500/20 text-amber-300">
+            banger
+          </span>
+        )}
+        {trace.bangerTrace && !trace.bangerFired && trace.bangerTrace.score > 0 && (
+          <span className="rounded px-1.5 py-0.5 bg-zinc-500/20 text-zinc-500">
+            banger:{trace.bangerTrace.score}pts
+          </span>
+        )}
         {itemLabel && (
           <span className="text-zinc-500">{itemLabel}{trace.estimatedPrice ? ` $${trace.estimatedPrice.toLocaleString()}` : ""}</span>
         )}
@@ -133,6 +145,38 @@ function DebugBar({ trace }: { trace: TraceSummary }) {
               <span className="text-zinc-400">{typeof value === "number" ? (Number.isInteger(value) ? value : (value as number).toFixed(2)) : String(value)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {expanded && trace.bangerTrace && (
+        <div className="mt-2 space-y-0.5 font-mono text-[0.6rem] text-zinc-500">
+          <div className="text-[0.55rem] font-semibold uppercase tracking-wider text-zinc-600 mb-1">Banger</div>
+          <div className="flex justify-between">
+            <span>score</span>
+            <span className={trace.bangerTrace.score >= 2 ? "text-amber-400" : "text-zinc-500"}>{trace.bangerTrace.score}pts</span>
+          </div>
+          {trace.bangerTrace.tone && (
+            <div className="flex justify-between">
+              <span>tone</span>
+              <span className="text-amber-300">{trace.bangerTrace.tone}</span>
+            </div>
+          )}
+          {trace.bangerTrace.trigger && (
+            <div className="flex justify-between">
+              <span>trigger</span>
+              <span className="text-amber-300">{trace.bangerTrace.trigger}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>fired</span>
+            <span className={trace.bangerFired ? "text-green-400" : "text-zinc-500"}>{String(trace.bangerFired)}</span>
+          </div>
+          {trace.bangerTrace.gateRejected && (
+            <div className="flex justify-between">
+              <span>gate_rejected</span>
+              <span className="text-red-400">true</span>
+            </div>
+          )}
         </div>
       )}
     </div>

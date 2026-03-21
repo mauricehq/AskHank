@@ -83,6 +83,9 @@ export interface TurnAssessment {
   is_non_answer: boolean;
   is_out_of_scope: boolean;
   is_directed_question: boolean;
+  // Suppression signals (for banger system)
+  financial_distress: boolean;
+  user_conceded: boolean;
   // Trace
   challenge_topic: string;
 }
@@ -98,6 +101,8 @@ export interface TurnSummary {
   argumentType: ArgumentType;
   emotionalReasoning: boolean;
   contradictionDetected?: ContradictionSeverity;
+  financialDistress?: boolean;
+  userConceded?: boolean;
   topic: string;
 }
 
@@ -118,6 +123,9 @@ export interface PersistedContext {
   lastAssignedTerritory: Territory | null;
   memoryNudgeText?: string;
   memoryNudges?: MemoryNudge[];
+  // Banger system tracking
+  bangerCount?: number;
+  lastBangerTurn?: number;
 }
 
 // === Compass Result (returned to prompt builder) ===

@@ -351,6 +351,7 @@ export const internalGetUserInfo = internalQuery({
       timezone: user?.timezone ?? null,
       incomeAmount: user?.incomeAmount ?? null,
       incomeType: user?.incomeType ?? null,
+      savedTotal: user?.savedTotal ?? 0,
     };
   },
 });

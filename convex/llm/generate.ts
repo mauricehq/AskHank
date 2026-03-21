@@ -15,10 +15,12 @@ import {
   buildReactionPrompt,
   buildReactionToolDefinition,
   buildCompassBlock,
+  buildBangerPrompt,
 } from "./prompt";
 import { extractRecentMoves } from "./moves";
 import { selectMemoryNudges, formatNudgePrompt } from "./memory";
 import { computeWorkHours, formatWorkHoursBlock } from "./workHours";
+import { evaluateBanger, passesBangerQualityGate, TONE_DIRECTIONS, type BangerInput } from "./hankBanger";
 
 import {
   initCoverageMap,
@@ -89,6 +91,8 @@ const DEFAULT_ASSESSMENT: TurnAssessment = {
   is_non_answer: false,
   is_out_of_scope: false,
   is_directed_question: false,
+  financial_distress: false,
+  user_conceded: false,
   challenge_topic: "",
 };
 
@@ -121,6 +125,8 @@ function parsePersistedContext(json: string): PersistedContext | null {
       lastAssignedTerritory: parsed.lastAssignedTerritory ?? null,
       memoryNudgeText: typeof parsed.memoryNudgeText === "string" ? parsed.memoryNudgeText : undefined,
       memoryNudges: Array.isArray(parsed.memoryNudges) ? parsed.memoryNudges : undefined,
+      bangerCount: typeof parsed.bangerCount === "number" ? parsed.bangerCount : undefined,
+      lastBangerTurn: typeof parsed.lastBangerTurn === "number" ? parsed.lastBangerTurn : undefined,
     };
   } catch {
     return null;
@@ -179,6 +185,8 @@ function sanitizeAssessment(raw: Record<string, unknown>): TurnAssessment {
     is_non_answer: raw.is_non_answer === true,
     is_out_of_scope: raw.is_out_of_scope === true,
     is_directed_question: raw.is_directed_question === true,
+    financial_distress: raw.financial_distress === true,
+    user_conceded: raw.user_conceded === true,
     challenge_topic: typeof raw.challenge_topic === "string" ? raw.challenge_topic : "",
   };
 }
@@ -263,6 +271,8 @@ function executeCompass(
   const stickyFlags = {
     ...(prev.memoryNudgeText ? { memoryNudgeText: prev.memoryNudgeText } : {}),
     ...(prev.memoryNudges ? { memoryNudges: prev.memoryNudges } : {}),
+    ...(prev.bangerCount !== undefined ? { bangerCount: prev.bangerCount } : {}),
+    ...(prev.lastBangerTurn !== undefined ? { lastBangerTurn: prev.lastBangerTurn } : {}),
   };
 
   // Helper to build unchanged context
@@ -440,6 +450,8 @@ function executeCompass(
     argumentType: assessment.argument_type,
     emotionalReasoning: assessment.emotional_reasoning,
     contradictionDetected: assessment.contradiction?.severity,
+    financialDistress: assessment.financial_distress || undefined,
+    userConceded: assessment.user_conceded || undefined,
     topic: assessment.challenge_topic,
   };
 
@@ -801,16 +813,12 @@ export const respond = internalAction({
 
         // Call 1: assessment-only prompt
         const assessmentPrompt = buildAssessmentPrompt({
-          intensity: currentIntensity,
-          consecutiveNonAnswers: previousContext?.consecutiveNonAnswers ?? conversation.consecutiveNonAnswers ?? 0,
           estimatedPrice: previousContext?.estimated_price ?? conversation.estimatedPrice,
           category: previousContext?.category ?? conversation.category,
           turnCount,
-          turnSummaries: previousContext?.turnSummaries,
           previousItem: previousContext?.item,
           previousIntent: previousContext?.intent,
           lastChallengeTopic: lastChallengeTopic || undefined,
-          coverageMap: previousContext?.coverageMap,
           lastAssignedTerritory: previousContext?.lastAssignedTerritory,
         });
 
@@ -1073,6 +1081,75 @@ export const respond = internalAction({
           }
         }
 
+        // === Call 3: Banger system ===
+        let bangerFired = false;
+        let bangerTrace: { score: number; tone?: string; trigger?: string; gateRejected?: boolean } | undefined;
+        if (!isClosingTurn) {
+          const bangerInput: BangerInput = {
+            persistedContext: compassResult._persistedContext,
+            turnCount,
+            intensity: compassResult.intensity,
+            pastConversations: pastConversations.map((c) => ({
+              _id: c._id as string,
+              item: c.item,
+              category: c.category,
+              estimatedPrice: c.estimatedPrice,
+              decision: c.decision,
+              createdAt: c.createdAt,
+            })),
+            userIncomeAmount,
+            userIncomeType,
+            userSavedTotal: userInfo.savedTotal,
+            isClosingTurn,
+            financialDistress: sanitizedAssessment.financial_distress,
+            userConceded: sanitizedAssessment.user_conceded,
+          };
+
+          const bangerResult = evaluateBanger(bangerInput);
+          bangerTrace = {
+            score: bangerResult.score,
+            tone: bangerResult.tone,
+            trigger: bangerResult.triggerReason,
+          };
+
+          if (bangerResult.shouldFire && bangerResult.tone && bangerResult.whatJustHappened) {
+            const bangerPrompt = buildBangerPrompt({
+              item: compassResult._item ?? compassResult._persistedContext.item,
+              price: compassResult._estimatedPrice ?? compassResult._persistedContext.estimated_price,
+              whatJustHappened: bangerResult.whatJustHappened,
+              toneDirection: TONE_DIRECTIONS[bangerResult.tone],
+              hankResponse: responseText,
+            });
+
+            try {
+              const call3 = await chatCompletion({
+                messages: [{ role: "system", content: bangerPrompt }],
+                modelId,
+                temperature: 0.9,
+                maxTokens: 120,
+              });
+              totalUsage = addUsage(totalUsage, call3.usage);
+              durationMs = Date.now() - llmStart;
+
+              const bangerText = (call3.content ?? "").trim();
+              const passedGate = bangerText ? passesBangerQualityGate(bangerText) : false;
+              if (bangerText && !passedGate) {
+                bangerTrace!.gateRejected = true;
+              }
+              if (passedGate) {
+                responseText += "\n\n" + bangerText;
+                bangerFired = true;
+                // Update persisted context
+                compassResult._persistedContext.bangerCount =
+                  (compassResult._persistedContext.bangerCount ?? 0) + 1;
+                compassResult._persistedContext.lastBangerTurn = turnCount;
+              }
+            } catch (bangerError) {
+              console.warn("Call 3 (banger) failed — skipping silently:", bangerError);
+            }
+          }
+        }
+
         // Capture trace data
         Object.assign(traceData, {
           durationMs,
@@ -1086,7 +1163,7 @@ export const respond = internalAction({
             nextTerritory: compassResult.nextTerritory,
             turnsSinceCoverageAdvanced: compassResult.turnsSinceCoverageAdvanced,
           }),
-          parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment }),
+          parsedResponse: JSON.stringify({ response: responseText, assessment: rawAssessment, bangerFired, bangerTrace }),
           decisionType: compassResult.decisionType + (traceData.toolCalled === false ? " (fallback)" : ""),
           newIntensity: compassResult.intensity,
           category: compassResult._category,

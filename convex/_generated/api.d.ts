@@ -23,6 +23,7 @@ import type * as lib_roles from "../lib/roles.js";
 import type * as llmTraces from "../llmTraces.js";
 import type * as llm_compass from "../llm/compass.js";
 import type * as llm_generate from "../llm/generate.js";
+import type * as llm_hankBanger from "../llm/hankBanger.js";
 import type * as llm_memory from "../llm/memory.js";
 import type * as llm_moves from "../llm/moves.js";
 import type * as llm_openrouter from "../llm/openrouter.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   llmTraces: typeof llmTraces;
   "llm/compass": typeof llm_compass;
   "llm/generate": typeof llm_generate;
+  "llm/hankBanger": typeof llm_hankBanger;
   "llm/memory": typeof llm_memory;
   "llm/moves": typeof llm_moves;
   "llm/openrouter": typeof llm_openrouter;

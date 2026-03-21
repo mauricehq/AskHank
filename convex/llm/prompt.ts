@@ -54,6 +54,8 @@ export function buildAssessmentToolDefinition(): ToolDefinition {
               "is_non_answer",
               "is_out_of_scope",
               "is_directed_question",
+              "financial_distress",
+              "user_conceded",
               "challenge_topic",
             ],
             properties: {
@@ -155,6 +157,16 @@ export function buildAssessmentToolDefinition(): ToolDefinition {
                 description:
                   "true if the user is asking Hank to explain or justify his reasoning rather than making a purchase argument. 'why do you say that?', 'explain yourself'. false for purchase arguments even if phrased as questions.",
               },
+              financial_distress: {
+                type: "boolean",
+                description:
+                  "true if the user mentions debt, job loss, financial hardship, or says they can't really afford it. 'I probably shouldn't but...', 'money is tight', 'I'm broke'. false for normal price sensitivity like 'that's expensive'.",
+              },
+              user_conceded: {
+                type: "boolean",
+                description:
+                  "true if the user is conceding they don't need the item or agreeing with Hank's pushback. 'You're right, I don't need it', 'fine, I won't buy it', 'okay you convinced me'. false for continued arguing or pushback.",
+              },
               challenge_topic: {
                 type: "string",
                 description:
@@ -190,9 +202,17 @@ export function buildReactionToolDefinition(): ToolDefinition {
 
 // === Assessment Prompt (Call 1) ===
 
+const TERRITORY_LABELS: Record<Territory, string> = {
+  trigger: "what triggered this purchase",
+  current_solution: "what they currently have",
+  usage_reality: "how they'd actually use it",
+  real_cost: "price justification, opportunity cost",
+  pattern: "spending patterns",
+  alternatives: "other options considered",
+  emotional_check: "emotional motivations",
+};
+
 interface AssessmentPromptConfig {
-  intensity?: Intensity;
-  consecutiveNonAnswers?: number;
   estimatedPrice?: number;
   category?: string;
   turnCount?: number;
@@ -200,14 +220,11 @@ interface AssessmentPromptConfig {
   previousItem?: string;
   previousIntent?: string;
   lastChallengeTopic?: string;
-  coverageMap?: CoverageMap;
   lastAssignedTerritory?: Territory | null;
 }
 
 export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): string {
   const {
-    intensity = "CURIOUS",
-    consecutiveNonAnswers = 0,
     estimatedPrice,
     category,
     turnCount = 1,
@@ -215,7 +232,7 @@ export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): stri
 
   const sections = [
     // Context
-    `You are a purchase assessment classifier. Turn ${turnCount}. Conversation phase: ${intensity}.${
+    `You are a purchase assessment classifier. Turn ${turnCount}.${
       estimatedPrice && estimatedPrice > 0
         ? ` Item costs ~$${estimatedPrice}${category && category !== "other" ? ` (${category})` : ""}.`
         : " Price unknown."
@@ -236,14 +253,13 @@ export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): stri
 
   // Territory assignment context
   if (config.lastAssignedTerritory) {
+    const label = TERRITORY_LABELS[config.lastAssignedTerritory];
+    const topicDisplay = config.lastChallengeTopic
+      ? `${config.lastChallengeTopic} (${config.lastAssignedTerritory})`
+      : `${label} (${config.lastAssignedTerritory})`;
     sections.push(
-      `HANK'S LAST QUESTION WAS ABOUT: "${config.lastAssignedTerritory}". Classify whether the user's response addressed this topic or pivoted to a different one.`
+      `TOPIC ASKED: ${topicDisplay}. Classify whether the user's response addressed this topic or pivoted to a different one.`
     );
-  }
-
-  // Examination progress
-  if (config.coverageMap) {
-    sections.push(buildExaminationProgress(config.coverageMap));
   }
 
   // Contradiction detection
@@ -257,13 +273,6 @@ export function buildAssessmentPrompt(config: AssessmentPromptConfig = {}): stri
   sections.push(
     `OUT OF SCOPE (set is_out_of_scope=true): investment advice, medical purchases, insurance, business expenses. Gifts and family purchases are IN scope.`
   );
-
-  // Disengagement context
-  if (consecutiveNonAnswers >= 1) {
-    sections.push(
-      `NON-ANSWERS: ${consecutiveNonAnswers} consecutive non-answer${consecutiveNonAnswers > 1 ? "s" : ""}.`
-    );
-  }
 
   return sections.join("\n\n");
 }
@@ -621,4 +630,43 @@ export function buildCompassBlock(
   }
 
   return lines.join("\n");
+}
+
+// === Banger Prompt (Call 3) ===
+
+interface BangerPromptConfig {
+  item: string;
+  price: number;
+  whatJustHappened: string;
+  toneDirection: string;
+  hankResponse: string;
+}
+
+export function buildBangerPrompt(config: BangerPromptConfig): string {
+  const { item, price, whatJustHappened, toneDirection, hankResponse } = config;
+
+  return `You are Hank. Dry, sharp, thinks in analogies. You just said something to a user about their purchase. Now land it.
+
+Write a banger — a setup and a punchline. The setup reframes what's happening. The punchline is an analogy, observation, or mirror that makes them stop and think.
+
+ITEM: ${item} ($${price})
+WHAT JUST HAPPENED: ${whatJustHappened}
+TONE: ${toneDirection}
+
+HANK'S RESPONSE (what you just said — build on this, don't repeat it):
+${hankResponse}
+
+Examples of what lands:
+- "A $350 espresso machine for a Keurig person. That's like buying a Ferrari to drive to your desk job."
+- "You're describing a $30 problem. Walk me through how you got to $500."
+- "Investment pieces. That's always code for 'expensive and I know it.'"
+- "Novelty's a hell of a drug, but routine's the dealer."
+
+Rules:
+- Be specific to THIS purchase and THIS conversation. Generic lines are worse than nothing.
+- Setup + punchline. Two parts. Not a paragraph, not a single word.
+- No emojis, no markdown, no asterisk actions.
+- No meta-language ("Mic drop", "Pattern detected", "Think about it").
+- The punchline comes from precision, not cruelty. Sharp, not mean.
+- Just write the banger. No preamble, no explanation.`;
 }

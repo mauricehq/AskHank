@@ -99,6 +99,19 @@ export const debugDump = internalQuery({
           systemPrompt: t.call2SystemPrompt ?? null,
         },
 
+        // --- Call 3: Banger ---
+        banger: (() => {
+          const pr = safeJsonParse(t.parsedResponse);
+          if (!pr?.bangerTrace) return null;
+          return {
+            fired: pr.bangerFired === true,
+            score: pr.bangerTrace.score,
+            tone: pr.bangerTrace.tone ?? null,
+            trigger: pr.bangerTrace.trigger ?? null,
+            gateRejected: pr.bangerTrace.gateRejected ?? false,
+          };
+        })(),
+
         // --- Context ---
         persistedContext,
 
@@ -164,6 +177,11 @@ export const getTraceSummariesForConversation = query({
       )
       .collect();
     return traces.map((t) => {
+      // Extract banger data from parsedResponse without sending the full field
+      const parsed = safeJsonParse(t.parsedResponse);
+      const bangerFired = parsed?.bangerFired === true;
+      const bangerTrace = parsed?.bangerTrace ?? null;
+
       return {
         _id: t._id,
         messageId: t.messageId,
@@ -181,6 +199,13 @@ export const getTraceSummariesForConversation = query({
         durationMs: t.durationMs,
         tokenUsage: t.tokenUsage,
         error: t.error,
+        bangerFired,
+        bangerTrace: bangerTrace as {
+          score: number;
+          tone?: string;
+          trigger?: string;
+          gateRejected?: boolean;
+        } | null,
       };
     });
   },
